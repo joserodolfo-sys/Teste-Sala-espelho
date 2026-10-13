@@ -294,6 +294,8 @@ body.static #toast{display:none}
 body.static .status{display:none!important}
 body.static.st-on .status{display:flex!important}
 body.static .stage{min-height:0}
+body.static.sheetv .screen{height:100vh!important}
+body.static.sheetv .content{overflow:hidden!important}
 </style>
 </head>
 <body>
@@ -791,7 +793,7 @@ $('#backbtn').innerHTML = img('arrow-back.svg', 24, 24);
     if (q.get('st') === '1') document.body.classList.add('st-on');
     const v = q.get('view'), cur = +q.get('cur'), sel = q.get('sel');
     if (cur) S.cur = cur;
-    if (v === 'sheet') { S.screen = q.get('under') || 'home'; S.sheet = true; } else if (v) S.screen = v;
+    if (v === 'sheet') { document.body.classList.add('sheetv'); S.screen = q.get('under') || 'home'; S.sheet = true; } else if (v) S.screen = v;
     if (sel) S.sel = +sel;
     return;
   }

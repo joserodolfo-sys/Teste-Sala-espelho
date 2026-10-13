@@ -111,7 +111,11 @@ td.r,th.r{text-align:right}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
 .seg button{padding:7px 14px;font-size:12px;font-weight:600;color:var(--sec)}
 .seg button.on{background:var(--ink);color:#fff}
-.hvhost{overflow-x:auto;padding-bottom:8px}
+.hvhost{overflow:auto;max-height:800px;border-radius:12px}
+.hvhost::-webkit-scrollbar{width:8px}.hvhost::-webkit-scrollbar-thumb{background:#c9cacf;border-radius:8px}
+.seg2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.seg2 small{flex:none;width:86px;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--mut)}
+.seg2 .tabs{margin:0}
 .hv{position:relative;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.14);border-radius:12px;overflow:hidden;margin:0 auto}
 .hv iframe{display:block;border:0}
 .hv canvas{position:absolute;left:0;top:0;pointer-events:none}
@@ -351,7 +355,7 @@ function palette() {
 }
 function drawHeat(H) {
   const cv = H.cv, W = cv.width, Hh = cv.height, ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, Hh);
-  const P = H.pts.map(p => ({ x: p.xf * W, y: p.fixed ? p.y : p.y + H.top, hit: p.hit }));
+  const P = H.pts.map(p => ({ x: p.xf * W, y: p.fixed ? (H.sheet ? p.y + (H.viewH - (p._vh || H.viewH)) : p.y) : p.y + H.top, hit: p.hit }));
   if (H.mode === 'dots') {
     P.forEach((p, i) => {
       ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, 7); ctx.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; ctx.fill();
@@ -368,57 +372,87 @@ function drawHeat(H) {
   }
   ctx.putImageData(img, 0, 0);
 }
+const VIEW_H = 800;
 function mountHeat(host, o) {
   host.innerHTML = '';
   const sheet = o.key.startsWith('sheet~'), wrap = document.createElement('div'); wrap.className = 'hv'; wrap.style.width = o.vw + 'px';
-  const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? o.vh : 1400) + 'px'; fr.src = staticURL(o.flow, o.key, o.st);
+  const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; fr.src = staticURL(o.flow, o.key, o.st);
   const cv = document.createElement('canvas'); wrap.append(fr, cv); host.append(wrap);
-  const H = { cv, pts: o.pts, mode: o.mode, top: 0 };
+  const H = { cv, pts: o.pts, mode: o.mode, top: 0, sheet, viewH: VIEW_H };
   fr.addEventListener('load', () => setTimeout(() => {
     try {
-      const d = fr.contentDocument, Hh = sheet ? o.vh : Math.ceil(d.querySelector('#screen').getBoundingClientRect().height);
-      H.top = d.querySelector('#content').getBoundingClientRect().top;
+      const d = fr.contentDocument, Hh = sheet ? VIEW_H : Math.ceil(d.querySelector('#screen').getBoundingClientRect().height);
+      H.viewH = Hh; H.top = d.querySelector('#content').getBoundingClientRect().top;
       fr.style.height = wrap.style.height = Hh + 'px'; cv.width = o.vw; cv.height = Hh; cv.style.width = o.vw + 'px'; cv.style.height = Hh + 'px';
       drawHeat(H);
     } catch (e) { host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); }
   }, 600));
   return H;
 }
-/* painel de mapa de calor com abas por tela */
+/* painel de mapa de calor: Tela > Assembleia > Estado */
+const SCR_ORDER = ['home', 'detail', 'offer', 'next'];
+const SCR_NAME = { home: 'Home', detail: 'Detalhe', offer: 'Oferta de lance', next: 'Próximos passos' };
+const STATE_NAME = { normal: 'Tela normal', sheet: 'Bottomsheet aberto', calc: 'Cálculo da cota aberto' };
+const STATE_ORDER = ['normal', 'calc', 'sheet'];
 function heatPanel(host, flow, sessionsList, vw, vh, st) {
-  const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap'));
+  const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap').map(t => Object.assign({}, t, { _vh: s.vh || vh })));
   const keys = []; sessionsList.forEach(s => (s.events || []).filter(e => e.type === 'view').forEach(v => { if (!keys.includes(v.key)) keys.push(v.key); }));
   if (!keys.length) { host.innerHTML = '<p class="muted">Sem telas registradas.</p>'; return; }
-  const cnt = k => taps.filter(t => t.key === k).length;
-  let cur = keys.slice().sort((a, b) => cnt(b) - cnt(a))[0], mode = 'heat', H;
-  host.innerHTML = `<div class="tabs" id="hk"></div>
-    <div class="row" style="margin-bottom:12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button></div>
+  const info = keys.map(k => { const p = parseKey(k); return { key: k, scr: p.scr, cur: p.cur || '', state: p.sheet ? 'sheet' : (p.sel ? 'calc' : 'normal') }; });
+  const cnt = ks => taps.filter(t => ks.includes(t.key)).length;
+  const match = (scr, cur, state) => info.filter(i => i.scr === scr && (cur == null || i.cur === cur) && (state == null || i.state === state)).map(i => i.key);
+  const scrs = SCR_ORDER.filter(s => info.some(i => i.scr === s));
+  const cursOf = scr => [...new Set(info.filter(i => i.scr === scr).map(i => i.cur))].filter(Boolean).sort((a, b) => b - a);
+  const statesOf = (scr, cur) => STATE_ORDER.filter(s => info.some(i => i.scr === scr && (!cur || i.cur === cur) && i.state === s));
+  const best = arr => arr.slice().sort((a, b) => b.n - a.n)[0];
+  const defCur = scr => { const c = cursOf(scr); return c.length ? best(c.map(x => ({ v: x, n: cnt(match(scr, x)) }))).v : ''; };
+  const defState = (scr, cur) => best(statesOf(scr, cur).map(x => ({ v: x, n: cnt(match(scr, cur || null, x)) }))).v;
+  let scr = best(scrs.map(x => ({ v: x, n: cnt(match(x)) }))).v, cur = defCur(scr), state = defState(scr, cur), mode = 'heat', H;
+  host.innerHTML = `<div id="hrows"></div>
+    <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button></div>
       <span class="muted" id="hleg"></span></div>
     <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div>`;
-  const side = () => {
-    const kt = taps.filter(t => t.key === cur), miss = kt.filter(t => !t.hit).length;
+  const cur_keys = () => match(scr, cur || null, state);
+  const legend = n => $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${n} toque(s) nesta visão`;
+  const rows = () => {
+    const cs = cursOf(scr), ss = statesOf(scr, cur);
+    $('#hrows').innerHTML =
+      `<div class="seg2"><small>Tela</small><div class="tabs">${scrs.map(x => `<button data-s="${x}" class="${x === scr ? 'on' : ''}">${SCR_NAME[x]}<em>${cnt(match(x))}</em></button>`).join('')}</div></div>` +
+      (cs.length > 1 ? `<div class="seg2"><small>Assembleia</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${x}ª<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
+      (ss.length > 1 ? `<div class="seg2"><small>Estado</small><div class="tabs">${ss.map(x => `<button data-t="${x}" class="${x === state ? 'on' : ''}">${STATE_NAME[x]}<em>${cnt(match(scr, cur || null, x))}</em></button>`).join('')}</div></div>` : '');
+  };
+  const side = ks => {
+    const kt = taps.filter(t => ks.includes(t.key)), miss = kt.filter(t => !t.hit).length;
     const tg = {}; kt.forEach(t => { const k = (t.hit ? 1 : 0) + '|' + t.label; tg[k] = (tg[k] || 0) + 1; });
-    const rows = Object.entries(tg).sort((a, b) => b[1] - a[1]).slice(0, 10);
-    const ss = sessionsList.map(s => analyze(s).byKey[cur]).filter(Boolean);
-    $('#hs').innerHTML = `<div class="card"><h2>${esc(keyName(cur))}</h2>
+    const rws = Object.entries(tg).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const per = sessionsList.map(s => { const a = analyze(s).byKey; const o = ks.map(k => a[k]).filter(Boolean); return o.length ? { ms: sum(o.map(x => x.ms)), depth: Math.max(...o.map(x => x.depth || 0)), has: o.some(x => x.depth != null) } : null; }).filter(Boolean);
+    const title = SCR_NAME[scr] + (cur ? ` · ${cur}ª assembleia` : '') + (statesOf(scr, cur).length > 1 || state !== 'normal' ? ` · ${STATE_NAME[state]}` : '');
+    $('#hs').innerHTML = `<div class="card"><h2>${esc(title)}</h2>
       <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         ${kpi('TOQUES', kt.length)}${kpi('FORA DO ALVO', kt.length ? pc(miss / kt.length * 100) : '–', miss + ' toque(s)')}
-        ${kpi('TEMPO NA TELA', ss.length ? dur(avg(ss.map(x => x.ms))) : '–', 'média por sessão')}
-        ${kpi('ROLAGEM MÁX.', ss.some(x => x.depth != null) ? pc(Math.max(...ss.map(x => x.depth || 0)) * 100) : '–')}</div>
+        ${kpi('TEMPO NA TELA', per.length ? dur(avg(per.map(x => x.ms))) : '–', 'média por sessão')}
+        ${kpi('ROLAGEM MÁX.', per.some(x => x.has) ? pc(Math.max(...per.map(x => x.depth)) * 100) : '–')}</div>
       <h2 style="font-size:12px">Onde tocaram</h2>
-      ${rows.length ? `<table><tbody>${rows.map(([k, n]) => `<tr><td>${esc(k.slice(2))}</td><td class="r ${k[0] === '1' ? 'pill-hit' : 'pill-miss'}">${k[0] === '1' ? 'ação' : 'fora'}</td><td class="r"><b>${n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum toque nesta tela.</p>'}
+      ${rws.length ? `<table><tbody>${rws.map(([k, n]) => `<tr><td>${esc(k.slice(2))}</td><td class="r ${k[0] === '1' ? 'pill-hit' : 'pill-miss'}">${k[0] === '1' ? 'ação' : 'fora'}</td><td class="r"><b>${n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum toque nesta visão.</p>'}
       <div class="scale"></div><div><span>menos toques</span><span>mais toques</span></div></div>`;
   };
   const draw = () => {
-    $('#hk').innerHTML = keys.map(k => `<button data-k="${esc(k)}" class="${k === cur ? 'on' : ''}">${esc(keyName(k))}<em>${cnt(k)}</em></button>`).join('');
-    const pts = taps.filter(t => t.key === cur).sort((a, b) => a.t - b.t);
-    $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${pts.length} toque(s) nesta tela`;
-    H = mountHeat($('#hh'), { flow, key: cur, pts, vw, vh, st, mode }); side();
+    rows();
+    const ks = cur_keys(); const render = ks.slice().sort((a, b) => cnt([b]) - cnt([a]))[0] || ks[0];
+    const pts = taps.filter(t => ks.includes(t.key)).sort((a, b) => a.t - b.t);
+    legend(pts.length);
+    H = mountHeat($('#hh'), { flow, key: render, pts, vw, vh, st, mode }); side(ks);
   };
   host.onclick = e => {
-    const k = e.target.closest('[data-k]'); if (k) { cur = k.dataset.k; draw(); }
+    const b = e.target.closest('[data-s],[data-c],[data-t]');
+    if (b) {
+      if (b.dataset.s) { scr = b.dataset.s; cur = defCur(scr); state = defState(scr, cur); }
+      else if (b.dataset.c) { cur = b.dataset.c; if (!statesOf(scr, cur).includes(state)) state = defState(scr, cur); }
+      else state = b.dataset.t;
+      return draw();
+    }
     const m = e.target.closest('[data-m]');
-    if (m) { mode = m.dataset.m; document.querySelectorAll('#hm button').forEach(b => b.classList.toggle('on', b === m)); $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${H.pts.length} toque(s) nesta tela`; H.mode = mode; drawHeat(H); }
+    if (m) { mode = m.dataset.m; document.querySelectorAll('#hm button').forEach(x => x.classList.toggle('on', x === m)); legend(H.pts.length); H.mode = mode; drawHeat(H); }
   };
   draw();
 }
