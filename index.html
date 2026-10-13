@@ -2,34 +2,549 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HSF · Assembleias — Teste de usabilidade</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HSF · Teste de usabilidade — Moderador</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+:root{--red:#c00;--red-soft:#ffe4e2;--ink:#1f2024;--sec:#505156;--mut:#8c8d91;--line:#e1e2e5;--bg:#f4f4f6;--card:#fff}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Montserrat',system-ui,sans-serif;background:#f5f5f5;color:#35363b;min-height:100vh}
-header{background:#c00;color:#fff;padding:28px 24px 24px}
-header h1{font-size:20px;line-height:1.3;font-weight:700}
-header p{font-size:13px;line-height:1.5;margin-top:6px;opacity:.9}
-main{max-width:480px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:12px}
-a.card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:.5px solid #d7d8da;border-radius:8px;padding:16px;text-decoration:none;color:inherit}
-a.card:active{background:#fff7f6}
-a.card b{display:block;font-size:14px;line-height:20px;font-weight:600}
-a.card span{display:block;font-size:11px;line-height:1.5;color:#505156;margin-top:2px}
-a.card i{flex:none;color:#c00;font-style:normal;font-size:22px;line-height:1}
-.n{flex:none;width:28px;height:28px;border-radius:50%;background:#ffe4e2;color:#c00;font-size:13px;font-weight:700;display:grid;place-items:center}
-.l{display:flex;gap:12px;align-items:center}
+body{font-family:'Montserrat',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0}
+a{color:inherit;text-decoration:none}
+.top{background:var(--red);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;gap:12px;position:sticky;top:0;z-index:5}
+.top .brand{font-size:14px;font-weight:600;display:flex;gap:8px;align-items:baseline}
+.top .brand b{font-size:18px;font-weight:700}
+.top .brand span{font-size:11px;font-weight:500;opacity:.8;letter-spacing:1.5px;text-transform:uppercase}
+.top nav{display:flex;gap:8px}
+.top nav a,.top nav button{font-size:12px;font-weight:600;padding:7px 12px;border-radius:100px;background:rgba(255,255,255,.16);color:#fff}
+#app{max-width:1120px;margin:0 auto;padding:28px 24px 64px}
+h1{font-size:22px;line-height:1.3;font-weight:700}
+h2{font-size:15px;font-weight:700;margin-bottom:12px}
+.muted{color:var(--mut);font-size:12px;line-height:1.5}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:600;background:#fff;border:1px solid var(--line);color:var(--ink)}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.big{padding:14px 22px;font-size:15px;width:100%}
+.btn.danger{color:#b00020}
+.btn.sm{padding:6px 10px;font-size:11px;border-radius:8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:20px 0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.kpi small{display:block;font-size:11px;color:var(--mut);font-weight:600;letter-spacing:.4px}
+.kpi b{display:block;font-size:24px;line-height:1.3;font-weight:700;margin-top:2px}
+.kpi span{font-size:11px;color:var(--sec)}
+.flows{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.flow{display:flex;flex-direction:column;gap:6px;text-align:left;transition:.15s}
+.flow:hover{border-color:#cfd0d4}
+.flow .n{width:26px;height:26px;border-radius:50%;background:var(--red-soft);color:var(--red);font-weight:700;font-size:12px;display:grid;place-items:center}
+.flow b{font-size:14px}
+.flow .st{display:flex;gap:14px;font-size:11px;color:var(--sec);margin-top:4px;flex-wrap:wrap}
+.list{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:2fr 1.6fr 1fr 80px 70px 90px 34px;gap:12px;align-items:center;padding:14px 4px;border-top:1px solid var(--line);cursor:pointer}
+.item:first-child{border-top:0}
+.item:hover{background:#fafafb}
+.item.head{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);font-weight:700;cursor:default;padding-top:0}
+.item.head:hover{background:none}
+.item b{font-size:13px}
+.item small{display:block;font-size:11px;color:var(--mut)}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;background:var(--red-soft);color:var(--red)}
+.tag.gray{background:#ececef;color:var(--sec)}
+.x{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--mut)}
+.x:hover{background:#fde8ea;color:#b00020}
+.empty{text-align:center;padding:36px 12px;color:var(--sec);font-size:13px;line-height:1.6}
+/* formulário */
+.form{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.f label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--sec)}
+.f input[type=text],.f input[type=number],.f textarea{width:100%;padding:12px 14px;border:1px solid #d3d4d8;border-radius:10px;background:#fff;font-size:15px;outline:0}
+.f input:focus,.f textarea:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(204,0,0,.12)}
+.f textarea{min-height:76px;resize:vertical;font-size:14px}
+.f .two{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+.pick{display:grid;gap:8px}
+.pick label{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid #d3d4d8;border-radius:10px;cursor:pointer;margin:0;background:#fff;color:var(--ink)}
+.pick input{accent-color:var(--red);width:18px;height:18px}
+.pick label:has(input:checked){border-color:var(--red);background:#fff7f6;box-shadow:0 0 0 1px var(--red) inset}
+.pick b{font-size:13px;display:block}.pick span{font-size:11px;color:var(--sec);font-weight:400}
+.err{color:#b00020;font-size:12px;font-weight:600;min-height:16px}
+/* teste (tela cheia) */
+#test{position:fixed;inset:0;background:#e7e7ea;z-index:100;display:flex;justify-content:center}
+#test[hidden]{display:none}
+.tv{position:relative;width:100%;max-width:480px;height:100%;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.14)}
+.tv iframe{width:100%;height:100%;border:0;display:block}
+.grip{position:absolute;top:0;left:50%;transform:translateX(-50%);width:72px;height:22px;z-index:30;display:grid;place-items:start center;padding-top:1px;color:rgba(255,255,255,.55)}
+.grip i{display:block;width:30px;height:11px;border-radius:0 0 8px 8px;background:rgba(255,255,255,.14);display:grid;place-items:center}
+.grip svg{display:block}
+.grip.warn i{background:#e40521}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:31;opacity:0;pointer-events:none;transition:.2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.tray{position:absolute;top:0;left:0;right:0;z-index:32;background:#fff;border-radius:0 0 18px 18px;padding:34px 18px 18px;transform:translateY(-105%);transition:transform .25s;box-shadow:0 12px 30px rgba(0,0,0,.25);display:flex;flex-direction:column;gap:12px}
+.tray.on{transform:none}
+.tray .who{font-size:12px;color:var(--sec)}
+.tray .who b{color:var(--ink);font-size:14px}
+.rec{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px}
+.rec i{width:10px;height:10px;border-radius:50%;background:#e40521;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{opacity:.25}}
+.tray .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn.end{background:#1f2024;color:#fff;border-color:#1f2024}
+.btn.end.arm{background:#e40521;border-color:#e40521}
+/* análise */
+.crumb{font-size:12px;color:var(--sec);margin-bottom:14px;display:inline-flex;gap:6px;font-weight:600}
+.timeline{position:relative;display:flex;height:34px;border-radius:8px;overflow:hidden;background:#ececef;margin:34px 0 8px}
+.timeline div{height:100%;min-width:2px;border-right:1px solid #fff}
+.pins{position:relative;height:0}
+.pin{position:absolute;top:-76px;transform:translateX(-50%);font-size:10px;font-weight:700;background:#1f2024;color:#fff;padding:2px 6px;border-radius:6px;white-space:nowrap}
+.pin:after{content:'';position:absolute;left:50%;bottom:-4px;margin-left:-4px;border:4px solid transparent;border-top-color:#1f2024;border-bottom:0}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--sec);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:var(--mut);text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+td{padding:9px 6px;border-bottom:1px solid #f0f0f2;vertical-align:middle}
+td.r,th.r{text-align:right}
+.bar{height:6px;border-radius:4px;background:#ececef;overflow:hidden;min-width:60px}.bar i{display:block;height:100%;background:var(--red)}
+.heatwrap{display:grid;grid-template-columns:minmax(0,500px) 1fr;gap:24px;align-items:start}
+@media(max-width:900px){.heatwrap{grid-template-columns:1fr}.item{grid-template-columns:1fr 1fr;gap:6px}.item.head{display:none}.item>:nth-child(n+4){display:none}}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tabs button{font-size:11px;font-weight:600;padding:7px 11px;border-radius:100px;background:#fff;border:1px solid var(--line);color:var(--sec)}
+.tabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tabs button em{font-style:normal;opacity:.65;margin-left:4px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{padding:7px 14px;font-size:12px;font-weight:600;color:var(--sec)}
+.seg button.on{background:var(--ink);color:#fff}
+.hvhost{overflow:auto;max-height:800px;border-radius:12px}
+.hvhost::-webkit-scrollbar{width:8px}.hvhost::-webkit-scrollbar-thumb{background:#c9cacf;border-radius:8px}
+.seg2{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.seg2 small{flex:none;width:86px;font-size:10px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--mut)}
+.seg2 .tabs{margin:0}
+.hv{position:relative;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.14);border-radius:12px;overflow:hidden;margin:0 auto}
+.hv iframe{display:block;border:0}
+.hv canvas{position:absolute;left:0;top:0;pointer-events:none}
+.scale{height:8px;border-radius:4px;background:linear-gradient(90deg,rgba(0,0,255,.6),#0ff,#0f0,#ff0,#f00);margin:8px 0 2px}
+.scale+div{display:flex;justify-content:space-between;font-size:10px;color:var(--mut)}
+.mk{display:grid;grid-template-columns:54px 1fr 1.2fr;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:12px}
+.mk input{width:100%;padding:7px 9px;border:1px solid #d3d4d8;border-radius:8px;font-size:12px}
+.notes{width:100%;min-height:90px;padding:12px;border:1px solid #d3d4d8;border-radius:10px;font-size:13px;resize:vertical}
+.pill-hit{color:#0a7a3c;font-weight:700}.pill-miss{color:#b00020;font-weight:700}
+.hint{background:#fff8e1;border:1px solid #f3e0a3;border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.5;color:#5b4a00;margin-top:18px}
 </style>
 </head>
 <body>
-<header>
-  <h1>HSF · Assembleias</h1>
-  <p>Protótipo do teste de usabilidade. Escolha um fluxo para abrir.</p>
+<header class="top" id="top">
+  <a class="brand" href="#/"><b>HSF</b> Teste de usabilidade <span>Moderador</span></a>
+  <nav><a href="#/">Painel</a><a href="#/nova">Nova sessão</a></nav>
 </header>
-<main>
-  <a class="card" href="fluxo-1-nao-contemplado.html"><div class="l"><div class="n">1</div><div><b>Não contemplado</b><span>Assembleia normal</span></div></div><i>›</i></a>
-  <a class="card" href="fluxo-2-contemplado-sorteio.html"><div class="l"><div class="n">2</div><div><b>Contemplado</b><span>Por sorteio</span></div></div><i>›</i></a>
-  <a class="card" href="fluxo-3-cota-cancelada-sorteada.html"><div class="l"><div class="n">3</div><div><b>Cota cancelada sorteada</b><span>Cotas duplicadas</span></div></div><i>›</i></a>
-</main>
+<main id="app"></main>
+<div id="test" hidden></div>
+
+<script>
+/* ================== Dados ================== */
+const FLOWS = {
+  A: { n: 1, file: 'fluxo-1-nao-contemplado.html', name: 'Não contemplado', sub: 'Assembleia normal' },
+  B: { n: 2, file: 'fluxo-2-contemplado-sorteio.html', name: 'Contemplado', sub: 'Por sorteio' },
+  C: { n: 3, file: 'fluxo-3-cota-cancelada-sorteada.html', name: 'Cota cancelada sorteada', sub: 'Cotas duplicadas' }
+};
+const COLORS = { home: '#35363b', detail: '#c00', offer: '#f59e0b', next: '#16a34a', sheet: '#6366f1' };
+const LS = 'hsf_sessions_v1';
+let sessions = (() => { try { return JSON.parse(localStorage.getItem(LS)) || []; } catch (e) { return []; } })();
+const save = () => { try { localStorage.setItem(LS, JSON.stringify(sessions)); } catch (e) { alert('Não foi possível salvar (armazenamento cheio). Exporte um backup e apague sessões antigas.'); } };
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const dur = ms => { const t = Math.round(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+const dt = ms => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const pc = n => Math.round(n) + '%';
+const sum = a => a.reduce((x, y) => x + y, 0);
+const avg = a => a.length ? sum(a) / a.length : 0;
+
+/* nomes amigáveis das telas */
+function parseKey(key) {
+  const sheet = key.startsWith('sheet~'); const base = sheet ? key.slice(6) : key;
+  const [scr, rest] = base.split('@'); const [cur, sel] = (rest || '').split('#');
+  return { sheet, scr, cur, sel };
+}
+function keyName(key) {
+  const k = parseKey(key); let n;
+  if (k.scr === 'home') n = `Home · ${k.cur}ª assembleia`;
+  else if (k.scr === 'detail') n = `Detalhe · ${k.cur}ª assembleia` + (k.sel ? ` · cota ${k.sel} selecionada` : '');
+  else if (k.scr === 'offer') n = 'Oferta de lance livre';
+  else if (k.scr === 'next') n = 'Fui contemplado, e agora?';
+  else n = k.scr;
+  return k.sheet ? `Bottomsheet (sobre ${n})` : n;
+}
+const keyColor = key => { const k = parseKey(key); return COLORS[k.sheet ? 'sheet' : k.scr] || '#999'; };
+
+/* ================== Análise ================== */
+function analyze(s) {
+  const ev = s.events || [];
+  const last = ev.length ? ev[ev.length - 1].t : 0;
+  const total = s.endedAt ? Math.max(s.endedAt - s.startedAt, last) : last;
+  const views = ev.filter(e => e.type === 'view'), taps = ev.filter(e => e.type === 'tap'), scrolls = ev.filter(e => e.type === 'scroll');
+  const steps = views.map((v, i) => {
+    const t0 = v.t, t1 = i + 1 < views.length ? views[i + 1].t : total;
+    const tp = taps.filter(x => x.t >= t0 && x.t < t1), sc = scrolls.filter(x => x.t >= t0 && x.t < t1);
+    return { key: v.key, t0, t1, ms: Math.max(0, t1 - t0), taps: tp.length, miss: tp.filter(x => !x.hit).length,
+             depth: sc.length ? Math.max(...sc.map(x => (x.top + x.ch) / x.sh)) : null };
+  });
+  const hits = taps.filter(t => t.hit).length;
+  const targets = {};
+  taps.forEach(t => { const k = (t.hit ? 1 : 0) + '|' + t.label; targets[k] = (targets[k] || 0) + 1; });
+  const top = Object.entries(targets).map(([k, n]) => ({ hit: k[0] === '1', label: k.slice(2), n })).sort((a, b) => b.n - a.n);
+  const byKey = {};
+  steps.forEach(st => { const o = byKey[st.key] || (byKey[st.key] = { key: st.key, ms: 0, taps: 0, miss: 0, visits: 0, depth: null }); o.ms += st.ms; o.taps += st.taps; o.miss += st.miss; o.visits++; if (st.depth != null) o.depth = Math.max(o.depth || 0, st.depth); });
+  return { total, taps, tapN: taps.length, hits, miss: taps.length - hits, missPct: taps.length ? (taps.length - hits) / taps.length * 100 : 0,
+           steps, top, byKey, first: taps[0] && views[0] ? taps[0].t - views[0].t : null,
+           backs: taps.filter(t => t.act === 'back').length, sheets: views.filter(v => v.key.startsWith('sheet~')).length,
+           screens: Object.keys(byKey).length, markers: ev.filter(e => e.type === 'marker') };
+}
+const kpi = (l, v, sub = '') => `<div class="kpi"><small>${l}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
+
+/* ================== Roteador ================== */
+let ACTIVE = null;
+function route() {
+  const [, r, p] = (location.hash || '#/').split('/');
+  $('#top').style.display = r === 'teste' ? 'none' : '';
+  if (r !== 'teste') hideTest();
+  if (r === 'nova') return viewNova();
+  if (r === 'teste') return viewTeste(p);
+  if (r === 'sessao') return viewSessao(p);
+  if (r === 'geral') return viewGeral(p);
+  viewHome();
+}
+window.addEventListener('hashchange', route);
+
+/* ================== Painel ================== */
+async function checkFlows() {
+  const bad = [];
+  for (const f of Object.values(FLOWS)) {
+    try { const r = await fetch(f.file + '?c=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); if (!r.ok) bad.push(f.file + ' (não encontrado)'); else if (!t.includes('__recInit')) bad.push(f.file + ' (versão antiga, sem gravação)'); }
+    catch (e) { return; }
+  }
+  const el = $('#chk'); if (el && bad.length) el.innerHTML = `<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016"><b>Atenção:</b> estes arquivos no site precisam ser reenviados ao GitHub para a gravação funcionar:<br>• ${bad.join('<br>• ')}</div>`;
+}
+function viewHome() {
+  const done = sessions.filter(s => s.events && s.events.length);
+  const A = done.map(analyze);
+  const people = new Set(sessions.map(s => s.name.trim().toLowerCase())).size;
+  const list = sessions.slice().sort((a, b) => b.startedAt - a.startedAt);
+  $('#app').innerHTML = `
+    <div class="row"><div><h1>Sessões de teste</h1><p class="muted">Os dados ficam salvos neste navegador. Exporte um backup de vez em quando.</p></div>
+      <a class="btn primary" href="#/nova">+ Nova sessão</a></div>
+    <div id="chk"></div>
+    <div class="grid kpis">
+      ${kpi('SESSÕES', sessions.length)}${kpi('PARTICIPANTES', people)}
+      ${kpi('DURAÇÃO MÉDIA', A.length ? dur(avg(A.map(a => a.total))) : '–')}
+      ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}
+    </div>
+    <h2>Análise geral por fluxo</h2>
+    <div class="grid flows">${Object.entries(FLOWS).map(([k, f]) => {
+      const ss = done.filter(s => s.flow === k), an = ss.map(analyze);
+      return `<button class="card flow" data-go="#/geral/${k}"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
+        <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
+    }).join('')}</div>
+    <div class="card" style="margin-top:24px">
+      <div class="row" style="margin-bottom:6px"><h2 style="margin:0">Histórico</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
+      ${list.length ? `<div class="list"><div class="item head"><span>Participante</span><span>Fluxo</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
+      ${list.map(s => { const a = analyze(s), f = FLOWS[s.flow]; return `<div class="item" data-go="#/sessao/${s.id}">
+        <span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span>
+        <span>${f.n}. ${f.name}${s.endedAt ? '' : ' <span class="tag gray">interrompida</span>'}</span>
+        <span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN}</span><span>${a.tapN ? pc(a.missPct) : '–'}</span>
+        <button class="x" data-del="${s.id}" title="Excluir">✕</button></div>`; }).join('')}</div>`
+      : `<div class="empty">Nenhuma sessão ainda.<br>Clique em <b>Nova sessão</b> para começar um teste.</div>`}
+    </div>`;
+  checkFlows();
+}
+
+/* ================== Nova sessão ================== */
+function viewNova() {
+  $('#app').innerHTML = `
+    <div class="form">
+      <div><a class="crumb" href="#/">← Painel</a><h1>Nova sessão</h1><p class="muted">Preencha rapidamente e toque em Iniciar. O teste abre direto na primeira tela.</p></div>
+      <div class="card f" style="display:flex;flex-direction:column;gap:16px">
+        <div class="two"><div><label>Nome do participante *</label><input type="text" id="f-name" autocomplete="off" autofocus></div>
+          <div><label>Idade *</label><input type="number" id="f-age" min="1" max="120" inputmode="numeric"></div></div>
+        <div><label>Fluxo do teste</label><div class="pick">${Object.entries(FLOWS).map(([k, f], i) =>
+          `<label><input type="radio" name="flow" value="${k}" ${i === 0 ? 'checked' : ''}><div><b>${f.n}. ${f.name}</b><span>${f.sub}</span></div></label>`).join('')}</div></div>
+        <div><label>Observações (opcional)</label><textarea id="f-obs" placeholder="Perfil, experiência com consórcio, contexto…"></textarea></div>
+        <p class="err" id="f-err"></p>
+        <button class="btn primary big" id="f-go">▶ Iniciar teste</button>
+      </div>
+    </div>`;
+  const go = () => {
+    const name = $('#f-name').value.trim(), age = parseInt($('#f-age').value, 10);
+    if (!name) { $('#f-err').textContent = 'Informe o nome do participante.'; return $('#f-name').focus(); }
+    if (!age || age < 1 || age > 120) { $('#f-err').textContent = 'Informe uma idade válida.'; return $('#f-age').focus(); }
+    const s = { id: uid(), name, age, flow: document.querySelector('input[name=flow]:checked').value, obs: $('#f-obs').value.trim(), startedAt: Date.now(), endedAt: null, events: [], notesPost: '' };
+    sessions.push(s); save();
+    ACTIVE = { s, t0: Date.now() };
+    location.hash = '#/teste/' + s.id;
+  };
+  $('#f-go').onclick = go;
+  $('#f-age').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+
+/* ================== Teste (tela cheia, sem interferência) ================== */
+const GRIP_SVG = '<svg width="12" height="7" viewBox="0 0 12 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l5 5 5-5"/></svg>';
+function viewTeste(id) {
+  if (!ACTIVE || ACTIVE.s.id !== id) { location.hash = '#/'; return; }
+  const A = ACTIVE, s = A.s, el = $('#test');
+  $('#app').innerHTML = '';
+  el.hidden = false;
+  el.innerHTML = `<div class="tv"><iframe id="tf" src="${FLOWS[s.flow].file}?rec=1&v=${Date.now()}" title="Protótipo"></iframe>
+    <button class="grip" id="grip" aria-label="Opções do moderador"><i>${GRIP_SVG}</i></button>
+    <div class="scrim" id="scrim"></div>
+    <div class="tray" id="tray">
+      <div class="rec"><i></i><span id="clock">0:00</span></div>
+      <div class="who">Participante: <b>${esc(s.name)}</b>, ${esc(s.age)} anos · Fluxo ${FLOWS[s.flow].n}</div>
+      <div class="btns"><button class="btn" id="mark">⚑ Marcar momento</button><button class="btn end" id="end">Fim do teste</button></div>
+      <p class="muted" id="mk-n"></p>
+    </div></div>`;
+  A.frame = $('#tf'); const tray = $('#tray'), scrim = $('#scrim'); let armT;
+  const toggle = on => { tray.classList.toggle('on', on); scrim.classList.toggle('on', on); if (!on) disarm(); };
+  const disarm = () => { clearTimeout(armT); const b = $('#end'); if (!b) return; b.classList.remove('arm'); b.textContent = 'Fim do teste'; };
+  $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
+  scrim.onclick = () => toggle(false);
+  $('#mark').onclick = () => {
+    const n = s.events.filter(e => e.type === 'marker').length + 1;
+    s.events.push({ type: 'marker', t: Date.now() - A.t0, label: 'Marcador ' + n }); save();
+    $('#mk-n').textContent = `Marcador ${n} registrado.`;
+  };
+  $('#end').onclick = () => {
+    const b = $('#end');
+    if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Toque de novo para encerrar'; armT = setTimeout(disarm, 4000); return; }
+    clearTimeout(armT); endTest();
+  };
+  clearTimeout(A.chk);
+  A.chk = setTimeout(() => {
+    if (ACTIVE !== A || s.events.some(e => e.type === 'view')) return;
+    $('#grip').classList.add('warn');
+    $('#mk-n').innerHTML = '<b style="color:#b00020">Atenção: a gravação não está ativa.</b> O arquivo do fluxo no site provavelmente está desatualizado. Reenvie os 3 arquivos fluxo-*.html ao GitHub.';
+  }, 4000);
+  clearInterval(A.clock); clearInterval(A.auto);
+  A.clock = setInterval(() => { const c = $('#clock'); if (c) c.textContent = dur(Date.now() - A.t0); }, 500);
+  A.auto = setInterval(save, 3000);
+}
+window.addEventListener('message', e => {
+  if (!ACTIVE || !ACTIVE.frame || e.source !== ACTIVE.frame.contentWindow) return;
+  const m = e.data; if (!m || !m.hsf) return;
+  const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
+  if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
+  s.events.push(ev);
+});
+function endTest() {
+  const A = ACTIVE; clearInterval(A.clock); clearInterval(A.auto);
+  A.s.endedAt = Date.now(); save(); const id = A.s.id; ACTIVE = null;
+  location.hash = '#/sessao/' + id;
+}
+function hideTest() { const el = $('#test'); if (!el.hidden) { el.hidden = true; el.innerHTML = ''; } }
+window.addEventListener('beforeunload', () => { if (ACTIVE) save(); });
+
+/* ================== Mapa de calor ================== */
+function staticURL(flow, key, st) {
+  const k = parseKey(key), p = new URLSearchParams({ static: '1', st: st ? '1' : '0' });
+  p.set('view', k.sheet ? 'sheet' : k.scr); if (k.sheet) p.set('under', k.scr);
+  if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel);
+  return FLOWS[flow].file + '?' + p;
+}
+function palette() {
+  const c = document.createElement('canvas'); c.width = 1; c.height = 256; const x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, 'rgba(0,0,255,0)'); g.addColorStop(.2, 'rgb(0,120,255)'); g.addColorStop(.4, 'rgb(0,230,200)');
+  g.addColorStop(.6, 'rgb(120,255,0)'); g.addColorStop(.8, 'rgb(255,220,0)'); g.addColorStop(1, 'rgb(255,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 1, 256); return x.getImageData(0, 0, 1, 256).data;
+}
+function drawHeat(H) {
+  const cv = H.cv, W = cv.width, Hh = cv.height, ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, Hh);
+  const P = H.pts.map(p => ({ x: p.xf * W, y: p.fixed ? (H.sheet ? p.y + (H.viewH - (p._vh || H.viewH)) : p.y) : p.y + H.top, hit: p.hit }));
+  if (H.mode === 'dots') {
+    P.forEach((p, i) => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, 7); ctx.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = '700 10px Montserrat,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, p.x, p.y + .5);
+    }); return;
+  }
+  const off = document.createElement('canvas'); off.width = W; off.height = Hh; const o = off.getContext('2d'), r = 30;
+  P.forEach(p => { const g = o.createRadialGradient(p.x, p.y, 0, p.x, p.y, r); g.addColorStop(0, 'rgba(0,0,0,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)'); o.fillStyle = g; o.fillRect(p.x - r, p.y - r, 2 * r, 2 * r); });
+  const img = o.getImageData(0, 0, W, Hh), d = img.data, pal = palette();
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3]; if (!a) continue; const j = Math.min(255, Math.round(a * 2.1)) * 4;
+    d[i] = pal[j]; d[i + 1] = pal[j + 1]; d[i + 2] = pal[j + 2]; d[i + 3] = Math.min(215, a * 2.6 + 30);
+  }
+  ctx.putImageData(img, 0, 0);
+}
+const VIEW_H = 800;
+function mountHeat(host, o) {
+  host.innerHTML = '';
+  const sheet = o.key.startsWith('sheet~'), wrap = document.createElement('div'); wrap.className = 'hv'; wrap.style.width = o.vw + 'px';
+  const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; fr.src = staticURL(o.flow, o.key, o.st);
+  const cv = document.createElement('canvas'); wrap.append(fr, cv); host.append(wrap);
+  const H = { cv, pts: o.pts, mode: o.mode, top: 0, sheet, viewH: VIEW_H };
+  fr.addEventListener('load', () => setTimeout(() => {
+    try {
+      const d = fr.contentDocument, Hh = sheet ? VIEW_H : Math.ceil(d.querySelector('#screen').getBoundingClientRect().height);
+      H.viewH = Hh; H.top = d.querySelector('#content').getBoundingClientRect().top;
+      fr.style.height = wrap.style.height = Hh + 'px'; cv.width = o.vw; cv.height = Hh; cv.style.width = o.vw + 'px'; cv.style.height = Hh + 'px';
+      drawHeat(H);
+    } catch (e) { host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); }
+  }, 600));
+  return H;
+}
+/* painel de mapa de calor: Tela > Assembleia > Estado */
+const SCR_ORDER = ['home', 'detail', 'offer', 'next'];
+const SCR_NAME = { home: 'Home', detail: 'Detalhe', offer: 'Oferta de lance', next: 'Próximos passos' };
+const STATE_NAME = { normal: 'Tela normal', sheet: 'Bottomsheet aberto', calc: 'Cálculo da cota aberto' };
+const STATE_ORDER = ['normal', 'calc', 'sheet'];
+function heatPanel(host, flow, sessionsList, vw, vh, st) {
+  const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap').map(t => Object.assign({}, t, { _vh: s.vh || vh })));
+  const keys = []; sessionsList.forEach(s => (s.events || []).filter(e => e.type === 'view').forEach(v => { if (!keys.includes(v.key)) keys.push(v.key); }));
+  if (!keys.length) { host.innerHTML = '<p class="muted">Sem telas registradas.</p>'; return; }
+  const info = keys.map(k => { const p = parseKey(k); return { key: k, scr: p.scr, cur: p.cur || '', state: p.sheet ? 'sheet' : (p.sel ? 'calc' : 'normal') }; });
+  const cnt = ks => taps.filter(t => ks.includes(t.key)).length;
+  const match = (scr, cur, state) => info.filter(i => i.scr === scr && (cur == null || i.cur === cur) && (state == null || i.state === state)).map(i => i.key);
+  const scrs = SCR_ORDER.filter(s => info.some(i => i.scr === s));
+  const cursOf = scr => [...new Set(info.filter(i => i.scr === scr).map(i => i.cur))].filter(Boolean).sort((a, b) => b - a);
+  const statesOf = (scr, cur) => STATE_ORDER.filter(s => info.some(i => i.scr === scr && (!cur || i.cur === cur) && i.state === s));
+  const best = arr => arr.slice().sort((a, b) => b.n - a.n)[0];
+  const defCur = scr => { const c = cursOf(scr); return c.length ? best(c.map(x => ({ v: x, n: cnt(match(scr, x)) }))).v : ''; };
+  const defState = (scr, cur) => best(statesOf(scr, cur).map(x => ({ v: x, n: cnt(match(scr, cur || null, x)) }))).v;
+  let scr = best(scrs.map(x => ({ v: x, n: cnt(match(x)) }))).v, cur = defCur(scr), state = defState(scr, cur), mode = 'heat', H;
+  host.innerHTML = `<div id="hrows"></div>
+    <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button></div>
+      <span class="muted" id="hleg"></span></div>
+    <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div>`;
+  const cur_keys = () => match(scr, cur || null, state);
+  const legend = n => $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${n} toque(s) nesta visão`;
+  const rows = () => {
+    const cs = cursOf(scr), ss = statesOf(scr, cur);
+    $('#hrows').innerHTML =
+      `<div class="seg2"><small>Tela</small><div class="tabs">${scrs.map(x => `<button data-s="${x}" class="${x === scr ? 'on' : ''}">${SCR_NAME[x]}<em>${cnt(match(x))}</em></button>`).join('')}</div></div>` +
+      (cs.length > 1 ? `<div class="seg2"><small>Assembleia</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${x}ª<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
+      (ss.length > 1 ? `<div class="seg2"><small>Estado</small><div class="tabs">${ss.map(x => `<button data-t="${x}" class="${x === state ? 'on' : ''}">${STATE_NAME[x]}<em>${cnt(match(scr, cur || null, x))}</em></button>`).join('')}</div></div>` : '');
+  };
+  const side = ks => {
+    const kt = taps.filter(t => ks.includes(t.key)), miss = kt.filter(t => !t.hit).length;
+    const tg = {}; kt.forEach(t => { const k = (t.hit ? 1 : 0) + '|' + t.label; tg[k] = (tg[k] || 0) + 1; });
+    const rws = Object.entries(tg).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const per = sessionsList.map(s => { const a = analyze(s).byKey; const o = ks.map(k => a[k]).filter(Boolean); return o.length ? { ms: sum(o.map(x => x.ms)), depth: Math.max(...o.map(x => x.depth || 0)), has: o.some(x => x.depth != null) } : null; }).filter(Boolean);
+    const title = SCR_NAME[scr] + (cur ? ` · ${cur}ª assembleia` : '') + (statesOf(scr, cur).length > 1 || state !== 'normal' ? ` · ${STATE_NAME[state]}` : '');
+    $('#hs').innerHTML = `<div class="card"><h2>${esc(title)}</h2>
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        ${kpi('TOQUES', kt.length)}${kpi('FORA DO ALVO', kt.length ? pc(miss / kt.length * 100) : '–', miss + ' toque(s)')}
+        ${kpi('TEMPO NA TELA', per.length ? dur(avg(per.map(x => x.ms))) : '–', 'média por sessão')}
+        ${kpi('ROLAGEM MÁX.', per.some(x => x.has) ? pc(Math.max(...per.map(x => x.depth)) * 100) : '–')}</div>
+      <h2 style="font-size:12px">Onde tocaram</h2>
+      ${rws.length ? `<table><tbody>${rws.map(([k, n]) => `<tr><td>${esc(k.slice(2))}</td><td class="r ${k[0] === '1' ? 'pill-hit' : 'pill-miss'}">${k[0] === '1' ? 'ação' : 'fora'}</td><td class="r"><b>${n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum toque nesta visão.</p>'}
+      <div class="scale"></div><div><span>menos toques</span><span>mais toques</span></div></div>`;
+  };
+  const draw = () => {
+    rows();
+    const ks = cur_keys(); const render = ks.slice().sort((a, b) => cnt([b]) - cnt([a]))[0] || ks[0];
+    const pts = taps.filter(t => ks.includes(t.key)).sort((a, b) => a.t - b.t);
+    legend(pts.length);
+    H = mountHeat($('#hh'), { flow, key: render, pts, vw, vh, st, mode }); side(ks);
+  };
+  host.onclick = e => {
+    const b = e.target.closest('[data-s],[data-c],[data-t]');
+    if (b) {
+      if (b.dataset.s) { scr = b.dataset.s; cur = defCur(scr); state = defState(scr, cur); }
+      else if (b.dataset.c) { cur = b.dataset.c; if (!statesOf(scr, cur).includes(state)) state = defState(scr, cur); }
+      else state = b.dataset.t;
+      return draw();
+    }
+    const m = e.target.closest('[data-m]');
+    if (m) { mode = m.dataset.m; document.querySelectorAll('#hm button').forEach(x => x.classList.toggle('on', x === m)); legend(H.pts.length); H.mode = mode; drawHeat(H); }
+  };
+  draw();
+}
+
+/* ================== Análise da sessão ================== */
+function viewSessao(id) {
+  const s = sessions.find(x => x.id === id); if (!s) { location.hash = '#/'; return; }
+  const a = analyze(s), f = FLOWS[s.flow];
+  const legendKeys = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
+  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet' };
+  $('#app').innerHTML = `
+    <a class="crumb" href="#/">← Painel</a>
+    <div class="row"><div><h1>${esc(s.name)}, ${esc(s.age)} anos</h1>
+      <p class="muted">Fluxo ${f.n} · ${f.name} (${f.sub}) · ${dt(s.startedAt)}${s.endedAt ? '' : ' · <b>sessão interrompida</b>'}${s.obs ? '<br>Obs.: ' + esc(s.obs) : ''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/nova">Novo teste</a><button class="btn" data-exp="csv" data-id="${s.id}">Exportar CSV</button><button class="btn danger" data-del="${s.id}">Excluir</button></div></div>
+    <div class="grid kpis">
+      ${kpi('DURAÇÃO', dur(a.total))}${kpi('TOQUES', a.tapN)}
+      ${kpi('FORA DO ALVO', a.tapN ? pc(a.missPct) : '–', a.miss + ' de ' + a.tapN)}
+      ${kpi('TELAS VISITADAS', a.screens, a.steps.length + ' passagens')}
+      ${kpi('1º TOQUE EM', a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–', 'após ver a 1ª tela')}
+      ${kpi('USOU "VOLTAR"', a.backs + 'x', a.sheets + ' abertura(s) de bottomsheet')}
+    </div>
+    <div class="card"><h2>Jornada</h2>
+      <div class="legend">${legendKeys.map(k => `<span><i style="background:${COLORS[k]}"></i>${names[k]}</span>`).join('')}</div>
+      <div class="timeline">${a.steps.map(st => `<div title="${esc(keyName(st.key))} · ${dur(st.ms)}" style="flex:${Math.max(st.ms, 1)};background:${keyColor(st.key)}"></div>`).join('')}</div>
+      <div class="pins">${a.markers.map(m => `<span class="pin" style="left:${a.total ? m.t / a.total * 100 : 0}%">⚑ ${dur(m.t)}</span>`).join('')}</div>
+      <table style="margin-top:18px"><thead><tr><th>#</th><th>Tela</th><th class="r">Início</th><th class="r">Tempo</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Rolagem</th></tr></thead>
+      <tbody>${a.steps.map((st, i) => `<tr><td>${i + 1}</td><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${keyColor(st.key)};margin-right:6px"></i>${esc(keyName(st.key))}</td>
+        <td class="r">${dur(st.t0)}</td><td class="r">${(st.ms / 1000).toFixed(1)}s</td><td class="r">${st.taps}</td><td class="r">${st.miss}</td><td class="r">${st.depth != null ? pc(st.depth * 100) : '–'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card" style="margin-top:16px"><h2>Mapa de calor</h2><div id="heat"></div></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-top:16px">
+      <div class="card"><h2>Elementos mais tocados</h2>${a.top.length ? `<table><tbody>${a.top.slice(0, 12).map(t => `<tr><td>${esc(t.label)}</td><td class="r ${t.hit ? 'pill-hit' : 'pill-miss'}">${t.hit ? 'ação' : 'fora'}</td><td class="r"><b>${t.n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Sem toques registrados.</p>'}</div>
+      <div class="card"><h2>Marcadores</h2>${a.markers.length ? a.markers.map(m => { const st = a.steps.find(x => m.t >= x.t0 && m.t < x.t1);
+        return `<div class="mk"><b>${dur(m.t)}</b><span class="muted">${st ? esc(keyName(st.key)) : ''}</span><input data-mk="${m.t}" value="${esc(m.label)}"></div>`; }).join('') : '<p class="muted">Nenhum marcador. Durante o teste, use "Marcar momento" na bandeja do moderador.</p>'}
+        <h2 style="margin-top:18px">Anotações pós-teste</h2><textarea class="notes" id="notes" placeholder="Dificuldades, falas do participante, insights…">${esc(s.notesPost || '')}</textarea></div>
+    </div>`;
+  if (!(s.events || []).some(e => e.type === 'view')) $('#heat').insertAdjacentHTML('beforebegin', '<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016;margin:0 0 14px">Nenhum toque foi gravado nesta sessão. Isso acontece quando os arquivos <b>fluxo-*.html</b> publicados no site são a versão antiga. Reenvie os 3 ao GitHub e faça um novo teste.</div>');
+  if (s.vw) heatPanel($('#heat'), s.flow, [s], s.vw, s.vh, s.st);
+  else $('#heat').innerHTML = '<p class="muted">Sem dados de tela para gerar o mapa.</p>';
+  $('#notes').oninput = e => { s.notesPost = e.target.value; save(); };
+  document.querySelectorAll('[data-mk]').forEach(i => i.onchange = () => { const m = s.events.find(e => e.type === 'marker' && e.t === +i.dataset.mk); if (m) { m.label = i.value; save(); } });
+}
+
+/* ================== Análise geral por fluxo ================== */
+function viewGeral(flow) {
+  if (!FLOWS[flow]) { location.hash = '#/'; return; }
+  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length), an = ss.map(analyze);
+  const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
+  const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
+  const tabs = Object.entries(FLOWS).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
+  const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.vw))) : 390;
+  $('#app').innerHTML = `
+    <a class="crumb" href="#/">← Painel</a>
+    <div class="row"><div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div><div style="display:flex;gap:6px;flex-wrap:wrap">${tabs}</div></div>
+    ${ss.length ? `<div class="grid kpis">
+      ${kpi('SESSÕES', ss.length)}${kpi('DURAÇÃO MÉDIA', dur(avg(an.map(a => a.total))))}${kpi('TOQUES / SESSÃO', avg(an.map(a => a.tapN)).toFixed(1))}
+      ${kpi('FORA DO ALVO', pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100))}
+      ${kpi('USARAM "VOLTAR"', an.filter(a => a.backs).length + '/' + an.length, 'participantes')}</div>
+    <div class="card"><h2>Por tela</h2><table><thead><tr><th>Tela</th><th class="r">Sessões que viram</th><th class="r">Tempo médio</th><th class="r">Toques</th><th class="r">Fora do alvo</th></tr></thead>
+      <tbody>${ks.map(k => `<tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${keyColor(k.key)};margin-right:6px"></i>${esc(keyName(k.key))}</td><td class="r">${k.n}</td><td class="r">${dur(avg(k.ms))}</td><td class="r">${k.taps}</td><td class="r">${k.taps ? pc(k.miss / k.taps * 100) : '–'}</td></tr>`).join('')}</tbody></table></div>
+    <div class="card" style="margin-top:16px"><h2>Mapa de calor (todas as sessões)</h2><div id="heat"></div></div>
+    <div class="card" style="margin-top:16px"><h2>Sessões</h2><div class="list">${ss.map(s => { const a = analyze(s); return `<div class="item" data-go="#/sessao/${s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span><span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN} toques</span><span>${a.tapN ? pc(a.missPct) : '–'}</span><span></span><span></span></div>`; }).join('')}</div></div>`
+    : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
+  if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
+}
+
+/* ================== Ações globais ================== */
+function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+function csv(list) {
+  const rows = [['sessao', 'nome', 'idade', 'fluxo', 't_ms', 'tipo', 'tela', 'x', 'y', 'alvo', 'acao_no_alvo']];
+  list.forEach(s => (s.events || []).forEach(e => rows.push([s.id, s.name, s.age, FLOWS[s.flow].name, e.t, e.type, e.key ? keyName(e.key) : '', e.x ?? '', e.y ?? '', e.label || '', e.type === 'tap' ? (e.hit ? 'sim' : 'nao') : ''])));
+  return '\ufeff' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\n');
+}
+document.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) { e.stopPropagation(); if (confirm('Excluir esta sessão? Não dá para desfazer.')) { sessions = sessions.filter(s => s.id !== del.dataset.del); save(); location.hash = '#/'; route(); } return; }
+  const ex = e.target.closest('[data-exp]');
+  if (ex) {
+    const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : sessions;
+    if (ex.dataset.exp === 'json') download('hsf-sessoes-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(sessions), 'application/json');
+    else download('hsf-toques-' + new Date().toISOString().slice(0, 10) + '.csv', csv(one), 'text/csv;charset=utf-8');
+    return;
+  }
+  const go = e.target.closest('[data-go]'); if (go) location.hash = go.dataset.go;
+});
+document.addEventListener('change', e => {
+  if (e.target.id !== 'imp' || !e.target.files[0]) return;
+  const r = new FileReader();
+  r.onload = () => { try { const arr = JSON.parse(r.result); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save(); alert(n + ' sessão(ões) importada(s).'); viewHome(); } catch (err) { alert('Arquivo inválido.'); } };
+  r.readAsText(e.target.files[0]);
+});
+route();
+</script>
 </body>
 </html>
