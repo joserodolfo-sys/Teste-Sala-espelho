@@ -285,6 +285,15 @@ button.chip{cursor:pointer}
   .appbar{height:calc(48px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
   .device{box-shadow:none}
 }
+
+/* Modo estático (análise do moderador): tela inteira sem interação */
+body.static .screen{height:auto!important}
+body.static .content{overflow:visible!important}
+body.static *{pointer-events:none!important}
+body.static #toast{display:none}
+body.static .status{display:none!important}
+body.static.st-on .status{display:flex!important}
+body.static .stage{min-height:0}
 </style>
 </head>
 <body>
@@ -774,7 +783,68 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && S.sheet) A
 /* Ícones fixos do app */
 $('#sbr').innerHTML = img('status-right.svg', 66.6, 11.33);
 $('#backbtn').innerHTML = img('arrow-back.svg', 24, 24);
+/* ============ Modo moderador: visualização estática e gravação ============ */
+(function () {
+  const q = new URLSearchParams(location.search);
+  if (q.get('static') === '1') {
+    document.body.classList.add('static');
+    if (q.get('st') === '1') document.body.classList.add('st-on');
+    const v = q.get('view'), cur = +q.get('cur'), sel = q.get('sel');
+    if (cur) S.cur = cur;
+    if (v === 'sheet') { S.screen = q.get('under') || 'home'; S.sheet = true; } else if (v) S.screen = v;
+    if (sel) S.sel = +sel;
+    return;
+  }
+  if (q.get('rec') !== '1' || window.parent === window) return;
+  const post = ev => window.parent.postMessage({ hsf: 1, ev }, '*');
+  const keyOf = () => {
+    const b = (S.screen === 'home' || S.screen === 'detail') ? S.screen + '@' + S.cur + (S.screen === 'detail' && S.sel != null ? '#' + S.sel : '') : S.screen;
+    return S.sheet ? 'sheet~' + b : b;
+  };
+  let last = null;
+  const view = () => {
+    const k = keyOf(); if (k === last) return; last = k;
+    const sc = $('#screen').getBoundingClientRect();
+    post({ type: 'view', key: k, vw: Math.round(sc.width), vh: Math.round(sc.height), st: getComputedStyle($('.status')).display !== 'none' ? 1 : 0 });
+  };
+  const _r = render; render = function () { _r.apply(this, arguments); view(); };
+  window.__recInit = view;
+
+  const LAB = { back: 'Voltar (cabeçalho)', detail: 'Mais detalhes', offer: 'Card "Ofertar lance livre"', offerFromCota: 'Ofertar lance (cálculo)',
+    next: 'Ver próximos passos', sheet: 'Seletor de assembleia', closeSheet: 'Fechar bottomsheet', prevAsm: 'Seta: assembleia anterior',
+    nextAsm: 'Seta: próxima assembleia', mode: 'Alternar R$ / %', table: 'Acordeão de últimos lances' };
+  let d = null;
+  document.addEventListener('pointerdown', e => { d = { x: e.clientX, y: e.clientY, t: performance.now(), tg: e.target, key: keyOf() }; }, true);
+  document.addEventListener('pointercancel', () => { d = null; }, true);
+  document.addEventListener('pointerup', e => {
+    if (!d) return; const o = d; d = null;
+    if (Math.hypot(e.clientX - o.x, e.clientY - o.y) > 10 || performance.now() - o.t > 800) return;
+    const sc = $('#screen').getBoundingClientRect(), ct = $('#content');
+    const inContent = !!o.tg.closest('#content');
+    const x = o.x - sc.left;
+    const y = inContent ? o.y - ct.getBoundingClientRect().top + ct.scrollTop : o.y - sc.top;
+    const el = o.tg.closest('[data-act],button,a,input,[role=link]');
+    let act = '', label = '';
+    if (el) {
+      act = el.dataset.act || el.tagName.toLowerCase();
+      if (act === 'pick') label = 'Chip cota ' + el.dataset.n;
+      else if (act === 'pickAsm') label = 'Escolher assembleia ' + el.dataset.n;
+      else if (act === 'toast') label = (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40) + ' (sem destino)';
+      else label = LAB[act] || (el.getAttribute('aria-label') || el.textContent || act).trim().replace(/\s+/g, ' ').slice(0, 40);
+    } else {
+      const tx = Array.from(o.tg.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').trim().replace(/\s+/g, ' ').slice(0, 28);
+      label = 'Sem ação' + (tx ? ': ' + tx : '');
+    }
+    post({ type: 'tap', key: o.key, x: Math.round(x), xf: +(x / sc.width).toFixed(4), y: Math.round(y), fixed: !inContent, hit: !!el, act, label });
+  }, true);
+  let st = 0;
+  $('#content').addEventListener('scroll', () => {
+    clearTimeout(st);
+    st = setTimeout(() => { const c = $('#content'); post({ type: 'scroll', key: keyOf(), top: Math.round(c.scrollTop), ch: c.clientHeight, sh: c.scrollHeight }); }, 250);
+  }, { passive: true });
+})();
 render();
+if (window.__recInit) window.__recInit();
 </script>
 </body>
 </html>
