@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HSF · Assembleias — Teste de usabilidade</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Montserrat',system-ui,sans-serif;background:#f5f5f5;color:#35363b;min-height:100vh}
+header{background:#c00;color:#fff;padding:28px 24px 24px}
+header h1{font-size:20px;line-height:1.3;font-weight:700}
+header p{font-size:13px;line-height:1.5;margin-top:6px;opacity:.9}
+main{max-width:480px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:12px}
+a.card{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:.5px solid #d7d8da;border-radius:8px;padding:16px;text-decoration:none;color:inherit}
+a.card:active{background:#fff7f6}
+a.card b{display:block;font-size:14px;line-height:20px;font-weight:600}
+a.card span{display:block;font-size:11px;line-height:1.5;color:#505156;margin-top:2px}
+a.card i{flex:none;color:#c00;font-style:normal;font-size:22px;line-height:1}
+.n{flex:none;width:28px;height:28px;border-radius:50%;background:#ffe4e2;color:#c00;font-size:13px;font-weight:700;display:grid;place-items:center}
+.l{display:flex;gap:12px;align-items:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>HSF · Assembleias</h1>
+  <p>Protótipo do teste de usabilidade. Escolha um fluxo para abrir.</p>
+</header>
+<main>
+  <a class="card" href="fluxo-1-nao-contemplado.html"><div class="l"><div class="n">1</div><div><b>Não contemplado</b><span>Assembleia normal</span></div></div><i>›</i></a>
+  <a class="card" href="fluxo-2-contemplado-sorteio.html"><div class="l"><div class="n">2</div><div><b>Contemplado</b><span>Por sorteio</span></div></div><i>›</i></a>
+  <a class="card" href="fluxo-3-cota-cancelada-sorteada.html"><div class="l"><div class="n">3</div><div><b>Cota cancelada sorteada</b><span>Cotas duplicadas</span></div></div><i>›</i></a>
+</main>
+</body>
+</html>
