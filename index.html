@@ -167,6 +167,9 @@ td.r,th.r{text-align:right}
 .ip iframe{display:block;width:393px;height:852px;border:0;background:#fff}
 .ip .isl{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:125px;height:37px;border-radius:20px;background:#000;z-index:3;pointer-events:none}
 .ip .hi{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(0,0,0,.88);z-index:3;pointer-events:none}
+.iossb{position:absolute;left:0;top:0;width:393px;height:59px;z-index:2;pointer-events:none;color:#fff;transition:color .2s;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',Arial,sans-serif}
+.iossb .t{position:absolute;left:0;top:18px;width:125px;text-align:center;font-size:17px;line-height:22px;font-weight:600;letter-spacing:-.4px}
+.iossb svg{position:absolute;display:block}
 .ip .bt{position:absolute;width:4px;background:#2b2b2e;border-radius:2px}
 .ip .bt.l1{left:-3px;top:130px;height:30px}.ip .bt.l2{left:-3px;top:190px;height:52px}.ip .bt.l3{left:-3px;top:252px;height:52px}.ip .bt.r1{right:-3px;top:210px;height:84px}
 .pvwrap{display:flex;justify-content:center;margin-top:18px}
@@ -993,6 +996,13 @@ function viewFluxos() {
       <div class="card flow"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn primary sm" href="#/previa/${k}">▶ Visualizar</a><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>`).join('')}</div>`;
 }
+const IOS_BAT = 0.76;
+function iosSb() {
+  return `<div class="iossb" id="iossb"><span class="t" id="iostime">9:41</span>
+    <svg style="left:282px;top:16px" width="19" height="13" viewBox="0 0 19 13" aria-hidden="true"><g fill="currentColor"><rect x="0" y="8.5" width="3.2" height="4.5" rx=".9"/><rect x="5" y="6" width="3.2" height="7" rx=".9"/><rect x="10" y="3.2" width="3.2" height="9.8" rx=".9"/><rect x="15" y="0" width="3.2" height="13" rx=".9" opacity=".35"/></g></svg>
+    <svg style="left:308px;top:16px" width="18" height="13" viewBox="0 0 18 13" aria-hidden="true"><path d="M1.6 4.6a10.4 10.4 0 0114.8 0M4.3 7.5a6.6 6.6 0 019.4 0M6.8 10.3a3 3 0 014.4 0" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round"/><circle cx="9" cy="11.7" r="1.25" fill="currentColor"/></svg>
+    <svg style="left:333px;top:16px" width="28" height="13" viewBox="0 0 28 13" aria-hidden="true"><rect x=".5" y=".5" width="23.5" height="12" rx="3.7" fill="none" stroke="currentColor" opacity=".42"/><rect x="2" y="2" width="${(20.5 * IOS_BAT).toFixed(1)}" height="9" rx="2.3" fill="currentColor"/><path d="M25.5 4.4v4.2c.9-.35 1.6-1.2 1.6-2.1s-.7-1.75-1.6-2.1z" fill="currentColor" opacity=".45"/></svg></div>`;
+}
 function viewPrevia(k) {
   const f = FLOWS[k]; if (!f) { location.hash = '#/fluxos'; return; }
   $('#app').innerHTML = `
@@ -1002,13 +1012,21 @@ function viewPrevia(k) {
       <div class="ftabs">${Object.entries(FLOWS).map(([x, g]) => `<a class="btn sm ${x === k ? 'primary' : ''}" href="#/previa/${x}">${g.n}. ${g.name}</a>`).join('')}</div></div>
     <div class="ipw"><div class="ipsize" id="ipsize"><div class="ipbox" id="ipbox"><div class="ip">
       <i class="bt l1"></i><i class="bt l2"></i><i class="bt l3"></i><i class="bt r1"></i>
-      <div class="scr"><iframe id="pvf" src="${f.file}?device=iphone&v=${Date.now()}" title="Visualização do fluxo"></iframe><i class="isl"></i><i class="hi"></i></div>
+      <div class="scr"><iframe id="pvf" src="${f.file}?device=iphone&v=${Date.now()}" title="Visualização do fluxo"></iframe>${iosSb()}<i class="isl"></i><i class="hi"></i></div>
     </div></div></div></div>
     <p class="muted" style="text-align:center;margin-top:10px">iPhone 16 · tela de 393 × 852 px</p>`;
   const fitIp = () => { const box = $('#ipbox'), sz = $('#ipsize'); if (!box) return window.removeEventListener('resize', fitIp);
     const s = Math.min(1, (window.innerHeight - 250) / 876, (window.innerWidth - 24) / 417); const k = Math.max(.45, s);
     box.style.transform = `scale(${k})`; sz.style.width = Math.round(417 * k) + 'px'; sz.style.height = Math.round(876 * k) + 'px'; };
   fitIp(); window.addEventListener('resize', fitIp);
+  /* hora real e cor da barra de status (clara sobre fundo escuro, escura sobre fundo claro) */
+  const bgAt = (doc, x, y) => { let el = doc.elementFromPoint(x, y); while (el) { const c = doc.defaultView.getComputedStyle(el).backgroundColor, v = c.match(/[\d.]+/g); if (v && (v.length < 4 || +v[3] > .5)) return v.slice(0, 3).map(Number); el = el.parentElement; } return [255, 255, 255]; };
+  const tick = () => {
+    const sb = $('#iossb'); if (!sb) { clearInterval(tm); return; }
+    const d = new Date(); $('#iostime').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+    try { const doc = $('#pvf').contentDocument, c = bgAt(doc, 196, 10); sb.style.color = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255 < .62 ? '#fff' : '#000'; } catch (e) {}
+  };
+  const tm = setInterval(tick, 400); tick();
   $('#pv-re').onclick = () => { $('#pvf').src = f.file + '?device=iphone&v=' + Date.now(); };
 }
 

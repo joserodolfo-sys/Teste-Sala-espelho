@@ -6,20 +6,22 @@
   var CSS = `
 #sim{position:absolute;inset:0;z-index:8;background:#fff;overflow:hidden;--sbs:0px;font-family:'Montserrat',system-ui,sans-serif}
 @media (max-width:480px){#sim{--sbs:42px}}
-body.iphone #sim,body.force-sb #sim,#sim.sb-on{--sbs:0px}
+body.force-sb #sim,#sim.sb-on{--sbs:0px}
 body.hide-sb #sim,#sim.sb-off{--sbs:42px}
 #sim .sim-s{position:absolute;inset:0;background:#fff;animation:simR .22s ease}
 @keyframes simR{from{transform:translateX(36px);opacity:0}to{transform:none;opacity:1}}
 @keyframes simUp{from{transform:translateY(60px);opacity:.4}to{transform:none;opacity:1}}
 @keyframes simFade{from{opacity:0}to{opacity:1}}
 #sim .in{width:360px;height:calc(100% / var(--f));transform:scale(var(--f));transform-origin:0 0;display:flex;flex-direction:column;position:relative}
-#sim .sim-hdr{flex:none;position:relative;height:calc(90px - var(--sbs));overflow:hidden;background:#fff}
+#sim .sim-hdr{flex:none;position:relative;background:var(--hbg,#fff);padding-top:calc(var(--safe-top, 0px) / var(--f))}
+#sim .sim-hdr .hw{position:relative;height:calc(90px - var(--sbs));overflow:hidden}
 #sim .sim-hdr .hi{position:absolute;left:0;top:calc(-1 * var(--sbs));width:360px;height:90px}
 #sim img{display:block;width:360px;-webkit-user-drag:none;user-select:none}
 #sim .simscroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;position:relative;overscroll-behavior:contain}
 #sim .simscroll::-webkit-scrollbar{display:none}
 #sim .sim-body{position:relative;width:360px}
 #sim .simfoot{flex:none;position:relative;width:360px;box-shadow:0 -2px 10px rgba(0,0,0,.08);background:#fff}
+#sim .simfoot::after{content:'';display:block;height:calc(var(--safe-bottom, 0px) / var(--f));background:#fff}
 #sim .hit{position:absolute;display:block;background:transparent;border:0;padding:0;margin:0;cursor:pointer;border-radius:8px}
 #sim .pillhl{position:absolute;border-radius:18px;background:rgba(204,0,0,.16);box-shadow:inset 0 0 0 1.5px #c00;pointer-events:none}
 #sim .sim-m{position:absolute;inset:0;z-index:3;animation:simFade .18s ease}
@@ -82,9 +84,9 @@ body.hide-sb #sim,#sim.sb-off{--sbs:42px}
     var c = SCR[id], h = META[c.body].h, fh = c.foot ? META[c.foot].h : 0;
     var hdrName = c.var ? c.hdr + (S.logged ? 'lg' : 'nl') : c.hdr, user = !S.logged && (id === 'hub' || id === 'simul');
     var el = document.createElement('div'); el.className = 'sim-s'; el.dataset.id = id;
-    el.innerHTML = '<div class="in"><div class="sim-hdr"><div class="hi">' + img(hdrName, 90) + hdrHits(user) + '</div></div>' +
+    el.innerHTML = '<div class="in"><div class="sim-hdr" style="--hbg:' + (id === 'simul' ? '#c00' : '#fff') + '"><div class="hw"><div class="hi">' + img(hdrName, 90) + hdrHits(user) + '</div></div></div>' +
       '<div class="simscroll"><div class="sim-body" style="height:' + h + 'px">' + img(c.body, h) + hits(c.hits) + pills(id) + '</div></div>' +
-      (c.foot ? '<div class="simfoot" style="height:' + fh + 'px">' + img(c.foot, fh) + hits(c.fhits) + '</div>' : '') + '</div>';
+      (c.foot ? '<div class="simfoot">' + img(c.foot, fh) + hits(c.fhits) + '</div>' : '') + '</div>';
     return el;
   }
   function buildModal(id) {
@@ -92,7 +94,7 @@ body.hide-sb #sim,#sim.sb-off{--sbs:42px}
     var el = document.createElement('div'); el.className = 'sim-m'; el.dataset.id = id;
     el.innerHTML = '<button class="hit dim" data-sim="closeModal" data-label="Fechar (fora da folha)" aria-label="Fechar"></button>' +
       '<div class="in"><div class="dsh"><div class="simscroll"><div class="sim-body" style="height:' + bh + 'px">' + img(id + '_body', bh) + '</div></div>' +
-      '<div class="simfoot" style="height:' + fh + 'px">' + img(id + '_foot', fh) + hits([[0, 0, 360, fh, 'closeModal', 'Fechar']]) + '</div></div></div>';
+      '<div class="simfoot">' + img(id + '_foot', fh) + hits([[0, 0, 360, fh, 'closeModal', 'Fechar']]) + '</div></div></div>';
     return el;
   }
   function buildSheet() {

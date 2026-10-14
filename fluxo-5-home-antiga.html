@@ -22,7 +22,7 @@ p{margin:0}
 .sb{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--brand);color:#fff}
 .sb .time{font:500 15px/normal 'Roboto',sans-serif;letter-spacing:-.3px}
 .sb img{width:66.6px;height:11.33px}
-.greet{display:flex;align-items:center;gap:4px;background:var(--brand);padding:0 8px 4px 24px;color:#fff}
+.greet{display:flex;align-items:center;gap:4px;background:var(--brand);padding:calc(var(--safe-top) / var(--f)) 8px 4px 24px;color:#fff}
 .greet p{flex:1;font-size:16px;line-height:1.5;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bell{position:relative;width:44px;height:44px;flex:none}
 .bell img{position:absolute;left:10px;top:10px;width:24px;height:24px}
@@ -107,14 +107,14 @@ p{margin:0}
 .segc .bt{flex:none;background:var(--brand);color:#fff;font-size:14px;line-height:20px;font-weight:600;text-align:center;padding:12px 16px;border-top:1px solid var(--line)}
 .segw{height:368px;background:var(--g50);display:flex;align-items:center;flex:none}
 /* menu inferior */
-.bnav{position:absolute;left:0;right:0;bottom:0;height:59px;background:#fff;border-top:1px solid var(--line);display:flex;z-index:6}
+.bnav{position:absolute;left:0;right:0;bottom:0;height:calc(59px + var(--safe-bottom) / var(--f));padding-bottom:calc(var(--safe-bottom) / var(--f));background:#fff;border-top:1px solid var(--line);display:flex;z-index:6}
 .bnav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 0;font-size:10px;line-height:1.5;color:var(--s);text-align:center;white-space:nowrap}
 .bnav button.on{color:var(--brand);font-weight:600}
 .bnav img{width:24px;height:24px}
 #toast{position:absolute;left:24px;right:24px;bottom:76px;background:#232326;color:#fff;font-size:12px;line-height:1.45;padding:10px 14px;border-radius:8px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none;z-index:40;text-align:center}
 #toast.on{opacity:1;transform:none}
 @media (max-width:480px){.sb{display:none}}
-body.force-sb .sb,body.iphone .sb{display:flex!important}
+body.force-sb .sb{display:flex!important}
 body.hide-sb .sb{display:none!important}
 body.static #screen{height:auto}
 body.static .app{height:auto}
@@ -122,6 +122,9 @@ body.static #content{overflow:visible}
 body.static *{pointer-events:none!important}
 body.static #toast{display:none}
 body.static .stage{min-height:0}
+
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+body.iphone{--safe-top:59px;--safe-bottom:34px}
 </style>
 </head>
 <body>

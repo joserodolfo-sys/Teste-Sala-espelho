@@ -15,10 +15,10 @@ img{display:block;-webkit-user-drag:none;user-select:none}
 button{font:inherit;border:0;background:none;cursor:pointer;color:inherit;text-align:inherit}
 .stage{min-height:100%;display:flex;justify-content:center}
 #screen{position:relative;width:100%;max-width:480px;height:100vh;height:100dvh;overflow:hidden;background:var(--bg);box-shadow:0 0 40px rgba(0,0,0,.14);user-select:none;-webkit-user-select:none}
-#content{position:absolute;inset:0;overflow:hidden}
+#content{position:absolute;left:0;right:0;bottom:0;top:var(--safe-top);overflow:hidden}
 .track{display:flex;height:100%;width:400%;will-change:transform;touch-action:pan-y}
 .slide{flex:0 0 25%;height:100%;position:relative;overflow:hidden}
-.inner{width:360px;height:calc(100% / var(--f));transform:scale(var(--f));transform-origin:0 0;display:flex;flex-direction:column;align-items:center;padding-bottom:32px;background:var(--bg)}
+.inner{width:360px;height:calc(100% / var(--f));transform:scale(var(--f));transform-origin:0 0;display:flex;flex-direction:column;align-items:center;padding-bottom:calc(32px + var(--safe-bottom) / var(--f));background:var(--bg)}
 .head{width:100%;display:flex;flex-direction:column;align-items:center;gap:16px;padding:16px 0;flex:none}
 .sp{height:16px;flex:none}
 .stepper{position:absolute;left:50%;top:calc(16px * var(--f));z-index:4;display:flex;gap:8px;padding:4px;transform:translateX(-50%) scale(var(--f));transform-origin:top center;pointer-events:none}
@@ -55,44 +55,39 @@ button{font:inherit;border:0;background:none;cursor:pointer;color:inherit;text-a
 .info4{display:flex;gap:16px;align-items:center;padding:0 24px;width:100%;height:160px}
 .info4 .tb{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
 /* splash */
-/* login */
-#login{position:absolute;inset:0;background:#fff;z-index:20;transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);overflow:hidden}
+/* login (igual ao app real, medido no print de um iPhone 16) */
+#login{position:absolute;inset:0;background:#fff;z-index:20;transform:translateX(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1);overflow:hidden;display:flex;flex-direction:column}
 #login[hidden]{display:none}
 #login.on{transform:none}
-.linner{width:360px;height:calc(100% / var(--f));transform:scale(var(--f));transform-origin:0 0;position:relative}
-.lh{position:absolute;left:0;top:0;width:360px;height:119px;background:#e40521;box-shadow:0 2px 4px rgba(0,0,0,.1);color:#fff}
-.lh .sb{position:absolute;top:7px;font-size:12px;font-weight:600;line-height:15px}
-.lh .sb.l{left:13px}.lh .sb.r{right:13px}
-.lh .lt{position:absolute;left:32px;top:53px;font-size:16px;font-weight:600;line-height:20px}
-.lh img{position:absolute;left:277px;top:47.6px;width:48px;height:47.6px}
-.lbody{position:absolute;left:32px;top:144px;width:296px;display:flex;flex-direction:column;gap:32px}
-.camp{display:flex;flex-direction:column;gap:16px}
-.ltitle{font-size:16px;font-weight:600;line-height:20px;color:#000}
-.fld{position:relative;height:48px;border-bottom:1px solid #4d4d4d;cursor:text}
-.fld::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#000;opacity:0;pointer-events:none;transition:opacity .15s}
+.lh{flex:none;position:relative;background:#e20622;color:#fff;height:calc(102px + var(--safe-top));box-shadow:0 2px 4px rgba(0,0,0,.1)}
+.lh .bk{position:absolute;left:8px;top:calc(var(--safe-top) + 22px);width:44px;height:36px;display:grid;place-items:center}
+.lh .lt{position:absolute;left:42px;top:calc(var(--safe-top) + 29px);font-size:17px;line-height:22px;font-weight:600}
+.lh img{position:absolute;right:15px;top:calc(var(--safe-top) + 28px);width:48px;height:48px}
+.lbody{flex:1;min-height:0;overflow-y:auto;padding:0 32px 16px;scrollbar-width:none}
+.lbody::-webkit-scrollbar{display:none}
+.ltitle{padding-top:21px;height:41px;font-size:16px;line-height:20px;font-weight:600;color:#000}
+.fld{position:relative;height:72px;border-bottom:1.5px solid #989898;cursor:text}
+.fld::after{content:'';position:absolute;left:0;right:0;bottom:-1.5px;height:2px;background:#000;opacity:0;pointer-events:none;transition:opacity .15s}
 .fld:focus-within::after{opacity:1}
-.fld label{position:absolute;left:0;bottom:4px;height:24px;display:flex;align-items:center;font-size:14px;letter-spacing:1.4px;text-transform:uppercase;color:#4d4d4d;transition:bottom .15s,font-size .15s,height .15s;pointer-events:none}
-.fld.up label{bottom:28px;height:16px;font-size:12px}
-.fld input{position:absolute;left:0;bottom:4px;height:24px;width:100%;border:0;outline:0;background:transparent;font:600 14px 'Montserrat',sans-serif;color:#4d4d4d;padding:0}
-.fld.pw input{padding-right:32px}
-.fld input::placeholder{color:#4d4d4d;opacity:0;font-weight:400}
+.fld label{position:absolute;left:0;top:33px;height:24px;display:flex;align-items:center;font-size:14px;font-weight:600;color:#adadad;text-transform:uppercase;transition:top .15s,font-size .15s;pointer-events:none}
+.fld.up label{top:12px;font-size:12px;font-weight:500}
+.fld input{position:absolute;left:0;top:33px;height:24px;width:100%;border:0;outline:0;background:transparent;font:600 15px 'Montserrat',sans-serif;color:#35363b;padding:0}
+.fld.pw input{padding-right:36px}
+.fld input::placeholder{color:#adadad;opacity:0;font-weight:500}
 .fld:focus-within input::placeholder{opacity:1}
-.eye{position:absolute;right:0;bottom:4px;width:24px;height:24px}
+.eye{position:absolute;right:0;top:32px;width:26px;height:26px}
 .eye img{width:24px;height:24px}
-.litem{display:flex;flex-direction:column;gap:8px}
-.terms{display:flex;align-items:center;gap:16px}
-.terms p{flex:1;font-size:12px;line-height:normal;color:#000}
+.litem{display:flex;flex-direction:column;gap:8px;margin-top:55px}
+.terms{display:flex;align-items:center;gap:14px}
+.terms p{flex:1;font-size:13px;line-height:17px;color:#000}
 .terms a{color:#000;text-decoration:underline;text-underline-position:from-font}
-.chk{width:24px;height:24px;display:grid;place-items:center;flex:none}
+.chk{width:28px;height:28px;display:grid;place-items:center;flex:none}
 .chk img{width:20px;height:20px}
-.lerr{font-size:12px;line-height:15px;color:#e40521}
+.lerr{font-size:12px;line-height:15px;color:#e20622}
 .lerr[hidden]{display:none}
-.llinks{display:flex;flex-direction:column;align-items:center;gap:16px;font-size:14px;font-weight:600;color:#e40521;text-align:center;line-height:normal}
+.llinks{display:flex;flex-direction:column;align-items:center;gap:14px;font-size:14px;line-height:20px;font-weight:600;color:#e20622;text-align:center;margin-top:33px}
 .llinks a{cursor:pointer}
-.acc{display:grid;place-items:center;text-align:center;position:absolute;left:32px;bottom:35px;width:296px;height:42px;border-radius:4px;background:#e40521;color:#fff;font-size:14px;font-weight:700}
-@media (max-width:480px){.lh .sb{display:none}}
-body.iphone .lh .sb{display:block!important}
-body.iphone #content{top:50px}
+.acc{flex:none;display:grid;place-items:center;text-align:center;margin:12px 32px calc(33px + var(--safe-bottom));height:42px;border-radius:5px;background:#e20622;color:#fff;font-size:15px;font-weight:700}
 #splash{position:absolute;inset:0;background:var(--brand);z-index:5;transition:opacity .35s}
 #splash.hide{opacity:0;pointer-events:none}
 #lot{position:absolute;inset:0}
@@ -102,6 +97,9 @@ body.static #screen{height:var(--h,800px);max-width:480px}
 body.static *{pointer-events:none!important}
 body.static #toast{display:none}
 body.static .stage{min-height:0}
+
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+body.iphone{--safe-top:59px;--safe-bottom:34px}
 </style>
 </head>
 <body>
@@ -146,14 +144,15 @@ body.static .stage{min-height:0}
       </div></section>
     </div>
   </div>
-  <section id="login" hidden aria-label="Login"><div class="linner">
-    <header class="lh"><span class="sb l">VIVO 4G</span><span class="sb r">12:00</span><p class="lt">Login</p><img src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ3LjU4MzYiIHZpZXdCb3g9IjAgMCA0OCA0Ny41ODM2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0idXNlciAyIj4KPHBhdGggaWQ9IlZlY3RvciIgZD0iTTQwIDQxLjYzNTdWMzcuNjcwNEM0MCAzNS41NjcxIDM5LjE1NzEgMzMuNTQ5OSAzNy42NTY5IDMyLjA2MjZDMzYuMTU2NiAzMC41NzUzIDM0LjEyMTcgMjkuNzM5OCAzMiAyOS43Mzk4SDE2QzEzLjg3ODMgMjkuNzM5OCAxMS44NDM0IDMwLjU3NTMgMTAuMzQzMSAzMi4wNjI2QzguODQyODUgMzMuNTQ5OSA4IDM1LjU2NzEgOCAzNy42NzA0VjQxLjYzNTciIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTI0IDIxLjgwOTJDMjguNDE4MyAyMS44MDkyIDMyIDE4LjI1ODUgMzIgMTMuODc4NkMzMiA5LjQ5ODYxIDI4LjQxODMgNS45NDc5NiAyNCA1Ljk0Nzk2QzE5LjU4MTcgNS45NDc5NiAxNiA5LjQ5ODYxIDE2IDEzLjg3ODZDMTYgMTguMjU4NSAxOS41ODE3IDIxLjgwOTIgMjQgMjEuODA5MloiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjwvZz4KPC9zdmc+Cg==" alt=""></header>
+  <section id="login" hidden aria-label="Login">
+    <header class="lh">
+      <button class="bk" data-act="loginBack" data-label="Voltar (login)" aria-label="Voltar"><svg width="14" height="22" viewBox="0 0 14 22" fill="none" aria-hidden="true"><path d="M11 2.5L3 11l8 8.5" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <p class="lt">Login</p><img src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ3LjU4MzYiIHZpZXdCb3g9IjAgMCA0OCA0Ny41ODM2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8ZyBpZD0idXNlciAyIj4KPHBhdGggaWQ9IlZlY3RvciIgZD0iTTQwIDQxLjYzNTdWMzcuNjcwNEM0MCAzNS41NjcxIDM5LjE1NzEgMzMuNTQ5OSAzNy42NTY5IDMyLjA2MjZDMzYuMTU2NiAzMC41NzUzIDM0LjEyMTcgMjkuNzM5OCAzMiAyOS43Mzk4SDE2QzEzLjg3ODMgMjkuNzM5OCAxMS44NDM0IDMwLjU3NTMgMTAuMzQzMSAzMi4wNjI2QzguODQyODUgMzMuNTQ5OSA4IDM1LjU2NzEgOCAzNy42NzA0VjQxLjYzNTciIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTI0IDIxLjgwOTJDMjguNDE4MyAyMS44MDkyIDMyIDE4LjI1ODUgMzIgMTMuODc4NkMzMiA5LjQ5ODYxIDI4LjQxODMgNS45NDc5NiAyNCA1Ljk0Nzk2QzE5LjU4MTcgNS45NDc5NiAxNiA5LjQ5ODYxIDE2IDEzLjg3ODZDMTYgMTguMjU4NSAxOS41ODE3IDIxLjgwOTIgMjQgMjEuODA5MloiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+CjwvZz4KPC9zdmc+Cg==" alt="">
+    </header>
     <div class="lbody">
-      <div class="camp">
-        <p class="ltitle">Acesse a sua conta</p>
-        <div class="fld" id="f-cpf" data-act="fld" data-label="Campo CPF"><label for="cpf">CPF</label><input id="cpf" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="___.___.___-__" data-label="Campo CPF"></div>
-        <div class="fld pw" id="f-pw" data-act="fld" data-label="Campo senha"><label for="pw">Senha</label><input id="pw" type="password" autocomplete="off" placeholder="Insira sua senha" data-label="Campo senha"><button class="eye" id="eye" data-act="eye" data-label="Mostrar/ocultar senha" aria-label="Mostrar ou ocultar senha"><img id="eyei" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJ2aXNpYmlsaXR5X29mZl9ibGFja18yNGRwIDEiIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8wXzQ0KSI+CjxnIGlkPSJWZWN0b3IiPgo8L2c+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTEyIDdDMTQuNzYgNyAxNyA5LjI0IDE3IDEyQzE3IDEyLjY1IDE2Ljg3IDEzLjI2IDE2LjY0IDEzLjgzTDE5LjU2IDE2Ljc1QzIxLjA3IDE1LjQ5IDIyLjI2IDEzLjg2IDIyLjk5IDEyQzIxLjI2IDcuNjEgMTYuOTkgNC41IDExLjk5IDQuNUMxMC41OSA0LjUgOS4yNSA0Ljc1IDguMDEgNS4yTDEwLjE3IDcuMzZDMTAuNzQgNy4xMyAxMS4zNSA3IDEyIDdaTTIgNC4yN0w0LjI4IDYuNTVMNC43NCA3LjAxQzMuMDggOC4zIDEuNzggMTAuMDIgMSAxMkMyLjczIDE2LjM5IDcgMTkuNSAxMiAxOS41QzEzLjU1IDE5LjUgMTUuMDMgMTkuMiAxNi4zOCAxOC42NkwxNi44IDE5LjA4TDE5LjczIDIyTDIxIDIwLjczTDMuMjcgM0wyIDQuMjdaTTcuNTMgOS44TDkuMDggMTEuMzVDOS4wMyAxMS41NiA5IDExLjc4IDkgMTJDOSAxMy42NiAxMC4zNCAxNSAxMiAxNUMxMi4yMiAxNSAxMi40NCAxNC45NyAxMi42NSAxNC45MkwxNC4yIDE2LjQ3QzEzLjUzIDE2LjggMTIuNzkgMTcgMTIgMTdDOS4yNCAxNyA3IDE0Ljc2IDcgMTJDNyAxMS4yMSA3LjIgMTAuNDcgNy41MyA5LjhWOS44Wk0xMS44NCA5LjAyTDE0Ljk5IDEyLjE3TDE1LjAxIDEyLjAxQzE1LjAxIDEwLjM1IDEzLjY3IDkuMDEgMTIuMDEgOS4wMUwxMS44NCA5LjAyWiIgZmlsbD0iIzRENEQ0RCIvPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzBfNDQiPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==" alt=""></button></div>
-      </div>
+      <p class="ltitle">Acesse a sua conta</p>
+      <div class="fld" id="f-cpf" data-act="fld" data-label="Campo CPF"><label for="cpf">CPF</label><input id="cpf" inputmode="numeric" autocomplete="off" maxlength="14" placeholder="___.___.___-__" data-label="Campo CPF"></div>
+      <div class="fld pw" id="f-pw" data-act="fld" data-label="Campo senha"><label for="pw">Senha</label><input id="pw" type="password" autocomplete="off" placeholder="Insira sua senha" data-label="Campo senha"><button class="eye" id="eye" data-act="eye" data-label="Mostrar/ocultar senha" aria-label="Mostrar ou ocultar senha"><img id="eyei" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJ2aXNpYmlsaXR5X29mZl9ibGFja18yNGRwIDEiIGNsaXAtcGF0aD0idXJsKCNjbGlwMF8wXzQ0KSI+CjxnIGlkPSJWZWN0b3IiPgo8L2c+CjxwYXRoIGlkPSJWZWN0b3JfMiIgZD0iTTEyIDdDMTQuNzYgNyAxNyA5LjI0IDE3IDEyQzE3IDEyLjY1IDE2Ljg3IDEzLjI2IDE2LjY0IDEzLjgzTDE5LjU2IDE2Ljc1QzIxLjA3IDE1LjQ5IDIyLjI2IDEzLjg2IDIyLjk5IDEyQzIxLjI2IDcuNjEgMTYuOTkgNC41IDExLjk5IDQuNUMxMC41OSA0LjUgOS4yNSA0Ljc1IDguMDEgNS4yTDEwLjE3IDcuMzZDMTAuNzQgNy4xMyAxMS4zNSA3IDEyIDdaTTIgNC4yN0w0LjI4IDYuNTVMNC43NCA3LjAxQzMuMDggOC4zIDEuNzggMTAuMDIgMSAxMkMyLjczIDE2LjM5IDcgMTkuNSAxMiAxOS41QzEzLjU1IDE5LjUgMTUuMDMgMTkuMiAxNi4zOCAxOC42NkwxNi44IDE5LjA4TDE5LjczIDIyTDIxIDIwLjczTDMuMjcgM0wyIDQuMjdaTTcuNTMgOS44TDkuMDggMTEuMzVDOS4wMyAxMS41NiA5IDExLjc4IDkgMTJDOSAxMy42NiAxMC4zNCAxNSAxMiAxNUMxMi4yMiAxNSAxMi40NCAxNC45NyAxMi42NSAxNC45MkwxNC4yIDE2LjQ3QzEzLjUzIDE2LjggMTIuNzkgMTcgMTIgMTdDOS4yNCAxNyA3IDE0Ljc2IDcgMTJDNyAxMS4yMSA3LjIgMTAuNDcgNy41MyA5LjhWOS44Wk0xMS44NCA5LjAyTDE0Ljk5IDEyLjE3TDE1LjAxIDEyLjAxQzE1LjAxIDEwLjM1IDEzLjY3IDkuMDEgMTIuMDEgOS4wMUwxMS44NCA5LjAyWiIgZmlsbD0iIzRENEQ0RCIvPgo8L2c+CjxkZWZzPgo8Y2xpcFBhdGggaWQ9ImNsaXAwXzBfNDQiPgo8cmVjdCB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9IndoaXRlIi8+CjwvY2xpcFBhdGg+CjwvZGVmcz4KPC9zdmc+Cg==" alt=""></button></div>
       <div class="litem">
         <div class="terms"><p>Concordo com os <a data-act="terms" data-label="Termos de Uso e Privacidade (link)">Termos de Uso e Privacidade da Honda</a></p>
           <button class="chk" id="chk" role="checkbox" aria-checked="false" data-act="chk" data-label="Checkbox: aceitar termos"><img id="chki" src="data:image/svg+xml;base64,PHN2ZyBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJub25lIiBvdmVyZmxvdz0idmlzaWJsZSIgc3R5bGU9ImRpc3BsYXk6IGJsb2NrOyIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiB2aWV3Qm94PSIwIDAgMjAgMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxnIGlkPSJHcm91cCAyMzYxIj4KPHBhdGggaWQ9IlZlY3RvciIgZD0iTTMgMTlMMTcgMTlDMTguMTA0NiAxOSAxOSAxOC4xMDQ2IDE5IDE3TDE5IDNDMTkgMS44OTU0MyAxOC4xMDQ2IDEgMTcgMUwzIDFDMS44OTU0MyAxIDEgMS44OTU0MyAxIDNMMSAxN0MxIDE4LjEwNDYgMS44OTU0MyAxOSAzIDE5WiIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4KPC9nPgo8L3N2Zz4K" alt=""></button></div>
@@ -162,7 +161,7 @@ body.static .stage{min-height:0}
       <div class="llinks"><a data-act="forgot" data-label="Esqueci minha senha">Esqueci minha senha</a><a data-act="first" data-label="Este é meu primeiro acesso">Este é meu primeiro acesso</a></div>
     </div>
     <button class="acc" data-act="access" data-label="Acessar">Acessar</button>
-  </div></section>
+  </section>
   <div id="splash"><div id="lot"></div></div>
   <div id="toast"></div>
 </div></div>
@@ -245,7 +244,10 @@ document.addEventListener('click', e => {
 
 /* ---- Login ---- */
 const login = $('#login'), cpf = $('#cpf'), pw = $('#pw');
+let LP = 'slide';
+function closeLogin() { login.classList.remove('on'); L.err = false; $('#lerr').hidden = true; S.screen = LP || 'slide'; view(); setTimeout(() => { if (S.screen !== 'login') login.hidden = true; }, 320); }
 function openLogin(animate = true) {
+  if (S.screen !== 'login') LP = S.screen;
   S.screen = 'login'; login.hidden = false;
   if (animate) requestAnimationFrame(() => requestAnimationFrame(() => login.classList.add('on'))); else login.classList.add('on');
   view();
@@ -267,6 +269,7 @@ document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; const a = b.dataset.act;
   if (a === 'login') openLogin();
   else if (a === 'sim') openSim();
+  else if (a === 'loginBack') closeLogin();
   else if (a === 'eye') { const show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; $('#eyei').src = show ? EYE_ON : EYE_OFF; }
   else if (a === 'chk') setChecked(!L.checked);
   else if (a === 'access') { if (!L.checked) setErr(true); else { document.activeElement && document.activeElement.blur(); toast('Destino fora do escopo deste teste'); } }

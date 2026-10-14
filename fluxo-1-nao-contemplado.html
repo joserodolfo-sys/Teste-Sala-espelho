@@ -283,8 +283,7 @@ button.chip{cursor:pointer}
 .explain{max-width:100%}
 @media (max-width:480px){
   .status{display:none}
-  body.iphone .status{display:flex!important}
-  .appbar{height:calc(48px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
+  .appbar{height:calc(48px + var(--safe-top));padding-top:var(--safe-top)}
   .device{box-shadow:none}
 }
 
@@ -298,6 +297,9 @@ body.static.st-on .status{display:flex!important}
 body.static .stage{min-height:0}
 body.static.sheetv .screen{height:100vh!important}
 body.static.sheetv .content{overflow:hidden!important}
+
+:root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}
+body.iphone{--safe-top:59px;--safe-bottom:34px}
 </style>
 </head>
 <body>
