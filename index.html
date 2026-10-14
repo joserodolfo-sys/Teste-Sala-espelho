@@ -160,6 +160,11 @@ td.r,th.r{text-align:right}
 .rtwo{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .pv td{color:var(--mut);font-size:10.5px;background:#fafafb}
 .cp td:nth-child(3){max-width:170px}
+.pvwrap{display:flex;justify-content:center;margin-top:18px}
+.pvdev{width:392px;max-width:100%;padding:16px;background:#18181a;border-radius:44px;box-shadow:0 18px 48px rgba(0,0,0,.25)}
+.pvdev iframe{display:block;width:100%;height:min(780px,calc(100vh - 250px));min-height:520px;border:0;border-radius:28px;background:#fff}
+@media(max-width:480px){.pvdev{padding:0;border-radius:0;background:none;box-shadow:none}.pvdev iframe{border-radius:0;height:calc(100vh - 230px)}}
+.ftabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
 .rfoot{font-size:10px;color:var(--mut);margin-top:22px;line-height:1.6}
 .rpage ul{font-size:11.5px;line-height:1.7;padding-left:18px;color:var(--sec)}
 @media print{
@@ -190,7 +195,7 @@ td.r,th.r{text-align:right}
 <body>
 <header class="top" id="top">
   <a class="brand" href="#/"><b>HSF</b> Teste de usabilidade <span>Moderador</span></a>
-  <nav><a href="#/">Painel</a><a href="#/nova">Novo participante</a><a href="#/nuvem" id="cloudlink">☁ Entrar</a></nav>
+  <nav><a href="#/">Painel</a><a href="#/nova">Novo participante</a><a href="#/fluxos">Fluxos</a><a href="#/nuvem" id="cloudlink">☁ Entrar</a></nav>
 </header>
 <main id="app"></main>
 <div id="test" hidden></div>
@@ -903,6 +908,8 @@ function route() {
   window.scrollTo(0, 0);
   if (r === 'nova') return viewNova();
   if (r === 'teste') return viewTeste(p);
+  if (r === 'fluxos') return viewFluxos();
+  if (r === 'previa') return viewPrevia(p);
   if (r === 'nuvem') return viewNuvem();
   if (r === 'fim') return viewFim(p);
   if (r === 'participante') return viewParticipante(p);
@@ -933,7 +940,7 @@ function viewHome() {
   const P = participants(), done = sessions.filter(s => s.events && s.events.length), A = done.map(analyze);
   $('#app').innerHTML = `
     <div class="row"><div><h1>Participantes</h1><p class="muted">Os dados ficam salvos neste navegador. Baixe um backup (JSON) de vez em quando.</p></div>
-      <a class="btn primary" href="#/nova">+ Novo participante</a></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova">+ Novo participante</a></div></div>
     <div id="chk"></div>
     <p class="muted" data-cloudb style="margin:6px 0 0"></p>
     <div class="grid kpis">
@@ -961,6 +968,25 @@ function viewHome() {
       : `<div class="empty">Nenhum participante ainda.<br>Clique em <b>Novo participante</b> para começar um teste.</div>`}
     </div>`;
   checkFlows(); updateCloudUI(); cloudKick();
+}
+
+/* ================== Visualizar fluxos (sem iniciar teste) ================== */
+function viewFluxos() {
+  $('#app').innerHTML = `
+    <div><a class="crumb" href="#/">← Painel</a><h1>Fluxos</h1><p class="muted">Veja e navegue pelos fluxos como o participante. A visualização <b>não grava nada</b> e não cria sessão.</p></div>
+    <div class="grid flows" style="margin-top:20px">${Object.entries(FLOWS).map(([k, f]) => `
+      <div class="card flow"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn primary sm" href="#/previa/${k}">▶ Visualizar</a><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>`).join('')}</div>`;
+}
+function viewPrevia(k) {
+  const f = FLOWS[k]; if (!f) { location.hash = '#/fluxos'; return; }
+  $('#app').innerHTML = `
+    <div><a class="crumb" href="#/fluxos">← Fluxos</a>
+      <div class="row"><div><h1>${f.n}. ${f.name}</h1><p class="muted">${f.sub} · visualização sem gravação</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="pv-re">↻ Reiniciar fluxo</button><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>
+      <div class="ftabs">${Object.entries(FLOWS).map(([x, g]) => `<a class="btn sm ${x === k ? 'primary' : ''}" href="#/previa/${x}">${g.n}. ${g.name}</a>`).join('')}</div></div>
+    <div class="pvwrap"><div class="pvdev"><iframe id="pvf" src="${f.file}?v=${Date.now()}" title="Visualização do fluxo"></iframe></div></div>`;
+  $('#pv-re').onclick = () => { $('#pvf').src = f.file + '?v=' + Date.now(); };
 }
 
 /* ================== Novo participante (bateria de fluxos) ================== */
@@ -1289,7 +1315,8 @@ function viewGeral(flow) {
   const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.vw))) : 390;
   $('#app').innerHTML = `
     <a class="crumb" href="#/">← Painel</a>
-    <div class="row"><div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div><div style="display:flex;gap:6px;flex-wrap:wrap">${tabs}</div></div>
+    <div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div>
+    <div class="ftabs">${tabs}</div>
     ${ss.length ? `<div class="grid kpis">
       ${kpi('SESSÕES', ss.length)}${kpi('DURAÇÃO MÉDIA', dur(avg(an.map(a => a.total))))}${kpi('TOQUES / SESSÃO', avg(an.map(a => a.tapN)).toFixed(1))}
       ${kpi('FORA DO ALVO', pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100))}
