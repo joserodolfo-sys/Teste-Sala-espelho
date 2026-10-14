@@ -754,14 +754,27 @@ async function pullRemote() {
   if (n) save();
   return n;
 }
+async function reconcileGone() {
+  if (ACTIVE || !CLOUD.remoteIds) return;
+  const gone = sessions.filter(s => s.syncedSig && !CLOUD.remoteIds.has(s.id));
+  if (!gone.length) return;
+  const ok = confirm(gone.length + ' sessão(ões) deste navegador já foram apagadas na nuvem.\n\nOK = apagar aqui também.\nCancelar = manter aqui e reenviar para a nuvem.');
+  if (ok) { const g = new Set(gone.map(s => s.id)); sessions = sessions.filter(s => !g.has(s.id)); }
+  else gone.forEach(s => { delete s.syncedSig; });
+  save();
+}
 async function cloudKick(manual) {
   if (!AUTH || CLOUD.syncing) return;
   if (navigator.onLine === false) { CLOUD.err = 'Sem conexão'; updateCloudUI(); return; }
   CLOUD.syncing = true; CLOUD.err = ''; updateCloudUI();
   try {
     await flushTomb(false);
-    if (!CLOUD.pulled || manual) { CLOUD.pulledN = await pullRemote(); CLOUD.pulled = true; }
+    let check = false;
+    if (!CLOUD.pulled || manual) { CLOUD.pulledN = await pullRemote(); CLOUD.pulled = true; check = true; }
     CLOUD.pushedN = await pushPending();
+    const rows = await sbAll('/rest/v1/sessions?select=id');
+    CLOUD.remoteIds = new Set(rows.map(r => r.id)); CLOUD.remoteN = rows.length;
+    if (check) await reconcileGone();
     CLOUD.last = Date.now(); lsSet('hsf_cloud_last', CLOUD.last);
   } catch (e) { CLOUD.err = (e && e.name === 'TypeError') ? 'Sem conexão com o Supabase' : (e && e.message) || String(e); }
   finally {
@@ -785,6 +798,7 @@ async function flushTomb(alertOnFail) {
 async function cloudDelete(kind, id) {
   const t = tomb(); (kind === 'p' ? t.p : t.s).push(id); lsSet('hsf_tomb', t);
   await flushTomb(true);
+  cloudKick();
 }
 function cloudLabel() {
   if (!AUTH) return '☁ Entrar';
@@ -800,7 +814,7 @@ function cloudBadge() {
 }
 function cloudStatusHTML() {
   const pend = pendingSessions().length;
-  return `<div class="grid kpis" style="margin:0 0 14px">${kpi('SESSÕES NO NAVEGADOR', sessions.length)}${kpi('AGUARDANDO ENVIO', pend)}${kpi('ÚLTIMA SINCRONIZAÇÃO', CLOUD.last ? dt(CLOUD.last) : '–')}</div>
+  return `<div class="grid kpis" style="margin:0 0 14px">${kpi('NO NAVEGADOR', sessions.length)}${kpi('NA NUVEM', CLOUD.remoteN != null ? CLOUD.remoteN : '–')}${kpi('AGUARDANDO ENVIO', pend)}${kpi('ÚLTIMA SINCRONIZAÇÃO', CLOUD.last ? dt(CLOUD.last) : '–')}</div>
     <p class="muted">${cloudBadge()}</p>${CLOUD.pulledN ? `<p class="muted">${CLOUD.pulledN} sessão(ões) trazidas da nuvem nesta busca.</p>` : ''}`;
 }
 function updateCloudUI() {
@@ -818,6 +832,7 @@ function viewNuvem() {
         <div id="cstat"></div>
         <div class="btns2"><button class="btn primary" id="c-sync">Sincronizar agora</button><button class="btn" id="c-pull">Buscar da nuvem</button></div>
         <label class="chk"><input type="checkbox" id="c-name" ${prefs.name ? 'checked' : ''}> Enviar o nome do participante para a nuvem</label>
+        <p class="muted">Apagar no painel apaga também na nuvem. Se algo for apagado direto no Supabase, o painel pergunta se deve apagar aqui também.</p>
         <p class="muted">Desligado, a nuvem guarda só a idade e as sessões, sem nome nem observações. Vale para os próximos envios. Se já enviou, apague o nome no Table Editor do Supabase.</p></div>`
       : `<div class="card f" style="display:flex;flex-direction:column;gap:14px"><b>Entrar</b>
         <div><label>E-mail</label><input type="text" id="c-mail" autocomplete="username" inputmode="email"></div>
@@ -826,9 +841,9 @@ function viewNuvem() {
         <p class="muted">Use o usuário criado em Authentication no Supabase. A senha não fica salva, só a sessão de login deste navegador.</p></div>`}
     </div>`;
   if (AUTH) {
-    updateCloudUI();
+    updateCloudUI(); cloudKick(true);
     $('#c-out').onclick = () => { AUTH = null; localStorage.removeItem('hsf_auth'); CLOUD.pulled = false; CLOUD.err = ''; viewNuvem(); updateCloudUI(); };
-    $('#c-sync').onclick = () => cloudKick();
+    $('#c-sync').onclick = () => cloudKick(true);
     $('#c-pull').onclick = () => cloudKick(true);
     $('#c-name').onchange = e => { lsSet('hsf_cloud_prefs', Object.assign(cloudPrefs(), { name: e.target.checked })); };
   } else {
