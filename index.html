@@ -739,7 +739,7 @@ async function sbAll(path) {
 async function pullRemote() {
   const [ps, ss] = await Promise.all([sbAll('/rest/v1/participants?select=*&order=created_at.asc'), sbAll('/rest/v1/sessions?select=*&order=started_at.asc')]);
   const have = new Set(sessions.map(s => s.id)), pm = {}; ps.forEach(p => { pm[p.id] = p; });
-  const miss = ss.filter(s => !have.has(s.id)); let n = 0;
+  const T = tomb(), miss = ss.filter(s => !have.has(s.id) && !T.s.includes(s.id) && !T.p.includes(s.participant_id)); let n = 0;
   for (let i = 0; i < miss.length; i += 15) {
     const grp = miss.slice(i, i + 15);
     const evs = await sbAll('/rest/v1/events?select=session_id,t,type,key,data&session_id=in.(' + grp.map(s => '"' + s.id + '"').join(',') + ')&order=session_id.asc,t.asc,id.asc');
@@ -759,6 +759,7 @@ async function cloudKick(manual) {
   if (navigator.onLine === false) { CLOUD.err = 'Sem conexão'; updateCloudUI(); return; }
   CLOUD.syncing = true; CLOUD.err = ''; updateCloudUI();
   try {
+    await flushTomb(false);
     if (!CLOUD.pulled || manual) { CLOUD.pulledN = await pullRemote(); CLOUD.pulled = true; }
     CLOUD.pushedN = await pushPending();
     CLOUD.last = Date.now(); lsSet('hsf_cloud_last', CLOUD.last);
@@ -768,10 +769,22 @@ async function cloudKick(manual) {
     if (!CLOUD.err && pendingSessions().length) setTimeout(() => cloudKick(), 600);
   }
 }
-async function cloudDelete(kind, id) {
+const tomb = () => Object.assign({ s: [], p: [] }, lsGet('hsf_tomb', {}));
+async function flushTomb(alertOnFail) {
   if (!AUTH) return;
-  try { await sb('/rest/v1/' + (kind === 'p' ? 'participants' : 'sessions') + '?id=eq.' + enc(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); }
-  catch (e) { alert('Excluído só neste navegador. Não consegui excluir na nuvem (' + (e.message || e) + '). Exclua também no Supabase (Table Editor), senão ele volta na próxima busca.'); }
+  const t = tomb(); let failed = null;
+  for (const kind of ['p', 's']) {
+    for (const id of t[kind].slice()) {
+      try { await sb('/rest/v1/' + (kind === 'p' ? 'participants' : 'sessions') + '?id=eq.' + enc(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); t[kind] = t[kind].filter(x => x !== id); }
+      catch (e) { failed = e; }
+    }
+  }
+  lsSet('hsf_tomb', t);
+  if (failed && alertOnFail) alert('Excluído neste navegador, mas ainda não na nuvem (' + (failed.message || failed) + '). Tento de novo na próxima sincronização, e ele não volta para a lista.');
+}
+async function cloudDelete(kind, id) {
+  const t = tomb(); (kind === 'p' ? t.p : t.s).push(id); lsSet('hsf_tomb', t);
+  await flushTomb(true);
 }
 function cloudLabel() {
   if (!AUTH) return '☁ Entrar';
@@ -791,6 +804,7 @@ function cloudStatusHTML() {
     <p class="muted">${cloudBadge()}</p>${CLOUD.pulledN ? `<p class="muted">${CLOUD.pulledN} sessão(ões) trazidas da nuvem nesta busca.</p>` : ''}`;
 }
 function updateCloudUI() {
+  refreshBanner();
   const a = $('#cloudlink'); if (a) a.textContent = cloudLabel();
   document.querySelectorAll('[data-cloudb]').forEach(el => { el.innerHTML = cloudBadge(); });
   const cs = $('#cstat'); if (cs) cs.innerHTML = cloudStatusHTML();
@@ -885,11 +899,12 @@ async function checkFlows() {
   }
   const el = $('#chk'); if (el && bad.length) el.innerHTML = `<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016"><b>Atenção:</b> estes arquivos no site precisam ser reenviados ao GitHub para a gravação funcionar:<br>• ${bad.join('<br>• ')}</div>`;
 }
+function refreshBanner() { const el = $('#bk'); if (el) el.innerHTML = backupBanner(); }
 function backupBanner() {
   let meta = {}; try { meta = JSON.parse(localStorage.getItem('hsf_backup') || '{}'); } catch (e) {}
-  const n = sessions.filter(s => (s.endedAt || s.startedAt) > (meta.at || 0)).length;
+  const n = sessions.filter(s => (s.endedAt || s.startedAt) > (meta.at || 0) && !(AUTH && (s.events || []).length && s.syncedSig === sigOf(s))).length;
   if (!n) return '';
-  return `<div class="hint" style="margin:0 0 18px"><div class="row"><span><b>${n} sessão(ões) ainda sem backup.</b> Os dados ficam só neste navegador; baixe o JSON para não perdê-los.${meta.at ? ' Último backup: ' + dt(meta.at) + '.' : ''}</span><button class="btn sm" data-exp="json">Baixar backup agora</button></div></div>`;
+  return `<div class="hint" style="margin:0 0 18px"><div class="row"><span><b>${n} sessão(ões) ainda sem backup.</b> Os dados ficam só neste navegador; baixe o JSON${AUTH ? ' ou aguarde o envio para a nuvem' : ' ou conecte à nuvem (☁ Entrar)'}.${meta.at ? ' Último backup: ' + dt(meta.at) + '.' : ''}</span><button class="btn sm" data-exp="json">Baixar backup agora</button></div></div>`;
 }
 function viewHome() {
   const P = participants(), done = sessions.filter(s => s.events && s.events.length), A = done.map(analyze);
@@ -903,7 +918,7 @@ function viewHome() {
       ${kpi('DURAÇÃO MÉDIA / FLUXO', A.length ? dur(avg(A.map(a => a.total))) : '–')}
       ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}
     </div>
-    ${backupBanner()}
+    <div id="bk">${backupBanner()}</div>
     <h2>Análise geral por fluxo</h2>
     <div class="grid flows">${Object.entries(FLOWS).map(([k, f]) => {
       const ss = done.filter(s => s.flow === k), an = ss.map(analyze);
@@ -1450,13 +1465,13 @@ function csv(list) {
   return '\ufeff' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\n');
 }
 const backupObj = list => ({ app: 'hsf-usabilidade', version: 1, exportedAt: new Date().toISOString(), sessions: list });
-const markBackup = () => { try { localStorage.setItem('hsf_backup', JSON.stringify({ at: Date.now() })); } catch (e) {} };
+const markBackup = () => { try { localStorage.setItem('hsf_backup', JSON.stringify({ at: Date.now() })); } catch (e) {} refreshBanner(); };
 const today = () => new Date().toISOString().slice(0, 10);
 document.addEventListener('click', e => {
   const dp = e.target.closest('[data-delp]');
-  if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); if (location.hash === '#/') viewHome(); else location.hash = '#/'; } return; }
+  if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); refreshBanner(); if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; } return; }
   const del = e.target.closest('[data-del]');
-  if (del) { e.stopPropagation(); if (confirm('Excluir esta sessão? Não dá para desfazer.')) { sessions = sessions.filter(s => s.id !== del.dataset.del); save(); cloudDelete('s', del.dataset.del); location.hash = '#/'; route(); } return; }
+  if (del) { e.stopPropagation(); if (confirm('Excluir esta sessão? Não dá para desfazer.')) { sessions = sessions.filter(s => s.id !== del.dataset.del); save(); cloudDelete('s', del.dataset.del); refreshBanner(); if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; } return; }
   const pj = e.target.closest('[data-pjson]');
   if (pj) { const p = getP(pj.dataset.pjson); if (p) { download(`hsf-${p.code}-${today()}.json`, JSON.stringify(backupObj(p.sessions)), 'application/json'); markBackup(); } return; }
   const pdf = e.target.closest('[data-pdf]');
