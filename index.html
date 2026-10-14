@@ -1349,11 +1349,12 @@ function viewGeral(flow) {
 /* ================== Caminho de cliques ================== */
 const tsec = ms => (ms / 1000).toFixed(1) + 's';
 function pathTables(s) {
-  const ev = (s.events || []).filter(e => e.type === 'tap' || e.type === 'view' || e.type === 'marker');
+  const ev = (s.events || []).filter(e => e.type === 'tap' || e.type === 'view' || e.type === 'marker' || e.type === 'swipe');
   let n = 0, first = true;
   const rows = ev.map(e => {
     if (e.type === 'tap') { n++; return `<tr><td><b>${n}</b></td><td>${tsec(e.t)}</td><td>${esc(keyName(e.key))}</td><td>${esc(e.label)}</td><td class="r ${e.hit ? 'pill-hit' : 'pill-miss'}">${e.hit ? 'ação' : 'fora'}</td></tr>`; }
     if (e.type === 'view') { const r = `<tr class="pv"><td></td><td>${tsec(e.t)}</td><td colspan="3">${first ? 'Início' : '→ Abriu'}: ${esc(keyName(e.key))}</td></tr>`; first = false; return r; }
+    if (e.type === 'swipe') return `<tr class="pv"><td></td><td>${tsec(e.t)}</td><td colspan="3">↔ ${esc(e.label)}</td></tr>`;
     return `<tr class="pv"><td></td><td>${tsec(e.t)}</td><td colspan="3">⚑ ${esc(e.label)}</td></tr>`;
   });
   if (!n) return { n: 0, html: '<p class="muted">Nenhum toque registrado.</p>' };
