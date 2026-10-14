@@ -636,9 +636,13 @@ const FLOWS = {
   B: { n: 2, file: 'fluxo-2-contemplado-sorteio.html', name: 'Contemplado', sub: 'Por sorteio' },
   C: { n: 3, file: 'fluxo-3-cota-cancelada-sorteada.html', name: 'Cota cancelada sorteada', sub: 'Cotas duplicadas' },
   D: { n: 4, file: 'fluxo-4-brand-awareness.html', name: 'Brand awareness', sub: 'Splash + carrossel de apresentação' },
-  E: { n: 5, file: 'fluxo-5-home-antiga.html', name: 'Home (versão antiga)', sub: 'Abas, cartões e menu' }
+  E: { n: 5, file: 'fluxo-5-home-antiga.html', name: 'Home (versão antiga)', sub: 'Abas, cartões e menu', logged: true },
+  F: { n: 6, file: 'fluxo-6-simulacao-nao-logado.html', name: 'Simulação (não logado)', sub: 'Serviços Honda, simulação e conteúdos' },
+  G: { n: 7, file: 'fluxo-7-simulacao-logado.html', name: 'Simulação (logado)', sub: 'Serviços Honda, simulação e conteúdos', logged: true }
 };
-const COLORS = { home: '#35363b', detail: '#c00', offer: '#f59e0b', next: '#16a34a', sheet: '#6366f1', splash: '#9ca3af', slide: '#2563eb', login: '#e40521', ghome: '#0891b2' };
+const COLORS = { home: '#35363b', detail: '#c00', offer: '#f59e0b', next: '#16a34a', sheet: '#6366f1', splash: '#9ca3af', slide: '#2563eb', login: '#e40521', ghome: '#0891b2', sim: '#7c3aed' };
+const SIMN = { hub: 'Simular', simul: 'Simulação consórcio', entenda: 'Entenda o consórcio', t1: 'Prazos', t2: 'Assembleias', t3: 'Contemplações', t4: 'Diluição', t5: 'Devolução', det_cnh: 'Detalhes · Consórcio', det_bhb: 'Detalhes · Financiamento', det_shb: 'Detalhes · Seguros' };
+const SIMORDER = Object.keys(SIMN);
 const GTABS = ['Consórcios', 'Financiamentos', 'Seguros'];
 const SLIDE_NAMES = ['HSF', 'Consórcio', 'Financiamento', 'Seguros'];
 const LS = 'hsf_sessions_v1';
@@ -665,6 +669,7 @@ function keyName(key) {
   else if (k.scr === 'detail') n = `Detalhe · ${k.cur}ª assembleia` + (k.sel ? ` · cota ${k.sel} selecionada` : '');
   else if (k.scr === 'offer') n = 'Oferta de lance livre';
   else if (k.scr === 'next') n = 'Fui contemplado, e agora?';
+  else if (k.scr === 'sim') n = 'Simulação · ' + (SIMN[k.cur] || '');
   else if (k.scr === 'ghome') n = `Home antiga · ${GTABS[k.cur - 1] || ''}` + (k.sel ? ' · cartão 2 em destaque' : '');
   else if (k.scr === 'login') n = 'Login' + (k.sel ? ' · com erro de validação' : '');
   else if (k.scr === 'splash') n = 'Splash (animação)';
@@ -936,6 +941,7 @@ async function checkFlows() {
     try { const r = await fetch(f.file + '?c=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); if (!r.ok) bad.push(f.file + ' (não encontrado)'); else if (!t.includes('__recInit')) bad.push(f.file + ' (versão antiga, sem gravação)'); }
     catch (e) { return; }
   }
+  try { const r = await fetch('simulacao.js?c=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); if (!r.ok) bad.push('simulacao.js (não encontrado; é preciso enviar este arquivo)'); } catch (e) {}
   const el = $('#chk'); if (el && bad.length) el.innerHTML = `<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016"><b>Atenção:</b> estes arquivos no site precisam ser reenviados ao GitHub para a gravação funcionar:<br>• ${bad.join('<br>• ')}</div>`;
 }
 function refreshBanner() { const el = $('#bk'); if (el) el.innerHTML = backupBanner(); }
@@ -1166,7 +1172,7 @@ function viewParticipante(pid) {
 function staticURL(flow, key, st, vh) {
   const k = parseKey(key), p = new URLSearchParams({ static: '1', st: st ? '1' : '0' });
   p.set('view', k.sheet ? 'sheet' : k.scr); if (k.sheet) p.set('under', k.scr);
-  if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel); if (vh) p.set('h', vh);
+  if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel); if (vh && !k.sheet) p.set('h', vh); if (FLOWS[flow] && FLOWS[flow].logged) p.set('logged', '1');
   return FLOWS[flow].file + '?' + p;
 }
 function palette() {
@@ -1213,12 +1219,12 @@ function mountHeat(host, o) {
   return H;
 }
 /* painel de mapa de calor: Tela > Assembleia > Estado */
-const SCR_ORDER = ['splash', 'slide', 'login', 'ghome', 'home', 'detail', 'offer', 'next'];
-const SCR_NAME = { splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', home: 'Home', detail: 'Detalhe', offer: 'Oferta de lance', next: 'Próximos passos' };
+const SCR_ORDER = ['splash', 'slide', 'login', 'ghome', 'sim', 'home', 'detail', 'offer', 'next'];
+const SCR_NAME = { splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação', home: 'Home', detail: 'Detalhe', offer: 'Oferta de lance', next: 'Próximos passos' };
 const STATE_NAME = { normal: 'Tela normal', sheet: 'Bottomsheet aberto', calc: 'Cálculo da cota aberto' };
 const STATE_ORDER = ['normal', 'calc', 'sheet'];
 const stLabel = (scr, st) => (scr === 'login' && st === 'calc') ? 'Com erro de validação' : (scr === 'ghome' && st === 'calc') ? 'Cartão 2 em destaque' : STATE_NAME[st];
-const curLabel = (scr, cur) => !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
+const curLabel = (scr, cur) => !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : scr === 'sim' ? ` · ${SIMN[cur] || ''}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
 function heatPanel(host, flow, sessionsList, vw, vh, st) {
   const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap').map(t => Object.assign({}, t, { _vh: s.vh || vh })));
   const keys = []; sessionsList.forEach(s => (s.events || []).filter(e => e.type === 'view').forEach(v => { if (!keys.includes(v.key)) keys.push(v.key); }));
@@ -1227,7 +1233,7 @@ function heatPanel(host, flow, sessionsList, vw, vh, st) {
   const cnt = ks => taps.filter(t => ks.includes(t.key)).length;
   const match = (scr, cur, state) => info.filter(i => i.scr === scr && (cur == null || i.cur === cur) && (state == null || i.state === state)).map(i => i.key);
   const scrs = SCR_ORDER.filter(s => info.some(i => i.scr === s));
-  const cursOf = scr => [...new Set(info.filter(i => i.scr === scr).map(i => i.cur))].filter(Boolean).sort((a, b) => b - a);
+  const cursOf = scr => [...new Set(info.filter(i => i.scr === scr).map(i => i.cur))].filter(Boolean).sort((a, b) => scr === 'sim' ? SIMORDER.indexOf(a) - SIMORDER.indexOf(b) : b - a);
   const statesOf = (scr, cur) => STATE_ORDER.filter(s => info.some(i => i.scr === scr && (!cur || i.cur === cur) && i.state === s));
   const best = arr => arr.slice().sort((a, b) => b.n - a.n)[0];
   const defCur = scr => { const c = cursOf(scr); return c.length ? best(c.map(x => ({ v: x, n: cnt(match(scr, x)) }))).v : ''; };
@@ -1243,7 +1249,7 @@ function heatPanel(host, flow, sessionsList, vw, vh, st) {
     const cs = cursOf(scr), ss = statesOf(scr, cur);
     $('#hrows').innerHTML =
       `<div class="seg2"><small>Tela</small><div class="tabs">${scrs.map(x => `<button data-s="${x}" class="${x === scr ? 'on' : ''}">${SCR_NAME[x]}<em>${cnt(match(x))}</em></button>`).join('')}</div></div>` +
-      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : scr === 'ghome' ? 'Aba' : 'Assembleia'}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : x + 'ª'}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
+      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : scr === 'ghome' ? 'Aba' : scr === 'sim' ? 'Página' : 'Assembleia'}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : scr === 'sim' ? SIMN[x] : x + 'ª'}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
       (ss.length > 1 ? `<div class="seg2"><small>Estado</small><div class="tabs">${ss.map(x => `<button data-t="${x}" class="${x === state ? 'on' : ''}">${stLabel(scr, x)}<em>${cnt(match(scr, cur || null, x))}</em></button>`).join('')}</div></div>` : '');
   };
   const side = ks => {
@@ -1287,7 +1293,7 @@ function viewSessao(id) {
   const s = sessions.find(x => x.id === id); if (!s) { location.hash = '#/'; return; }
   const a = analyze(s), f = FLOWS[s.flow];
   const legendKeys = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
-  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga' };
+  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação' };
   $('#app').innerHTML = `
     <a class="crumb" href="#/participante/${enc(pidOf(s))}">← ${esc(s.name)}</a>
     <div class="row"><div><h1>${esc(s.name)}, ${esc(s.age)} anos</h1>
@@ -1373,13 +1379,13 @@ function reportGroups(s) {
     const pts = taps.filter(t => x.keys.includes(t.key)).sort((a, b) => a.t - b.t);
     return Object.assign(x, { pts, n: pts.length, miss: pts.filter(t => !t.hit).length, render: x.keys.slice().sort((a, b) => cnt(b) - cnt(a))[0],
       title: SCR_NAME[x.scr] + curLabel(x.scr, x.cur) + (x.state !== 'normal' ? ` · ${stLabel(x.scr, x.state)}` : '') });
-  }).filter(x => x.n > 0).sort((a, b) => SCR_ORDER.indexOf(a.scr) - SCR_ORDER.indexOf(b.scr) || (b.cur || 0) - (a.cur || 0));
+  }).filter(x => x.n > 0).sort((a, b) => SCR_ORDER.indexOf(a.scr) - SCR_ORDER.indexOf(b.scr) || (a.scr === 'sim' ? SIMORDER.indexOf(a.cur) - SIMORDER.indexOf(b.cur) : (b.cur || 0) - (a.cur || 0)));
 }
 function reportBody(p, anon) {
   const who = anon ? p.code : p.name, t = sessTotals(p), now = new Date().toLocaleString('pt-BR');
   const jobs = []; let jid = 0;
   const heatBlock = (s, g) => { const id = 'th' + (jid++); jobs.push({ id, s, g }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>${g.n} toque(s) · ${pc(g.miss / g.n * 100)} fora do alvo</figcaption></figure>`; };
-  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga' };
+  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação' };
   const sections = p.sessions.map((s, i) => {
     const a = t.an[i], f = FLOWS[s.flow], groups = s.vw ? reportGroups(s) : [], cp = pathTables(s);
     const lk = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
