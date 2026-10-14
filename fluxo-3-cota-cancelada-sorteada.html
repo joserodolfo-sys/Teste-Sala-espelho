@@ -396,10 +396,16 @@ const SCN = {
     asm: { 4: { n: 4, homeDate: '16/05/2024', detailDate: '16/05/2024', total: 24, draw: [123,3,55,34,431,846,523,751], free: FREE_B, fixed: [49,657,218,354], excl: [43,755,378,123,976,431], disq: [20,100] } }
   }
 };
+/* Dados compartilhados: a bottomsheet dos fluxos 2 e 3 segue o padrão do fluxo 1 (lista completa) */
+SCN.A.mineAsm = null; SCN.B.mineAsm = 5; SCN.C.mineAsm = 4;
+SCN.B.asm[4] = SCN.A.asm[4]; SCN.B.asm[3] = SCN.A.asm[3]; SCN.C.asm[3] = SCN.A.asm[3];
+SCN.B.sheet = [ { n: 5, d: '16/06/2024' }, { n: 4, d: '16/05/2024' }, { n: 3, d: '16/04/2024' }, { n: 2, d: '16/03/2024' }, { n: 1, d: '16/02/2024' } ];
+SCN.C.sheet = SCN.A.sheet;
+const isMine = () => SCN[S.scn].mineAsm === S.cur;
 const JUMPS = {
   A: [['home','Home'],['detail','Detalhe'],['calc','Detalhe + cálculo (cota 223)'],['offer','Oferta de lance'],['sheet','Bottomsheet']],
-  B: [['home','Home'],['detail','Detalhe'],['next','Próximos passos']],
-  C: [['home','Home'],['detail','Detalhe']]
+  B: [['home','Home'],['detail','Detalhe'],['next','Próximos passos'],['sheet','Bottomsheet']],
+  C: [['home','Home'],['detail','Detalhe'],['sheet','Bottomsheet']]
 };
 
 /* ============ Estado ============ */
@@ -461,8 +467,8 @@ function nextCard() {
 function carouselHome() {
   const d = asm(), sc = S.scn, a = SCN.A.asm;
   const hasPrev = sc === 'A' ? true : true;
-  const hasNext = sc === 'A' && S.cur < 4;
-  const mine = (k) => (sc === 'B' && k === 'draw') || (sc === 'C' && k === 'excl') ? mineTag() : '';
+  const hasNext = !!SCN[sc].asm[S.cur + 1];
+  const mine = (k) => isMine() && ((sc === 'B' && k === 'draw') || (sc === 'C' && k === 'excl')) ? mineTag() : '';
   const disq = d.disq.length;
   return `
   <div class="carousel">
@@ -554,7 +560,7 @@ function detailScreen() {
   const note = `<p class="fn"><i>*</i>Valores em R$ são uma referência calculada sobre o seu crédito. O lance de cada cota é calculado sobre o crédito do respectivo participante.</p>`;
 
   const secDraw = `
-    <div class="acc-sec"><div class="acc-head"><div class="t">Por sorteio${sc === 'B' ? mineTag() : ''}</div>
+    <div class="acc-sec"><div class="acc-head"><div class="t">Por sorteio${sc === 'B' && isMine() ? mineTag() : ''}</div>
       <p class="s">${d.draw.length} cotas contempladas por sorteio.</p></div>
       <div class="chips">${drawChips}</div></div>`;
   const secFree = `
@@ -569,10 +575,10 @@ function detailScreen() {
       <p class="s">${d.fixed.length} cotas contempladas com o lance fixo do grupo.</p></div>
       <div class="chips">${d.fixed.map(n => chip(n)).join('')}</div></div>`;
   const secExcl = `
-    <div class="acc-sec"><div class="acc-head"><div class="t">${sc === 'C' ? '<span>Exclusão<span class="red">*</span></span>' + mineTag() : 'Exclusão'}</div>
+    <div class="acc-sec"><div class="acc-head"><div class="t">${sc === 'C' && isMine() ? '<span>Exclusão<span class="red">*</span></span>' + mineTag() : 'Exclusão'}</div>
       <p class="s">${d.excl.length} cotas canceladas que foram sorteadas para a devolução de valores.</p></div>
       <div class="chips">${exclChips}</div>
-      ${sc === 'C' ? `<p class="fn"><i>*</i>Sua cota aparece também contemplada por sorteio porque, após o cancelamento, o número foi vendido a outro cliente. As duas foram sorteadas: a ativa retira o bem e a sua dá direito ao resgate dos valores pagos.</p>` : ''}</div>`;
+      ${sc === 'C' && isMine() ? `<p class="fn"><i>*</i>Sua cota aparece também contemplada por sorteio porque, após o cancelamento, o número foi vendido a outro cliente. As duas foram sorteadas: a ativa retira o bem e a sua dá direito ao resgate dos valores pagos.</p>` : ''}</div>`;
   const secDisq = `
     <div class="acc-sec"><div class="acc-head"><div class="t">Desclassificadas</div>
       <p class="s">${d.disq.length} ${d.disq.length === 1 ? 'lance invalidado' : 'lances invalidados'} que não resultaram em contemplação.</p></div>
