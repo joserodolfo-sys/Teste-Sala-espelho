@@ -160,6 +160,15 @@ td.r,th.r{text-align:right}
 .rtwo{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .pv td{color:var(--mut);font-size:10.5px;background:#fafafb}
 .cp td:nth-child(3){max-width:170px}
+.ipw{display:flex;justify-content:center;margin-top:18px}
+.ipbox{width:417px;height:876px;transform-origin:top left}
+.ip{position:relative;width:417px;height:876px;padding:12px;background:linear-gradient(145deg,#303034,#0c0c0d);border-radius:68px;box-shadow:inset 0 0 0 2px #46464a,0 30px 70px rgba(0,0,0,.35)}
+.ip .scr{position:relative;width:393px;height:852px;border-radius:56px;overflow:hidden;background:#fff}
+.ip iframe{display:block;width:393px;height:852px;border:0;background:#fff}
+.ip .isl{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:125px;height:37px;border-radius:20px;background:#000;z-index:3;pointer-events:none}
+.ip .hi{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:rgba(0,0,0,.88);z-index:3;pointer-events:none}
+.ip .bt{position:absolute;width:4px;background:#2b2b2e;border-radius:2px}
+.ip .bt.l1{left:-3px;top:130px;height:30px}.ip .bt.l2{left:-3px;top:190px;height:52px}.ip .bt.l3{left:-3px;top:252px;height:52px}.ip .bt.r1{right:-3px;top:210px;height:84px}
 .pvwrap{display:flex;justify-content:center;margin-top:18px}
 .pvdev{width:392px;max-width:100%;padding:16px;background:#18181a;border-radius:44px;box-shadow:0 18px 48px rgba(0,0,0,.25)}
 .pvdev iframe{display:block;width:100%;height:min(780px,calc(100vh - 250px));min-height:520px;border:0;border-radius:28px;background:#fff}
@@ -985,8 +994,16 @@ function viewPrevia(k) {
       <div class="row"><div><h1>${f.n}. ${f.name}</h1><p class="muted">${f.sub} · visualização sem gravação</p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="pv-re">↻ Reiniciar fluxo</button><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>
       <div class="ftabs">${Object.entries(FLOWS).map(([x, g]) => `<a class="btn sm ${x === k ? 'primary' : ''}" href="#/previa/${x}">${g.n}. ${g.name}</a>`).join('')}</div></div>
-    <div class="pvwrap"><div class="pvdev"><iframe id="pvf" src="${f.file}?v=${Date.now()}" title="Visualização do fluxo"></iframe></div></div>`;
-  $('#pv-re').onclick = () => { $('#pvf').src = f.file + '?v=' + Date.now(); };
+    <div class="ipw"><div class="ipsize" id="ipsize"><div class="ipbox" id="ipbox"><div class="ip">
+      <i class="bt l1"></i><i class="bt l2"></i><i class="bt l3"></i><i class="bt r1"></i>
+      <div class="scr"><iframe id="pvf" src="${f.file}?device=iphone&v=${Date.now()}" title="Visualização do fluxo"></iframe><i class="isl"></i><i class="hi"></i></div>
+    </div></div></div></div>
+    <p class="muted" style="text-align:center;margin-top:10px">iPhone 16 · tela de 393 × 852 px</p>`;
+  const fitIp = () => { const box = $('#ipbox'), sz = $('#ipsize'); if (!box) return window.removeEventListener('resize', fitIp);
+    const s = Math.min(1, (window.innerHeight - 250) / 876, (window.innerWidth - 24) / 417); const k = Math.max(.45, s);
+    box.style.transform = `scale(${k})`; sz.style.width = Math.round(417 * k) + 'px'; sz.style.height = Math.round(876 * k) + 'px'; };
+  fitIp(); window.addEventListener('resize', fitIp);
+  $('#pv-re').onclick = () => { $('#pvf').src = f.file + '?device=iphone&v=' + Date.now(); };
 }
 
 /* ================== Novo participante (bateria de fluxos) ================== */

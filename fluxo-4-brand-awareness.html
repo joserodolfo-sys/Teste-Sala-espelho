@@ -91,6 +91,8 @@ button{font:inherit;border:0;background:none;cursor:pointer;color:inherit;text-a
 .llinks a{cursor:pointer}
 .acc{display:grid;place-items:center;text-align:center;position:absolute;left:32px;bottom:35px;width:296px;height:42px;border-radius:4px;background:#e40521;color:#fff;font-size:14px;font-weight:700}
 @media (max-width:480px){.lh .sb{display:none}}
+body.iphone .lh .sb{display:block!important}
+body.iphone #content{top:50px}
 #splash{position:absolute;inset:0;background:var(--brand);z-index:5;transition:opacity .35s}
 #splash.hide{opacity:0;pointer-events:none}
 #lot{position:absolute;inset:0}
@@ -171,6 +173,7 @@ body.static .stage{min-height:0}
 <script>
 const $ = s => document.querySelector(s);
 const Q = new URLSearchParams(location.search);
+if (Q.get('device') === 'iphone') document.body.classList.add('iphone');
 const STATIC = Q.get('static') === '1', REC = Q.get('rec') === '1' && window.parent !== window;
 /* Splash: sai após 3 s OU quando o ciclo da animação termina (o que vier primeiro).
    Use ?splash=full para esperar o ciclo completo (7,3 s). */
