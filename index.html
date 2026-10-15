@@ -232,6 +232,14 @@ td.r,th.r{text-align:right}
 .capi{margin-top:10px;font-size:13px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
+.mov{position:absolute;inset:0;z-index:40;background:rgba(18,18,22,.55);display:grid;place-items:center;padding:16px;animation:movin .2s ease}
+@keyframes movin{from{opacity:0}to{opacity:1}}
+.mov .mc{width:100%;max-width:360px;background:#fff;border-radius:16px;padding:22px 18px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25);max-height:100%;overflow:auto}
+.mov .mi{width:56px;height:56px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:28px;font-weight:800;color:#fff}.mov .mi.ok{background:#0a7a3c}.mov .mi.no{background:#8a8b90}
+.mov h2{margin:0;font-size:20px}.mov .mn{margin:6px 0 0;color:#555}.mov .mt{margin:10px 0 0;font-size:15px}
+.mov .btn.big{width:100%;margin-top:18px}.mov .qq{text-align:left;margin-top:16px}.mov .qq p{font-weight:600;margin:0 0 8px}
+.mov .sc{display:flex;gap:6px}.mov .sc button{flex:1;height:44px;border:1px solid #ccc;border-radius:10px;background:#fff;font-weight:700;font-size:16px;cursor:pointer}.mov .sc button.on{background:#cc0000;color:#fff;border-color:#cc0000}
+.mov .sl{display:flex;justify-content:space-between;font-size:11px;color:#777;margin-top:4px}.mov textarea{width:100%}.mov .err{margin:8px 0 0}
 .pkc{margin-top:12px;padding:12px;border:2px solid #cc0000;border-radius:10px;background:#fff8f8;display:flex;flex-direction:column;gap:8px}.pkc p{margin:0}.pkc .pkb{display:flex;flex-direction:column;gap:6px}.pkc .chk{display:flex;gap:6px;align-items:center;font-size:13px}
 .sec{padding-top:12px;border-top:1px solid #eee}
 .adv{margin-top:10px;font-size:13px}.adv summary{cursor:pointer;color:#777}
@@ -1173,6 +1181,7 @@ function viewTeste(pid) {
     A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1&v=' + Date.now());
     renderTray(); toggle(false); startCheck(); missionUI();
   };
+  A.next = () => (A.idx === A.plan.length - 1 ? endTest() : nextFlow()); A.toggle = toggle;
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
   scrim.onclick = () => toggle(false);
   tray.onclick = e => {
@@ -1183,7 +1192,7 @@ function viewTeste(pid) {
       $('#mk-n').textContent = `Marcador ${n} registrado.`;
     } else if (b.id === 'adv') arm(b, () => finishMission(A.s, A.idx === A.plan.length - 1 ? endTest : nextFlow));
     else if (b.id === 'stop') arm(b, () => finishMission(A.s, endTest));
-    else if (b.id === 'mok' || b.id === 'mno') { A.s.result = b.id === 'mok' ? 'concluiu' : 'desistiu'; A.s.resultData = Object.assign({}, A.s.resultData, { at: Date.now() - A.t0, auto: false }); save(); renderTray(); missionUI(); }
+    else if (b.id === 'mok' || b.id === 'mno') { A.s.result = b.id === 'mok' ? 'concluiu' : 'desistiu'; A.s.resultData = Object.assign({}, A.s.resultData, { at: Date.now() - A.t0, auto: false }); save(); renderTray(); missionUI(); finishMission(A.s, A.next); }
   };
   renderTray(); startCheck();
   clearInterval(A.clock); clearInterval(A.auto);
@@ -1657,6 +1666,8 @@ let ENT = lsGet(ENT_LS, { flows: [], missions: [], scripts: [] });
 ['flows', 'missions', 'scripts'].forEach(k => { if (!Array.isArray(ENT[k])) ENT[k] = []; });
 if (!ENT.flows.length) ENT.flows.push({ id: 'f_hsf', name: 'HSF · Consórcio', url: 'app.html', updatedAt: 0 });
 const entLive = kind => ENT[kind].filter(x => !x.deleted);
+ENT.missions.forEach(m => { let ch = false; (m.questions || []).forEach(q => { if (q.type === 'scale' && /1 a 7/.test(q.text || '')) { q.text = q.text.replace('1 a 7', '1 a 5'); ch = true; } }); if (ch) { m.updatedAt = Date.now(); m.pushed = false; } });
+lsSet(ENT_LS, ENT);
 const entGet = (kind, id) => ENT[kind].find(x => x.id === id);
 function entSave(kind, obj) {
   obj.updatedAt = Date.now(); obj.pushed = false;
@@ -1773,6 +1784,7 @@ function checkMission(s, ev) {
   const direto = path.length ? (vis.length <= path.length && vis.every((k, i) => keyMatch(k, path[i]))) : null;
   s.result = 'concluiu'; s.resultData = Object.assign({}, s.resultData, { at: ev.t, auto: true, how: ev.type === 'view' ? 'tela' : 'toque', direto });
   save(); missionUI();
+  const sid = s.id; setTimeout(() => { if (ACTIVE && ACTIVE.s && ACTIVE.s.id === sid && ACTIVE.next) finishMission(ACTIVE.s, ACTIVE.next); }, 900);
 }
 function missionUI() {
   const A = ACTIVE; if (!A) return; const s = A.s, g = $('#grip'), box = $('#mis-st');
@@ -1789,22 +1801,38 @@ function resultBadge(s, long) {
   return '<span class="rb no">Não concluiu</span>';
 }
 
-/* ---------- perguntas pós-missão ---------- */
+/* ---------- tela de fim de missão + avaliação (sobre o app, para o participante) ---------- */
 function askQuestions(s, done) {
-  const m = FLOWS[s.flow] && FLOWS[s.flow].mission, qs = (m && m.questions || []).filter(q => q.text);
-  if (!qs.length) return done();
-  const host = $('#tray'); const ans = s.answers || {};
-  host.classList.add('on'); $('#scrim').classList.add('on');
-  host.innerHTML = `<div class="who"><b>Perguntas · ${esc(m.name)}</b><br><span class="muted">Leia para o participante e registre a resposta.</span></div>` +
-    qs.map((q, i) => `<div class="qq"><p>${esc(q.text)}</p>${q.type === 'scale'
-      ? `<div class="sc" data-q="${i}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${n}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
-      : `<textarea data-q="${i}" rows="3">${esc(ans[i] || '')}</textarea>`}</div>`).join('') +
-    `<div class="btns"><button class="btn primary" id="qok">Salvar e continuar</button></div>`;
-  const prevClick = host.onclick;
-  host.onclick = e => {
-    const b = e.target.closest('.sc button'); if (b) { const g = b.parentNode; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans[g.dataset.q] = +b.dataset.v; return; }
-    if (e.target.id === 'qok') { host.querySelectorAll('textarea[data-q]').forEach(t => { ans[t.dataset.q] = t.value.trim(); }); s.answers = ans; s.qs = qs.map(q => q.text); save(); host.onclick = prevClick; done(); }
+  const m = FLOWS[s.flow] && FLOWS[s.flow].mission; if (!m) return done();
+  const tv = document.querySelector('#test .tv'); if (!tv) return done();
+  const old = tv.querySelector('.mov'); if (old) old.remove();
+  if (ACTIVE && ACTIVE.toggle) ACTIVE.toggle(false);
+  const qs = (m.questions || []).filter(q => q.text), ans = s.answers || {}, d = s.resultData || {}, ok = s.result === 'concluiu';
+  const last = !ACTIVE || ACTIVE.idx === ACTIVE.plan.length - 1, nextLabel = last ? 'Finalizar' : 'Próxima missão';
+  const ov = document.createElement('div'); ov.className = 'mov'; tv.appendChild(ov);
+  const stepResult = () => {
+    ov.innerHTML = `<div class="mc"><div class="mi ${ok ? 'ok' : 'no'}">${ok ? '✓' : '•'}</div>
+      <h2>${ok ? 'Missão concluída!' : 'Missão encerrada'}</h2><p class="mn">${esc(m.name)}</p>
+      ${d.at != null ? `<p class="mt">Tempo: <b>${dur(d.at)}</b></p>` : ''}
+      <button class="btn primary big" id="mov-go">${qs.length ? 'Continuar para a avaliação' : nextLabel}</button></div>`;
+    ov.querySelector('#mov-go').onclick = () => qs.length ? stepQs() : close();
   };
+  const stepQs = () => {
+    ov.innerHTML = `<div class="mc"><h2>Como foi?</h2><p class="mn">${esc(m.name)}</p>` +
+      qs.map((q, i) => `<div class="qq"><p>${esc(q.text)}</p>${q.type === 'scale'
+        ? `<div class="sc" data-q="${i}">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${n}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
+        : `<textarea data-q="${i}" rows="3" placeholder="Escreva aqui…">${esc(ans[i] || '')}</textarea>`}</div>`).join('') +
+      `<p class="err" id="mov-err"></p><button class="btn primary big" id="mov-ok">Enviar e ${last ? 'finalizar' : 'ir para a próxima missão'}</button></div>`;
+    ov.onclick = e => { const b = e.target.closest('.sc button'); if (b) { const g = b.parentNode; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans[g.dataset.q] = +b.dataset.v; const er = ov.querySelector('#mov-err'); if (er) er.textContent = ''; } };
+    ov.querySelector('#mov-ok').onclick = () => {
+      ov.querySelectorAll('textarea[data-q]').forEach(t => { ans[t.dataset.q] = t.value.trim(); });
+      const miss = qs.findIndex((q, i) => q.type === 'scale' && !ans[i]);
+      if (miss >= 0) { ov.querySelector('#mov-err').textContent = 'Escolha uma nota de 1 a 5.'; return; }
+      s.answers = ans; s.qs = qs.map(q => q.text); save(); close();
+    };
+  };
+  const close = () => { ov.remove(); done(); };
+  stepResult();
 }
 
 /* ================== Páginas: fluxos, missões e roteiros ================== */
@@ -1855,7 +1883,7 @@ function viewFluxoEd(id) {
 
 function viewMissaoEd(id) {
   const isNew = id === 'novo', fl0 = entLive('flows')[0];
-  const m = isNew ? { id: 'm' + uid(), flow: fl0 && fl0.id, name: '', prompt: '', start: '', ends: [], path: [], limit: '', questions: [{ type: 'scale', text: 'De 1 a 7, quão fácil foi realizar esta tarefa?' }] }
+  const m = isNew ? { id: 'm' + uid(), flow: fl0 && fl0.id, name: '', prompt: '', start: '', ends: [], path: [], limit: '', questions: [{ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }] }
     : JSON.parse(JSON.stringify(entGet('missions', id) || {}));
   if (!m.id) { location.hash = '#/missoes'; return; }
   const CAP = { view: null, picking: false, rec: false, recPath: [], listFor: null, step: 1 };
@@ -1884,7 +1912,7 @@ function viewMissaoEd(id) {
             <div class="slh" data-for="path"></div></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mq" class="lst"></div>
-            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 7)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
+            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
             <label>Tempo limite (minutos)</label><input type="number" id="ml" min="0" step="0.5" value="${esc(m.limit)}" style="max-width:160px"></div></section>
         <p class="err" id="merr"></p>
         <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary big" id="msave">Salvar missão</button></div>
@@ -1958,7 +1986,7 @@ function viewMissaoEd(id) {
     lst('#me', m.ends, c => '✓ ' + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido.');
     $('#mpth').innerHTML = m.path.length ? m.path.map((k, i) => `<span class="chip"><i>${i + 1}</i>${esc(patName(k))}<button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></span>`).join('<span class="arr">→</span>') : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
     $('#mpth').onclick = e => { const b = e.target.closest('.x'); if (b) { m.path.splice(+b.dataset.i, 1); draw(); } };
-    lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 7' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
+    lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 5' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
     $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
     const st = { 1: !!($('#mn').value.trim()), 2: !!$('#ms').value, 3: m.ends.length > 0, 4: m.path.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
     Object.entries(st).forEach(([n, ok]) => { const sec = done(n); if (sec) sec.classList.toggle('done', ok); });
@@ -1995,7 +2023,7 @@ function viewMissaoEd(id) {
   $('#cp-clr').onclick = () => { m.path = []; draw(); };
   $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use @* para “qualquer variação” (ex.: home@*).'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
-  $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 7, quão fácil foi realizar esta tarefa?' }); draw(); };
+  $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }); draw(); };
   $('#mq-t').onclick = () => { m.questions.push({ type: 'text', text: '' }); draw(); };
   $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = $('#ms').value; m.limit = $('#ml').value;
@@ -2037,6 +2065,7 @@ function missionTray(s) {
 }
 function finishMission(s, cont) {
   const f = FLOWS[s.flow]; if (!f || !f.mission) return cont();
+  if (s._closing) return; s._closing = true;
   if (!s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - ACTIVE.t0, auto: false }); }
   save(); askQuestions(s, cont);
 }
