@@ -635,16 +635,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 /* ================== Dados ================== */
 const FLOWS = {
-  A: { n: 1, file: 'fluxo-1-nao-contemplado.html', name: 'Não contemplado', sub: 'Assembleia normal' },
-  B: { n: 2, file: 'fluxo-2-contemplado-sorteio.html', name: 'Contemplado', sub: 'Por sorteio' },
-  C: { n: 3, file: 'fluxo-3-cota-cancelada-sorteada.html', name: 'Cota cancelada sorteada', sub: 'Cotas duplicadas' },
-  D: { n: 4, file: 'fluxo-4-brand-awareness.html', name: 'Brand awareness', sub: 'Splash + carrossel de apresentação' },
-  E: { n: 5, file: 'fluxo-5-home-antiga.html', name: 'Home (versão antiga)', sub: 'Abas, cartões e menu', logged: true },
-  F: { n: 6, file: 'fluxo-6-simulacao-nao-logado.html', name: 'Simulação (não logado)', sub: 'Serviços Honda, simulação e conteúdos' },
-  G: { n: 7, file: 'fluxo-7-simulacao-logado.html', name: 'Simulação (logado)', sub: 'Serviços Honda, simulação e conteúdos', logged: true }
+  J: { n: 1, file: 'app.html?start=ba', name: 'Jornada · início não logado', sub: 'Splash, carrossel, login, Home, Assembleias e Simulação' },
+  K: { n: 2, file: 'app.html?start=home', name: 'Jornada · início logado', sub: 'Começa na Home logada' },
+  A: { n: 1, file: 'fluxo-1-nao-contemplado.html', name: 'Não contemplado', sub: 'Assembleia normal', legacy: true },
+  B: { n: 2, file: 'fluxo-2-contemplado-sorteio.html', name: 'Contemplado', sub: 'Por sorteio', legacy: true },
+  C: { n: 3, file: 'fluxo-3-cota-cancelada-sorteada.html', name: 'Cota cancelada sorteada', sub: 'Cotas duplicadas', legacy: true },
+  D: { n: 4, file: 'fluxo-4-brand-awareness.html', name: 'Brand awareness', sub: 'Splash + carrossel de apresentação', legacy: true },
+  E: { n: 5, file: 'fluxo-5-home-antiga.html', name: 'Home (versão antiga)', sub: 'Abas, cartões e menu', legacy: true, logged: true },
+  F: { n: 6, file: 'fluxo-6-simulacao-nao-logado.html', name: 'Simulação (não logado)', sub: 'Serviços Honda, simulação e conteúdos', legacy: true },
+  G: { n: 7, file: 'fluxo-7-simulacao-logado.html', name: 'Simulação (logado)', sub: 'Serviços Honda, simulação e conteúdos', legacy: true, logged: true }
 };
-const COLORS = { home: '#35363b', detail: '#c00', offer: '#f59e0b', next: '#16a34a', sheet: '#6366f1', splash: '#9ca3af', slide: '#2563eb', login: '#e40521', ghome: '#0891b2', sim: '#7c3aed' };
-const SIMN = { hub: 'Simular', simul: 'Simulação consórcio', entenda: 'Entenda o consórcio', t1: 'Prazos', t2: 'Assembleias', t3: 'Contemplações', t4: 'Diluição', t5: 'Devolução', det_cnh: 'Detalhes · Consórcio', det_bhb: 'Detalhes · Financiamento', det_shb: 'Detalhes · Seguros' };
+const COLORS = { home: '#35363b', detail: '#c00', offer: '#f59e0b', next: '#16a34a', sheet: '#6366f1', splash: '#9ca3af', slide: '#2563eb', login: '#e40521', ghome: '#0891b2', sim: '#7c3aed', gexp: '#b45309', homeB: '#0f766e', detailB: '#0f766e', nextB: '#16a34a' };
+const furl = (f, extra) => f + (f.includes('?') ? '&' : '?') + extra;
+const LIVE = () => Object.fromEntries(Object.entries(FLOWS).filter(([k, f]) => !f.legacy));
+const SHOWN = list => Object.fromEntries(Object.entries(FLOWS).filter(([k, f]) => !f.legacy || list.some(s => s.flow === k)));
+const SIMN = { hub: 'Simular', simul: 'Simulação consórcio', entenda: 'Entenda o consórcio', t1: 'Prazos', t2: 'Assembleias', t3: 'Contemplações', t4: 'Diluição', t5: 'Devolução', det_cnh: 'Detalhes · Consórcio', det_bhb: 'Detalhes · Financiamento', det_shb: 'Detalhes · Seguros', catalog: 'Catálogo', sort: 'Ordenar', model: 'Modelo · CG 160 Start', model_sobre: 'Sobre o modelo (folha)', model_seguro: 'Seguro de vida (folha)', 'm_pop-110i-es': 'Modelo · POP 110i ES', 'm_pop-110i-es_sobre': 'Sobre o modelo · POP 110i ES (folha)', 'm_pop-110i-es_seguro': 'Seguro de vida · POP 110i ES (folha)', 'm_biz-125-es': 'Modelo · Biz 125 ES', 'm_biz-125-es_sobre': 'Sobre o modelo · Biz 125 ES (folha)', 'm_biz-125-es_seguro': 'Seguro de vida · Biz 125 ES (folha)', 'm_elite-125': 'Modelo · Elite 125', 'm_elite-125_sobre': 'Sobre o modelo · Elite 125 (folha)', 'm_elite-125_seguro': 'Seguro de vida · Elite 125 (folha)', 'm_biz-125-ex': 'Modelo · Biz 125 EX', 'm_biz-125-ex_sobre': 'Sobre o modelo · Biz 125 EX (folha)', 'm_biz-125-ex_seguro': 'Seguro de vida · Biz 125 EX (folha)', 'm_cg-160-fan': 'Modelo · CG 160 Fan', 'm_cg-160-fan_sobre': 'Sobre o modelo · CG 160 Fan (folha)', 'm_cg-160-fan_seguro': 'Seguro de vida · CG 160 Fan (folha)', 'm_cg-160-titan': 'Modelo · CG 160 Titan', 'm_cg-160-titan_sobre': 'Sobre o modelo · CG 160 Titan (folha)', 'm_cg-160-titan_seguro': 'Seguro de vida · CG 160 Titan (folha)', 'm_pcx-cbs': 'Modelo · PCX CBS', 'm_pcx-cbs_sobre': 'Sobre o modelo · PCX CBS (folha)', 'm_pcx-cbs_seguro': 'Seguro de vida · PCX CBS (folha)', 'm_pcx-abs': 'Modelo · PCX ABS', 'm_pcx-abs_sobre': 'Sobre o modelo · PCX ABS (folha)', 'm_pcx-abs_seguro': 'Seguro de vida · PCX ABS (folha)', 'm_adv-150': 'Modelo · ADV 150', 'm_adv-150_sobre': 'Sobre o modelo · ADV 150 (folha)', 'm_adv-150_seguro': 'Seguro de vida · ADV 150 (folha)', 'm_cb-300f-twister-abs': 'Modelo · CB 300F Twister ABS', 'm_cb-300f-twister-abs_sobre': 'Sobre o modelo · CB 300F Twister ABS (folha)', 'm_cb-300f-twister-abs_seguro': 'Seguro de vida · CB 300F Twister ABS (folha)', 'm_hornet-500': 'Modelo · Hornet 500', 'm_hornet-500_sobre': 'Sobre o modelo · Hornet 500 (folha)', 'm_hornet-500_seguro': 'Seguro de vida · Hornet 500 (folha)', 'm_hornet-750': 'Modelo · Hornet 750', 'm_hornet-750_sobre': 'Sobre o modelo · Hornet 750 (folha)', 'm_hornet-750_seguro': 'Seguro de vida · Hornet 750 (folha)', 'm_nc-750x-mt': 'Modelo · NC 750X MT', 'm_nc-750x-mt_sobre': 'Sobre o modelo · NC 750X MT (folha)', 'm_nc-750x-mt_seguro': 'Seguro de vida · NC 750X MT (folha)', 'm_cb-650r-e-clutch': 'Modelo · CB 650R E-Clutch', 'm_cb-650r-e-clutch_sobre': 'Sobre o modelo · CB 650R E-Clutch (folha)', 'm_cb-650r-e-clutch_seguro': 'Seguro de vida · CB 650R E-Clutch (folha)', 'm_nxr-160-bros-cbs': 'Modelo · NXR 160 Bros CBS', 'm_nxr-160-bros-cbs_sobre': 'Sobre o modelo · NXR 160 Bros CBS (folha)', 'm_nxr-160-bros-cbs_seguro': 'Seguro de vida · NXR 160 Bros CBS (folha)', 'm_nxr-160-bros-abs': 'Modelo · NXR 160 Bros ABS', 'm_nxr-160-bros-abs_sobre': 'Sobre o modelo · NXR 160 Bros ABS (folha)', 'm_nxr-160-bros-abs_seguro': 'Seguro de vida · NXR 160 Bros ABS (folha)', 'm_xre-190': 'Modelo · XRE 190', 'm_xre-190_sobre': 'Sobre o modelo · XRE 190 (folha)', 'm_xre-190_seguro': 'Seguro de vida · XRE 190 (folha)', 'm_xr-300l-tornado': 'Modelo · XR 300L Tornado', 'm_xr-300l-tornado_sobre': 'Sobre o modelo · XR 300L Tornado (folha)', 'm_xr-300l-tornado_seguro': 'Seguro de vida · XR 300L Tornado (folha)', 'm_sahara-300': 'Modelo · Sahara 300', 'm_sahara-300_sobre': 'Sobre o modelo · Sahara 300 (folha)', 'm_sahara-300_seguro': 'Seguro de vida · Sahara 300 (folha)', 'm_sahara-300-adventure': 'Modelo · Sahara 300 Adventure', 'm_sahara-300-adventure_sobre': 'Sobre o modelo · Sahara 300 Adventure (folha)', 'm_sahara-300-adventure_seguro': 'Seguro de vida · Sahara 300 Adventure (folha)', 'm_nx-500': 'Modelo · NX 500', 'm_nx-500_sobre': 'Sobre o modelo · NX 500 (folha)', 'm_nx-500_seguro': 'Seguro de vida · NX 500 (folha)', 'm_transalp-750': 'Modelo · Transalp 750', 'm_transalp-750_sobre': 'Sobre o modelo · Transalp 750 (folha)', 'm_transalp-750_seguro': 'Seguro de vida · Transalp 750 (folha)', 'm_africa-twin': 'Modelo · Africa Twin', 'm_africa-twin_sobre': 'Sobre o modelo · Africa Twin (folha)', 'm_africa-twin_seguro': 'Seguro de vida · Africa Twin (folha)', 'm_crf-300f': 'Modelo · CRF 300F', 'm_crf-300f_sobre': 'Sobre o modelo · CRF 300F (folha)', 'm_crf-300f_seguro': 'Seguro de vida · CRF 300F (folha)', 'm_trx-420-fourtrax': 'Modelo · TRX 420 FourTrax', 'm_trx-420-fourtrax_sobre': 'Sobre o modelo · TRX 420 FourTrax (folha)', 'm_trx-420-fourtrax_seguro': 'Seguro de vida · TRX 420 FourTrax (folha)', 'm_pop-110i-es-10-de-documentacao': 'Modelo · POP 110i ES + 10% de documentação', 'm_pop-110i-es-10-de-documentacao_sobre': 'Sobre o modelo · POP 110i ES + 10% de documentação (folha)', 'm_pop-110i-es-10-de-documentacao_seguro': 'Seguro de vida · POP 110i ES + 10% de documentação (folha)' };
 const SIMORDER = Object.keys(SIMN);
 const GTABS = ['Consórcios', 'Financiamentos', 'Seguros'];
 const SLIDE_NAMES = ['HSF', 'Consórcio', 'Financiamento', 'Seguros'];
@@ -672,6 +677,8 @@ function keyName(key) {
   else if (k.scr === 'detail') n = `Detalhe · ${k.cur}ª assembleia` + (k.sel ? ` · cota ${k.sel} selecionada` : '');
   else if (k.scr === 'offer') n = 'Oferta de lance livre';
   else if (k.scr === 'next') n = 'Fui contemplado, e agora?';
+  else if (/^(home|detail|next)B$/.test(k.scr)) return keyName(key.replace(/(home|detail|next)B/, '$1')) + ' · contemplado';
+  else if (k.scr === 'gexp') n = 'Card expandido · ' + (k.cur === '2' ? 'Contemplado' : 'Em andamento');
   else if (k.scr === 'sim') n = 'Simulação · ' + (SIMN[k.cur] || '');
   else if (k.scr === 'ghome') n = `Home antiga · ${GTABS[k.cur - 1] || ''}` + (k.sel ? ' · cartão 2 em destaque' : '');
   else if (k.scr === 'login') n = 'Login' + (k.sel ? ' · com erro de validação' : '');
@@ -940,11 +947,11 @@ window.addEventListener('hashchange', route);
 /* ================== Painel ================== */
 async function checkFlows() {
   const bad = [];
-  for (const f of Object.values(FLOWS)) {
-    try { const r = await fetch(f.file + '?c=' + Date.now(), { cache: 'no-store' }); const t = await r.text(); if (!r.ok) bad.push(f.file + ' (não encontrado)'); else if (!t.includes('__recInit')) bad.push(f.file + ' (versão antiga, sem gravação)'); }
+  for (const f of Object.values(LIVE())) {
+    try { const r = await fetch(furl(f.file, 'c=' + Date.now()), { cache: 'no-store' }); const t = await r.text(); if (!r.ok) bad.push(f.file + ' (não encontrado)'); else if (!t.includes('__recInit')) bad.push(f.file + ' (versão antiga, sem gravação)'); }
     catch (e) { return; }
   }
-  try { const r = await fetch('simulacao.js?c=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); if (!r.ok) bad.push('simulacao.js (não encontrado; é preciso enviar este arquivo)'); } catch (e) {}
+  
   const el = $('#chk'); if (el && bad.length) el.innerHTML = `<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016"><b>Atenção:</b> estes arquivos no site precisam ser reenviados ao GitHub para a gravação funcionar:<br>• ${bad.join('<br>• ')}</div>`;
 }
 function refreshBanner() { const el = $('#bk'); if (el) el.innerHTML = backupBanner(); }
@@ -968,7 +975,7 @@ function viewHome() {
     </div>
     <div id="bk">${backupBanner()}</div>
     <h2>Análise geral por fluxo</h2>
-    <div class="grid flows">${Object.entries(FLOWS).map(([k, f]) => {
+    <div class="grid flows">${Object.entries(SHOWN(sessions)).map(([k, f]) => {
       const ss = done.filter(s => s.flow === k), an = ss.map(analyze);
       return `<button class="card flow" data-go="#/geral/${k}"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
         <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
@@ -980,7 +987,7 @@ function viewHome() {
       ${P.slice().reverse().map(p => { const t = sessTotals(p); const open = p.sessions.some(s => !s.endedAt);
         return `<div class="item" data-go="#/participante/${enc(p.pid)}">
         <span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
-        <span>${Object.keys(FLOWS).map(k => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${FLOWS[k].name}">${FLOWS[k].n}${n > 1 ? '×' + n : ''}</span>`; }).join(' ')}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
+        <span>${Object.keys(SHOWN(p.sessions)).map(k => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${FLOWS[k].name}">${FLOWS[k].n}${n > 1 ? '×' + n : ''}</span>`; }).join(' ')}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
         <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
         <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div>`
       : `<div class="empty">Nenhum participante ainda.<br>Clique em <b>Novo participante</b> para começar um teste.</div>`}
@@ -992,7 +999,7 @@ function viewHome() {
 function viewFluxos() {
   $('#app').innerHTML = `
     <div><a class="crumb" href="#/">← Painel</a><h1>Fluxos</h1><p class="muted">Veja e navegue pelos fluxos como o participante. A visualização <b>não grava nada</b> e não cria sessão.</p></div>
-    <div class="grid flows" style="margin-top:20px">${Object.entries(FLOWS).map(([k, f]) => `
+    <div class="grid flows" style="margin-top:20px">${Object.entries(LIVE()).map(([k, f]) => `
       <div class="card flow"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><a class="btn primary sm" href="#/previa/${k}">▶ Visualizar</a><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>`).join('')}</div>`;
 }
@@ -1009,10 +1016,10 @@ function viewPrevia(k) {
     <div><a class="crumb" href="#/fluxos">← Fluxos</a>
       <div class="row"><div><h1>${f.n}. ${f.name}</h1><p class="muted">${f.sub} · visualização sem gravação</p></div>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="pv-re">↻ Reiniciar fluxo</button><a class="btn sm" href="${f.file}" target="_blank" rel="noopener">Abrir em nova aba</a></div></div>
-      <div class="ftabs">${Object.entries(FLOWS).map(([x, g]) => `<a class="btn sm ${x === k ? 'primary' : ''}" href="#/previa/${x}">${g.n}. ${g.name}</a>`).join('')}</div></div>
+      <div class="ftabs">${Object.entries(LIVE()).map(([x, g]) => `<a class="btn sm ${x === k ? 'primary' : ''}" href="#/previa/${x}">${g.n}. ${g.name}</a>`).join('')}</div></div>
     <div class="ipw"><div class="ipsize" id="ipsize"><div class="ipbox" id="ipbox"><div class="ip">
       <i class="bt l1"></i><i class="bt l2"></i><i class="bt l3"></i><i class="bt r1"></i>
-      <div class="scr"><iframe id="pvf" src="${f.file}?device=iphone&v=${Date.now()}" title="Visualização do fluxo"></iframe>${iosSb()}<i class="isl"></i><i class="hi"></i></div>
+      <div class="scr"><iframe id="pvf" src="${furl(f.file, 'device=iphone&v=' + Date.now())}" title="Visualização do fluxo"></iframe>${iosSb()}<i class="isl"></i><i class="hi"></i></div>
     </div></div></div></div>
     <p class="muted" style="text-align:center;margin-top:10px">iPhone 16 · tela de 393 × 852 px</p>`;
   const fitIp = () => { const box = $('#ipbox'), sz = $('#ipsize'); if (!box) return window.removeEventListener('resize', fitIp);
@@ -1020,19 +1027,19 @@ function viewPrevia(k) {
     box.style.transform = `scale(${k})`; sz.style.width = Math.round(417 * k) + 'px'; sz.style.height = Math.round(876 * k) + 'px'; };
   fitIp(); window.addEventListener('resize', fitIp);
   /* hora real e cor da barra de status (clara sobre fundo escuro, escura sobre fundo claro) */
-  const bgAt = (doc, x, y) => { let el = doc.elementFromPoint(x, y); while (el) { const c = doc.defaultView.getComputedStyle(el).backgroundColor, v = c.match(/[\d.]+/g); if (v && (v.length < 4 || +v[3] > .5)) return v.slice(0, 3).map(Number); el = el.parentElement; } return [255, 255, 255]; };
+  const bgAt = (doc, x, y) => { if (doc.defaultView.__topBg) return doc.defaultView.__topBg(x, y); let el = doc.elementFromPoint(x, y); while (el) { const c = doc.defaultView.getComputedStyle(el).backgroundColor, v = c.match(/[\d.]+/g); if (v && (v.length < 4 || +v[3] > .5)) return v.slice(0, 3).map(Number); el = el.parentElement; } return [255, 255, 255]; };
   const tick = () => {
     const sb = $('#iossb'); if (!sb) { clearInterval(tm); return; }
     const d = new Date(); $('#iostime').textContent = d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
     try { const doc = $('#pvf').contentDocument, c = bgAt(doc, 196, 10); sb.style.color = (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255 < .62 ? '#fff' : '#000'; } catch (e) {}
   };
   const tm = setInterval(tick, 400); tick();
-  $('#pv-re').onclick = () => { $('#pvf').src = f.file + '?device=iphone&v=' + Date.now(); };
+  $('#pv-re').onclick = () => { $('#pvf').src = furl(f.file, 'device=iphone&v=' + Date.now()); };
 }
 
 /* ================== Novo participante (bateria de fluxos) ================== */
 function viewNova() {
-  let order = Object.keys(FLOWS), on = Object.fromEntries(Object.keys(FLOWS).map(k => [k, true]));
+  let order = Object.keys(LIVE()), on = Object.fromEntries(order.map((k, i) => [k, i === 0]));
   $('#app').innerHTML = `
     <div class="form">
       <div><a class="crumb" href="#/">← Painel</a><h1>Novo participante</h1><p class="muted">Cadastre uma vez e escolha os fluxos. Cada fluxo é gravado separado, e você passa para o próximo pela bandeja do moderador.</p></div>
@@ -1089,7 +1096,7 @@ function viewTeste(pid) {
   const A = ACTIVE, el = $('#test');
   $('#app').innerHTML = '';
   el.hidden = false;
-  el.innerHTML = `<div class="tv"><iframe id="tf" src="${FLOWS[A.s.flow].file}?rec=1&v=${Date.now()}" title="Protótipo"></iframe>
+  el.innerHTML = `<div class="tv"><iframe id="tf" src="${furl(FLOWS[A.s.flow].file, 'rec=1&v=' + Date.now())}" title="Protótipo"></iframe>
     <button class="grip" id="grip" aria-label="Opções do moderador"><i>${GRIP_SVG}</i></button>
     <div class="scrim" id="scrim"></div><div class="tray" id="tray"></div></div>`;
   A.frame = $('#tf'); const tray = $('#tray'), scrim = $('#scrim'); let armBtn = null, armT;
@@ -1112,7 +1119,7 @@ function viewTeste(pid) {
   const nextFlow = () => {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
-    A.s = s; A.t0 = Date.now(); A.frame.src = FLOWS[s.flow].file + '?rec=1&v=' + Date.now();
+    A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1&v=' + Date.now());
     renderTray(); toggle(false); startCheck();
   };
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
@@ -1182,7 +1189,7 @@ function viewParticipante(pid) {
         <td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
       <p class="muted" style="margin-top:8px">Toque em uma linha para ver a jornada e o mapa de calor daquele fluxo.</p></div>
     <div class="card" style="margin-top:16px"><h2>Rodar outro fluxo com este participante</h2>
-      <div class="pick" style="margin-bottom:12px">${Object.entries(FLOWS).map(([k, f], i) => `<label><input type="radio" name="pf" value="${k}" ${i === 0 ? 'checked' : ''}><div><b>${f.n}. ${f.name}</b><span>${f.sub}${p.sessions.some(s => s.flow === k) ? ' · já feito (será tentativa ' + (p.sessions.filter(s => s.flow === k).length + 1) + ')' : ''}</span></div></label>`).join('')}</div>
+      <div class="pick" style="margin-bottom:12px">${Object.entries(LIVE()).map(([k, f], i) => `<label><input type="radio" name="pf" value="${k}" ${i === 0 ? 'checked' : ''}><div><b>${f.n}. ${f.name}</b><span>${f.sub}${p.sessions.some(s => s.flow === k) ? ' · já feito (será tentativa ' + (p.sessions.filter(s => s.flow === k).length + 1) + ')' : ''}</span></div></label>`).join('')}</div>
       <button class="btn primary" data-runflow="${esc(p.pid)}">▶ Iniciar fluxo</button></div>`;
 }
 
@@ -1191,7 +1198,7 @@ function staticURL(flow, key, st, vh) {
   const k = parseKey(key), p = new URLSearchParams({ static: '1', st: st ? '1' : '0' });
   p.set('view', k.sheet ? 'sheet' : k.scr); if (k.sheet) p.set('under', k.scr);
   if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel); if (vh && !k.sheet) p.set('h', vh); if (FLOWS[flow] && FLOWS[flow].logged) p.set('logged', '1');
-  return FLOWS[flow].file + '?' + p;
+  return furl(FLOWS[flow].file, p.toString());
 }
 function palette() {
   const c = document.createElement('canvas'); c.width = 1; c.height = 256; const x = c.getContext('2d');
@@ -1226,23 +1233,26 @@ function mountHeat(host, o) {
   const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; fr.src = staticURL(o.flow, o.key, o.st, o.vh);
   const cv = document.createElement('canvas'); wrap.append(fr, cv); host.append(wrap);
   const H = { cv, pts: o.pts, mode: o.mode, top: 0, sheet, viewH: VIEW_H, height: VIEW_H }; H.ready = new Promise(res => { H._res = res; });
-  fr.addEventListener('load', () => setTimeout(() => {
+  const measure = final => {
     try {
-      const d = fr.contentDocument, Hh = sheet ? VIEW_H : Math.ceil(d.querySelector('#screen').getBoundingClientRect().height);
-      H.viewH = Hh; H.top = d.querySelector('#content').getBoundingClientRect().top;
+      const d = fr.contentDocument, sc = d && d.querySelector('#screen'); if (!sc) { if (final) throw 0; return false; }
+      const Hh = sheet ? VIEW_H : Math.ceil(sc.getBoundingClientRect().height), ct = d.querySelector('#content');
+      H.viewH = Hh; H.top = ct ? ct.getBoundingClientRect().top : 0;
       fr.style.height = wrap.style.height = Hh + 'px'; cv.width = o.vw; cv.height = Hh; cv.style.width = o.vw + 'px'; cv.style.height = Hh + 'px';
-      H.height = Hh; drawHeat(H); H._res();
-    } catch (e) { H._res(); host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); }
-  }, 600));
+      H.height = Hh; drawHeat(H); return true;
+    } catch (e) { if (final && !H.ok) host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); return false; }
+  };
+  /* a tela pode chegar em duas etapas (arquivo único): mede algumas vezes até assentar */
+  fr.addEventListener('load', () => [600, 1400, 2600].forEach((t, i) => setTimeout(() => { if (measure(i === 2)) H.ok = true; if (i === 2 || H.ok) H._res(); }, t)));
   return H;
 }
 /* painel de mapa de calor: Tela > Assembleia > Estado */
-const SCR_ORDER = ['splash', 'slide', 'login', 'ghome', 'sim', 'home', 'detail', 'offer', 'next'];
-const SCR_NAME = { splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação', home: 'Home', detail: 'Detalhe', offer: 'Oferta de lance', next: 'Próximos passos' };
+const SCR_ORDER = ['splash', 'slide', 'login', 'ghome', 'gexp', 'sim', 'homeB', 'detailB', 'nextB', 'home', 'detail', 'offer', 'next'];
+const SCR_NAME = { splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home', gexp: 'Card expandido', sim: 'Simulação', homeB: 'Assembleias (contemplado)', detailB: 'Detalhe (contemplado)', nextB: 'Próximos passos', home: 'Assembleias', detail: 'Detalhe da assembleia', offer: 'Oferta de lance', next: 'Próximos passos' };
 const STATE_NAME = { normal: 'Tela normal', sheet: 'Bottomsheet aberto', calc: 'Cálculo da cota aberto' };
 const STATE_ORDER = ['normal', 'calc', 'sheet'];
 const stLabel = (scr, st) => (scr === 'login' && st === 'calc') ? 'Com erro de validação' : (scr === 'ghome' && st === 'calc') ? 'Cartão 2 em destaque' : STATE_NAME[st];
-const curLabel = (scr, cur) => !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : scr === 'sim' ? ` · ${SIMN[cur] || ''}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
+const curLabel = (scr, cur) => !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : scr === 'sim' ? ` · ${SIMN[cur] || ''}` : scr === 'gexp' ? ` · ${cur === '2' ? 'Contemplado' : 'Em andamento'}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
 function heatPanel(host, flow, sessionsList, vw, vh, st) {
   const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap').map(t => Object.assign({}, t, { _vh: s.vh || vh })));
   const keys = []; sessionsList.forEach(s => (s.events || []).filter(e => e.type === 'view').forEach(v => { if (!keys.includes(v.key)) keys.push(v.key); }));
@@ -1267,7 +1277,7 @@ function heatPanel(host, flow, sessionsList, vw, vh, st) {
     const cs = cursOf(scr), ss = statesOf(scr, cur);
     $('#hrows').innerHTML =
       `<div class="seg2"><small>Tela</small><div class="tabs">${scrs.map(x => `<button data-s="${x}" class="${x === scr ? 'on' : ''}">${SCR_NAME[x]}<em>${cnt(match(x))}</em></button>`).join('')}</div></div>` +
-      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : scr === 'ghome' ? 'Aba' : scr === 'sim' ? 'Página' : 'Assembleia'}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : scr === 'sim' ? SIMN[x] : x + 'ª'}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
+      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : scr === 'ghome' ? 'Aba' : scr === 'sim' ? 'Página' : scr === 'gexp' ? 'Card' : 'Assembleia'}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : scr === 'sim' ? SIMN[x] : scr === 'gexp' ? (x === '2' ? 'Contemplado' : 'Em andamento') : x + 'ª'}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
       (ss.length > 1 ? `<div class="seg2"><small>Estado</small><div class="tabs">${ss.map(x => `<button data-t="${x}" class="${x === state ? 'on' : ''}">${stLabel(scr, x)}<em>${cnt(match(scr, cur || null, x))}</em></button>`).join('')}</div></div>` : '');
   };
   const side = ks => {
@@ -1311,7 +1321,7 @@ function viewSessao(id) {
   const s = sessions.find(x => x.id === id); if (!s) { location.hash = '#/'; return; }
   const a = analyze(s), f = FLOWS[s.flow];
   const legendKeys = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
-  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação' };
+  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home', gexp: 'Card expandido', sim: 'Simulação', homeB: 'Assembleias (contemplado)', detailB: 'Detalhe (contemplado)', nextB: 'Próximos passos' };
   $('#app').innerHTML = `
     <a class="crumb" href="#/participante/${enc(pidOf(s))}">← ${esc(s.name)}</a>
     <div class="row"><div><h1>${esc(s.name)}, ${esc(s.age)} anos</h1>
@@ -1352,7 +1362,7 @@ function viewGeral(flow) {
   const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length), an = ss.map(analyze);
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
-  const tabs = Object.entries(FLOWS).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
+  const tabs = Object.entries(SHOWN(sessions)).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
   const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.vw))) : 390;
   $('#app').innerHTML = `
     <a class="crumb" href="#/">← Painel</a>
@@ -1403,7 +1413,7 @@ function reportBody(p, anon) {
   const who = anon ? p.code : p.name, t = sessTotals(p), now = new Date().toLocaleString('pt-BR');
   const jobs = []; let jid = 0;
   const heatBlock = (s, g) => { const id = 'th' + (jid++); jobs.push({ id, s, g }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>${g.n} toque(s) · ${pc(g.miss / g.n * 100)} fora do alvo</figcaption></figure>`; };
-  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home antiga', sim: 'Simulação' };
+  const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home', gexp: 'Card expandido', sim: 'Simulação', homeB: 'Assembleias (contemplado)', detailB: 'Detalhe (contemplado)', nextB: 'Próximos passos' };
   const sections = p.sessions.map((s, i) => {
     const a = t.an[i], f = FLOWS[s.flow], groups = s.vw ? reportGroups(s) : [], cp = pathTables(s);
     const lk = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
