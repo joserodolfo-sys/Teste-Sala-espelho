@@ -209,6 +209,28 @@ td.r,th.r{text-align:right}
 .rb{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}.rb.ok{background:#e6f6ec;color:#0a7a3c}.rb.no{background:#fdecee;color:#b00020}.rb.run{background:#eef2ff;color:#3346a8}
 .tray .mis{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #e5e5e5;border-radius:10px;margin:8px 0}.tray .mis p{margin:0;font-size:13px}
 .grip.ok{background:#0a7a3c!important;color:#fff!important}
+[hidden]{display:none!important}
+.steps{display:flex;flex-direction:column;gap:12px}
+.stp{background:#fff;border:1px solid #e3e3e3;border-radius:12px;padding:14px 16px;transition:border-color .15s,box-shadow .15s}
+.stp.on{border-color:#cc0000;box-shadow:0 0 0 3px rgba(204,0,0,.08)}
+.stp .sh{display:flex;gap:12px;align-items:flex-start}
+.stp .sh>i{flex:none;width:28px;height:28px;border-radius:50%;background:#f1f1f1;color:#555;font-style:normal;font-weight:700;display:grid;place-items:center}
+.stp.on .sh>i{background:#cc0000;color:#fff}.stp.done .sh>i{background:#0a7a3c;color:#fff}
+.stp .sh h3{margin:2px 0 2px;font-size:16px}.stp .sh p{margin:0;font-size:13px;color:#666}
+.stp .sh .ok{margin-left:auto;font-size:12px;font-weight:700;color:#0a7a3c;white-space:nowrap}.stp.done .sh .ok:after{content:'✓ pronto'}
+.stp.opt.done .sh .ok:after{content:'✓ definido'}
+.stp .tag{font-size:11px;font-weight:600;color:#777;background:#f1f1f1;border-radius:999px;padding:1px 8px;margin-left:6px;vertical-align:middle}
+.stp .sb{display:flex;flex-direction:column;gap:10px;margin:12px 0 0 40px}
+.stp .sb label{margin:4px 0 -4px}
+.how{font-size:13px;background:#f7f7f9;border-radius:8px;padding:8px 10px;color:#444}
+.chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.chips .chip{display:inline-flex;align-items:center;gap:6px;background:#f3f4f6;border:1px solid #e3e3e3;border-radius:999px;padding:4px 10px;font-size:13px}
+.chips .chip i{font-style:normal;font-weight:700;color:#cc0000}.chips .chip .x{border:0;background:none;color:#b00;cursor:pointer;padding:0 0 0 4px}.chips .arr{color:#999}
+.recb{border:2px solid #cc0000;border-radius:10px;padding:12px;background:#fff8f8;display:flex;flex-direction:column;gap:8px}.recb p{margin:0;font-size:13px}
+.recb .rt{display:flex;align-items:center;gap:8px}.recb .dot{width:10px;height:10px;border-radius:50%;background:#cc0000;animation:blink 1s infinite}@keyframes blink{50%{opacity:.25}}
+.hint2{margin:4px 0 10px;font-size:13px;color:#555;min-height:36px}
+.cap{position:sticky;top:12px}
+.capi{margin-top:10px;font-size:13px}
+.sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
 .pkc{margin-top:12px;padding:12px;border:2px solid #cc0000;border-radius:10px;background:#fff8f8;display:flex;flex-direction:column;gap:8px}.pkc p{margin:0}.pkc .pkb{display:flex;flex-direction:column;gap:6px}.pkc .chk{display:flex;gap:6px;align-items:center;font-size:13px}
 .sec{padding-top:12px;border-top:1px solid #eee}
@@ -1836,68 +1858,87 @@ function viewMissaoEd(id) {
   const m = isNew ? { id: 'm' + uid(), flow: fl0 && fl0.id, name: '', prompt: '', start: '', ends: [], path: [], limit: '', questions: [{ type: 'scale', text: 'De 1 a 7, quão fácil foi realizar esta tarefa?' }] }
     : JSON.parse(JSON.stringify(entGet('missions', id) || {}));
   if (!m.id) { location.hash = '#/missoes'; return; }
-  const CAP = { view: null, picking: false, rec: false, recPath: [], listFor: null };
-  $('#app').innerHTML = `<div class="form" style="max-width:1180px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Nova missão' : 'Editar missão'}</h1></div>
+  const CAP = { view: null, picking: false, rec: false, recPath: [], listFor: null, step: 1 };
+  const flows = entLive('flows');
+  $('#app').innerHTML = `<div class="form" style="max-width:1200px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Nova missão' : 'Editar missão'}</h1>
+      <p class="muted">Siga os passos. A prévia à direita mostra o app como o participante vai ver.</p></div>
     <div class="med">
-      <div class="card f" style="display:flex;flex-direction:column;gap:16px">
-        <div class="two"><div><label>Nome da missão *</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x"></div>
-          <div><label>Fluxo</label><select id="mf">${entLive('flows').map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div></div>
-        <div><label>Enunciado (o que o participante deve fazer)</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea></div>
-        <div><label>Onde começa *</label><select id="ms"></select></div>
-        <div class="sec"><label>Como termina *</label><p class="muted" style="margin:0 0 8px">Qualquer uma das condições abaixo conclui a missão.</p>
-          <div id="me" class="lst"></div>
-          <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-start"><button class="btn sm primary" id="pk-on" type="button">🎯 Escolher na prévia</button><button class="btn sm" id="sl-end" type="button">☰ Escolher tela na lista</button></div>
-          <details class="adv"><summary>Avançado</summary><div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div></details></div>
-        <div class="sec"><label>Caminho esperado <span class="muted" style="font-weight:400">(opcional · separa sucesso direto e indireto)</span></label>
-          <div id="mpth" class="lst"></div>
-          <div class="row" style="gap:8px;margin-top:10px;justify-content:flex-start"><button class="btn sm" id="cp-r" type="button">● Gravar navegando na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div></div>
-        <div id="sl" class="slw" hidden><div class="row"><b id="sl-t">Escolha a tela</b><button class="btn sm ghost" id="sl-x" type="button">Fechar</button></div><input type="search" id="sl-q" placeholder="Buscar tela…"><div id="sl-l" class="sll"></div></div>
-        <div class="two"><div><label>Tempo limite (min, opcional)</label><input type="number" id="ml" min="0" step="0.5" value="${esc(m.limit)}"></div><div></div></div>
-        <div class="sec"><label>Perguntas depois da missão</label><div id="mq" class="lst"></div>
-          <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Escala 1 a 7</button><button class="btn sm" id="mq-t" type="button">＋ Resposta aberta</button></div></div>
+      <div class="steps">
+        <section class="stp" data-s="1"><div class="sh"><i>1</i><div><h3>Sobre a missão</h3><p>Dê um nome curto e escreva a tarefa como você vai ler para o participante.</p></div><span class="ok"></span></div>
+          <div class="sb"><label>Nome da missão</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x">
+            <label>Enunciado da tarefa</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea>
+            ${flows.length > 1 ? `<label>Fluxo (app)</label><select id="mf">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>` : `<input type="hidden" id="mf" value="${esc((flows[0] || {}).id || '')}">`}</div></section>
+        <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>A tela em que o app abre para o participante. A prévia muda para esse ponto.</p></div><span class="ok"></span></div>
+          <div class="sb"><select id="ms"></select></div></section>
+        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
+          <div class="sb"><div id="me" class="lst"></div>
+            <div class="how"><b>Como definir:</b> navegue na prévia até onde a tarefa termina, toque em <b>“Escolher na prévia”</b> e clique no botão final (o clique não aciona o app).</div>
+            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="pk-on" type="button">🎯 Escolher na prévia</button><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button></div>
+            <div class="slh" data-for="end"></div>
+            <details class="adv"><summary>Avançado</summary><div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div></details></div></section>
+        <section class="stp opt" data-s="4"><div class="sh"><i>4</i><div><h3>Caminho ideal <span class="tag">opcional</span></h3><p>As telas que alguém que sabe usar o app percorreria. Serve para separar quem foi <b>direto</b> de quem <b>se perdeu</b> antes de concluir.</p></div><span class="ok"></span></div>
+          <div class="sb"><div id="mpth" class="chips"></div>
+            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Navegue como o participante ideal faria. Cada tela visitada entra na lista abaixo.</p><div id="rec-l" class="chips"></div>
+              <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="rec-ok" type="button">✓ Concluir gravação</button><button class="btn sm ghost" id="rec-x" type="button">Cancelar</button></div></div>
+            <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
+            <div class="slh" data-for="path"></div></div></section>
+        <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
+          <div class="sb"><div id="mq" class="lst"></div>
+            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 7)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
+            <label>Tempo limite (minutos)</label><input type="number" id="ml" min="0" step="0.5" value="${esc(m.limit)}" style="max-width:160px"></div></section>
         <p class="err" id="merr"></p>
-        <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary" id="msave">Salvar missão</button></div>
+        <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary big" id="msave">Salvar missão</button></div>
       </div>
-      <div class="card cap">
-        <h2 style="margin:0">Prévia do app</h2><p class="muted" id="cap-hint" style="margin:4px 0 10px">Navegue como o participante. Para definir o fim, use “Escolher na prévia”.</p>
+      <div class="card cap"><h2 style="margin:0">Prévia do app</h2><p class="hint2" id="cap-hint"></p>
         <div class="capw" id="capw"><iframe id="capf" title="Prévia do app"></iframe></div>
         <div id="pk-card" class="pkc" hidden></div>
-        <div class="capi"><div><span class="muted">Tela atual</span><b id="cv">—</b></div>
-          <div id="cp-box" hidden><span class="muted">Gravando caminho</span><b id="cp">—</b><div class="row" style="gap:6px;justify-content:flex-start"><button class="btn sm" id="cp-u" type="button">✓ Usar como caminho esperado</button><button class="btn sm ghost" id="cp-s" type="button">Cancelar</button></div></div>
-          <button class="btn sm ghost" id="cap-re" type="button">↺ Recomeçar do ponto de partida</button></div>
-      </div>
+        <div class="capi"><span class="muted">Tela atual:</span> <b id="cv">—</b></div>
+        <button class="btn sm ghost" id="cap-re" type="button" style="margin-top:8px">↺ Voltar ao ponto de partida</button></div>
     </div></div>`;
   const flowOf = () => entGet('flows', $('#mf').value) || fl0;
   const capWin = () => { const f = $('#capf'); return f && f.contentWindow; };
+  const HINTS = {
+    1: 'Esta é a prévia do app. Ela abre no ponto de partida que você escolher no passo 2.',
+    2: 'Escolha o ponto de partida no passo 2: a prévia abre exatamente onde o participante vai começar.',
+    3: 'Navegue até onde a tarefa termina. Depois toque em “Escolher na prévia” (passo 3) e clique no botão final.',
+    4: 'Para gravar o caminho ideal, toque em “Gravar o caminho na prévia” (passo 4) e navegue como o participante ideal.',
+    5: 'A prévia continua disponível para você conferir o fluxo.' };
+  const hint = () => {
+    if (CAP.picking) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">Modo escolher ativo:</b> clique no botão ou na área onde a missão termina. O clique não aciona o app.';
+    if (CAP.rec) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">● Gravando:</b> navegue como o participante ideal. Conclua a gravação no passo 4.';
+    $('#cap-hint').textContent = HINTS[CAP.step] || HINTS[1];
+  };
+  const setStep = n => { CAP.step = n; document.querySelectorAll('.stp').forEach(x => x.classList.toggle('on', +x.dataset.s === n)); hint(); };
+  document.querySelectorAll('.stp').forEach(x => x.addEventListener('focusin', () => setStep(+x.dataset.s)));
+  document.querySelectorAll('.stp').forEach(x => x.addEventListener('click', () => setStep(+x.dataset.s)));
   const setPick = on => {
     CAP.picking = on; const w = capWin(); if (w) w.postMessage({ hsfcmd: 'pick', on }, '*');
-    $('#pk-on').textContent = on ? '✕ Cancelar escolha' : '🎯 Escolher na prévia'; $('#capw').classList.toggle('picking', on);
-    $('#cap-hint').innerHTML = on ? '<b style="color:#cc0000">Clique no botão ou na área da prévia onde a missão termina.</b> O clique não aciona o app.' : 'Navegue como o participante. Para definir o fim, use “Escolher na prévia”.';
-    if (!on) { /* mantém o cartão, se houver */ }
+    $('#pk-on').textContent = on ? '✕ Cancelar escolha' : '🎯 Escolher na prévia'; $('#capw').classList.toggle('picking', on); hint();
   };
   const fillStarts = async () => {
     const f = flowOf(); await loadManifest(f.url); const ss = startsOf(f), groups = [...new Set(ss.map(x => x.group || ''))];
-    $('#ms').innerHTML = '<option value="">Escolha…</option>' + groups.map(g => `<optgroup label="${esc(g)}">${ss.filter(x => (x.group || '') === g).map(x => `<option value="${esc(x.id)}" ${x.id === m.start ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`).join('');
+    $('#ms').innerHTML = '<option value="">Escolha o ponto de partida…</option>' + groups.map(g => `<optgroup label="${esc(g)}">${ss.filter(x => (x.group || '') === g).map(x => `<option value="${esc(x.id)}" ${x.id === m.start ? 'selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`).join('');
     reloadCap(); draw();
   };
-  const reloadCap = () => { const f = flowOf(), st = $('#ms').value; CAP.view = null; CAP.rec = false; CAP.recPath = []; $('#pk-card').hidden = true; setPick(false); drawCap();
-    $('#capf').src = st ? furl(f.url, 'start=' + encodeURIComponent(st) + '&rec=1&v=' + Date.now()) : 'about:blank'; };
-  const drawCap = () => {
-    $('#cv').textContent = CAP.view ? keyName(CAP.view) : '—';
-    $('#cp-box').hidden = !CAP.rec; $('#cp').textContent = CAP.recPath.length ? CAP.recPath.map(k => keyName(k)).join(' → ') : 'navegue na prévia…';
-    $('#cp-r').textContent = CAP.rec ? '● Gravando…' : '● Gravar navegando na prévia';
+  const reloadCap = () => { const f = flowOf(), st = $('#ms').value; CAP.view = null; $('#pk-card').hidden = true; setPick(false);
+    $('#cv').textContent = st ? 'carregando…' : '—';
+    $('#capf').src = st ? furl(f.url, 'start=' + encodeURIComponent(st) + '&rec=1&v=' + Date.now()) : 'about:blank'; draw(); };
+  const recDraw = () => {
+    $('#rec-box').hidden = !CAP.rec; $('#rec-btns').hidden = CAP.rec;
+    $('#rec-l').innerHTML = CAP.recPath.length ? CAP.recPath.map((k, i) => `<span class="chip"><i>${i + 1}</i>${esc(keyName(k))}</span>`).join('<span class="arr">→</span>') : '<span class="muted">aguardando a primeira tela…</span>';
   };
   const pickCard = ev => {
-    const key = keyBase(ev.key), sc = MANSCR[parseKey(key).scr], ord = sc && sc.curFmt === 'ordinal' && parseKey(key).cur, hit = ev.hit !== false;
+    const key = keyBase(ev.key), pk = parseKey(key), sc = MANSCR[pk.scr], ord = sc && sc.curFmt === 'ordinal' && pk.cur, hit = ev.hit !== false;
     const scrName = keyName(key), lbl = ev.label || '';
     $('#pk-card').hidden = false;
-    $('#pk-card').innerHTML = `<b>Você escolheu</b><p>${hit ? `“${esc(lbl)}”, na tela ${esc(scrName)}` : `uma área sem ação, na tela ${esc(scrName)}`}</p>
-      <div class="pkb">${hit ? `<button class="btn sm primary" data-pk="tap" type="button">Terminar ao tocar em “${esc(lbl)}”</button>` : ''}<button class="btn sm ${hit ? '' : 'primary'}" data-pk="view" type="button">Terminar ao chegar nesta tela</button></div>
-      ${ord ? `<label class="chk"><input type="checkbox" id="pk-any"> Vale para qualquer ${esc((sc.curWord || '').toLowerCase())}, não só a ${esc(parseKey(key).cur)}ª</label>` : ''}
+    $('#pk-card').innerHTML = `<b>Você escolheu</b><p>${hit ? `o botão <b>“${esc(lbl)}”</b>, na tela ${esc(scrName)}` : `uma área sem ação, na tela ${esc(scrName)}`}</p>
+      <p class="muted" style="margin:0">Como a missão deve terminar?</p>
+      <div class="pkb">${hit ? `<button class="btn sm primary" data-pk="tap" type="button">Quando o participante tocar em “${esc(lbl)}”</button>` : ''}<button class="btn sm ${hit ? '' : 'primary'}" data-pk="view" type="button">Quando o participante chegar nesta tela</button></div>
+      ${ord ? `<label class="chk"><input type="checkbox" id="pk-any"> Vale para qualquer ${esc((sc.curWord || '').toLowerCase())}, não só a ${esc(pk.cur)}ª</label>` : ''}
       <button class="btn sm ghost" data-pk="x" type="button">Cancelar</button>`;
     $('#pk-card').onclick = e => {
       const b = e.target.closest('[data-pk]'); if (!b) return;
-      const any = $('#pk-any') && $('#pk-any').checked, k2 = any ? parseKey(key).scr + '@*' : key;
+      const any = $('#pk-any') && $('#pk-any').checked, k2 = any ? pk.scr + '@*' : key;
       if (b.dataset.pk === 'tap') m.ends.push({ type: 'tap', label: lbl, key: k2 });
       if (b.dataset.pk === 'view' && !m.ends.some(c => c.type === 'view' && c.key === k2)) m.ends.push({ type: 'view', key: k2 });
       $('#pk-card').hidden = true; setPick(false); draw();
@@ -1906,38 +1947,51 @@ function viewMissaoEd(id) {
   const onMsg = e => {
     const fr = $('#capf'); if (!fr) { window.removeEventListener('message', onMsg); return; } if (e.source !== fr.contentWindow) return;
     const d = e.data; if (!d || !d.hsf || !d.ev) return; const ev = d.ev;
-    if (ev.type === 'view') { CAP.view = ev.key; const kb = keyBase(ev.key); if (CAP.rec && CAP.recPath[CAP.recPath.length - 1] !== kb) CAP.recPath.push(kb); drawCap(); }
+    if (ev.type === 'view') { CAP.view = ev.key; $('#cv').textContent = keyName(ev.key); const kb = keyBase(ev.key); if (CAP.rec && CAP.recPath[CAP.recPath.length - 1] !== kb) { CAP.recPath.push(kb); recDraw(); } }
     if (ev.type === 'tap' && CAP.picking) pickCard(Object.assign({}, ev, { key: ev.key || CAP.view }));
   };
   window.addEventListener('message', onMsg);
   const lst = (host, items, render, onDel, empty) => { $(host).innerHTML = items.length ? items.map((it, i) => `<div class="li"><span>${render(it, i)}</span><button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></div>`).join('') : `<p class="muted">${empty || 'Nenhum.'}</p>`;
     $(host).onclick = e => { const b = e.target.closest('.x'); if (b) onDel(+b.dataset.i); }; };
+  const done = n => { const sec = document.querySelector(`.stp[data-s="${n}"]`); return sec; };
   const draw = () => {
-    lst('#me', m.ends, c => '<b>' + esc(condLabel(c)) + '</b>', i => { m.ends.splice(i, 1); draw(); }, 'Nenhuma condição ainda. Use “Escolher na prévia”.');
-    lst('#mpth', m.path, (k, i) => (i + 1) + '. ' + esc(patName(k)), i => { m.path.splice(i, 1); draw(); }, 'Sem caminho esperado.');
-    lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 7' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); });
+    lst('#me', m.ends, c => '✓ ' + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido.');
+    $('#mpth').innerHTML = m.path.length ? m.path.map((k, i) => `<span class="chip"><i>${i + 1}</i>${esc(patName(k))}<button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></span>`).join('<span class="arr">→</span>') : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
+    $('#mpth').onclick = e => { const b = e.target.closest('.x'); if (b) { m.path.splice(+b.dataset.i, 1); draw(); } };
+    lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 7' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
     $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
+    const st = { 1: !!($('#mn').value.trim()), 2: !!$('#ms').value, 3: m.ends.length > 0, 4: m.path.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
+    Object.entries(st).forEach(([n, ok]) => { const sec = done(n); if (sec) sec.classList.toggle('done', ok); });
   };
-  /* lista de telas com busca (para o fim ou para o caminho) */
+  /* lista de telas com busca, aberta dentro do passo que pediu */
+  const SL = document.createElement('div'); SL.className = 'slw';
+  SL.innerHTML = '<div class="row"><b id="sl-t"></b><button class="btn sm ghost" id="sl-x" type="button">Fechar</button></div><input type="search" id="sl-q" placeholder="Buscar tela… (ex.: catálogo, seguro, assembleia)"><div id="sl-l" class="sll"></div>';
   const openList = forWhat => {
-    CAP.listFor = forWhat; $('#sl').hidden = false; $('#sl-t').textContent = forWhat === 'end' ? 'Terminar ao chegar em qual tela?' : 'Adicionar qual tela ao caminho?';
+    CAP.listFor = forWhat; const host = document.querySelector(`.slh[data-for="${forWhat}"]`); host.innerHTML = ''; host.appendChild(SL); SL.hidden = false;
+    $('#sl-t').textContent = forWhat === 'end' ? 'Terminar quando chegar em qual tela?' : 'Adicionar qual tela ao caminho ideal?';
     $('#sl-q').value = ''; drawList(); $('#sl-q').focus();
   };
   const drawList = () => {
-    const q = ($('#sl-q').value || '').toLowerCase(), cat = screenCatalog().filter(x => !q || x.name.toLowerCase().includes(q));
+    const q = ($('#sl-q').value || '').toLowerCase(), cat = screenCatalog().filter(x => !q || x.name.toLowerCase().includes(q) || x.group.toLowerCase().includes(q));
     const groups = [...new Set(cat.map(x => x.group))];
     $('#sl-l').innerHTML = groups.map(g => `<div class="slg">${esc(g)}</div>` + cat.filter(x => x.group === g).map(x => `<button type="button" data-k="${esc(x.key)}">${esc(x.name)}</button>`).join('')).join('') || '<p class="muted">Nenhuma tela encontrada.</p>';
   };
-  $('#sl-q').oninput = drawList; $('#sl-x').onclick = () => { $('#sl').hidden = true; };
-  $('#sl-l').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
-    if (CAP.listFor === 'end') { if (!m.ends.some(c => c.type === 'view' && c.key === k)) m.ends.push({ type: 'view', key: k }); $('#sl').hidden = true; }
-    else m.path.push(k); draw(); };
+  SL.addEventListener('input', e => { if (e.target.id === 'sl-q') drawList(); });
+  SL.addEventListener('click', e => {
+    if (e.target.id === 'sl-x') { SL.remove(); return; }
+    const b = e.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
+    if (CAP.listFor === 'end') { if (!m.ends.some(c => c.type === 'view' && c.key === k)) m.ends.push({ type: 'view', key: k }); SL.remove(); }
+    else { m.path.push(k); b.classList.add('added'); }
+    draw();
+  });
   $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList('path');
-  $('#mf').onchange = fillStarts; $('#ms').onchange = reloadCap; $('#cap-re').onclick = reloadCap;
-  $('#pk-on').onclick = () => { $('#pk-card').hidden = true; setPick(!CAP.picking); };
-  $('#cp-r').onclick = () => { if (CAP.picking) setPick(false); CAP.rec = true; CAP.recPath = CAP.view ? [keyBase(CAP.view)] : []; drawCap(); };
-  $('#cp-u').onclick = () => { m.path = CAP.recPath.slice(); CAP.rec = false; drawCap(); draw(); };
-  $('#cp-s').onclick = () => { CAP.rec = false; CAP.recPath = []; drawCap(); };
+  $('#mf').onchange = fillStarts; $('#ms').onchange = () => { reloadCap(); };
+  $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recPath = []; recDraw(); } reloadCap(); };
+  $('#mn').oninput = draw; $('#ml').oninput = draw;
+  $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(3); setPick(!CAP.picking); };
+  $('#rec-go').onclick = () => { if (!$('#ms').value) { $('#merr').textContent = 'Escolha primeiro onde a missão começa (passo 2).'; return; } setPick(false); CAP.rec = true; CAP.recPath = []; setStep(4); recDraw(); reloadCap(); hint(); };
+  $('#rec-ok').onclick = () => { if (CAP.recPath.length) m.path = CAP.recPath.slice(); CAP.rec = false; recDraw(); hint(); draw(); };
+  $('#rec-x').onclick = () => { CAP.rec = false; CAP.recPath = []; recDraw(); hint(); };
   $('#cp-clr').onclick = () => { m.path = []; draw(); };
   $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use @* para “qualquer variação” (ex.: home@*).'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
@@ -1946,12 +2000,11 @@ function viewMissaoEd(id) {
   $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = $('#ms').value; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
-    if (!m.name) { $('#merr').textContent = 'Dê um nome para a missão.'; return; }
-    if (!m.start) { $('#merr').textContent = 'Escolha onde a missão começa.'; return; }
-    if (!m.ends.length) { $('#merr').textContent = 'Defina como a missão termina (use “Escolher na prévia”).'; return; }
+    const miss = !m.name ? 1 : !m.start ? 2 : !m.ends.length ? 3 : 0;
+    if (miss) { $('#merr').textContent = ['', 'Passo 1: dê um nome para a missão.', 'Passo 2: escolha onde a missão começa.', 'Passo 3: defina como a missão termina.'][miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
   };
-  draw(); fillStarts();
+  recDraw(); setStep(isNew ? 1 : 3); draw(); fillStarts();
 }
 
 function viewRoteiroEd(id) {
