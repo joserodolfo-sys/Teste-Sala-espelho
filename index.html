@@ -202,12 +202,20 @@ td.r,th.r{text-align:right}
 .pdfov b{font-size:16px}.pdfov span{font-size:13px;color:var(--sec)}
 .pdfov i{width:34px;height:34px;border:4px solid #eee;border-top-color:var(--red);border-radius:50%;animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.med{display:grid;grid-template-columns:1fr 430px;gap:16px;align-items:start}@media(max-width:1000px){.med{grid-template-columns:1fr}}
+.cap .capw{width:390px;height:700px;border-radius:24px;overflow:hidden;border:1px solid #ddd;margin:0 auto;background:#f3f3f3}.cap iframe{width:100%;height:100%;border:0}
+.capi{display:flex;flex-direction:column;gap:10px;margin-top:12px}.capi>div{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #eee;border-radius:8px}.capi b{font-size:13px}
+.lst{display:flex;flex-direction:column;gap:6px}.lst .li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;font-size:13px}.lst .li>span{flex:1}.lst .x{border:0;background:none;color:#b00;cursor:pointer;font-size:14px}
+.rb{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}.rb.ok{background:#e6f6ec;color:#0a7a3c}.rb.no{background:#fdecee;color:#b00020}.rb.run{background:#eef2ff;color:#3346a8}
+.tray .mis{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #e5e5e5;border-radius:10px;margin:8px 0}.tray .mis p{margin:0;font-size:13px}
+.grip.ok{background:#0a7a3c!important;color:#fff!important}
+.qq{margin:10px 0}.qq p{margin:0 0 6px;font-weight:600}.qq .sc{display:flex;gap:6px}.qq .sc button{flex:1;height:38px;border:1px solid #ccc;border-radius:8px;background:#fff;font-weight:700;cursor:pointer}.qq .sc button.on{background:#c00;color:#fff;border-color:#c00}.qq .sl{display:flex;justify-content:space-between;font-size:11px;color:#777;margin-top:4px}.qq textarea{width:100%}
 </style>
 </head>
 <body>
 <header class="top" id="top">
   <a class="brand" href="#/"><b>HSF</b> Teste de usabilidade <span>Moderador</span></a>
-  <nav><a href="#/">Painel</a><a href="#/nova">Novo participante</a><a href="#/fluxos">Fluxos</a><a href="#/nuvem" id="cloudlink">☁ Entrar</a></nav>
+  <nav><a href="#/">Painel</a><a href="#/nova">Novo participante</a><a href="#/missoes">Missões</a><a href="#/fluxos">Visualizar</a><a href="#/nuvem" id="cloudlink">☁ Entrar</a></nav>
 </header>
 <main id="app"></main>
 <div id="test" hidden></div>
@@ -672,6 +680,7 @@ function parseKey(key) {
   return { sheet, scr, cur, sel };
 }
 function keyName(key) {
+  if (typeof manKeyName === 'function') { const mk = manKeyName(key); if (mk) return mk; }
   const k = parseKey(key); let n;
   if (k.scr === 'home') n = `Home · ${k.cur}ª assembleia`;
   else if (k.scr === 'detail') n = `Detalhe · ${k.cur}ª assembleia` + (k.sel ? ` · cota ${k.sel} selecionada` : '');
@@ -748,7 +757,7 @@ async function sb(path, opts = {}) {
   if (!r.ok) { const j = await sbJson(r); throw new Error((j && (j.message || j.hint || j.error)) || ('Erro ' + r.status)); }
   return sbJson(r);
 }
-const sigOf = s => [(s.events || []).length, s.endedAt || 0, s.notesPost || '', (s.events || []).filter(e => e.type === 'marker').map(e => e.label).join('|')].join('#');
+const sigOf = s => [(s.events || []).length, s.endedAt || 0, s.notesPost || '', s.result || '', JSON.stringify(s.answers || ''), (s.events || []).filter(e => e.type === 'marker').map(e => e.label).join('|')].join('#');
 const isActive = s => ACTIVE && ACTIVE.s && ACTIVE.s.id === s.id;
 const pendingSessions = () => sessions.filter(s => !isActive(s) && (s.events || []).length && s.syncedSig !== sigOf(s));
 const MERGE = { Prefer: 'resolution=merge-duplicates,return=minimal' };
@@ -760,7 +769,7 @@ async function pushPending() {
   for (const s of pend) {
     const sig = sigOf(s);
     await sb('/rest/v1/sessions?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: s.id, participant_id: pidOf(s), flow: s.flow, seq: s.seq ?? null, attempt: s.attempt ?? null,
-      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null }]) });
+      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: (s.resultData || s.answers) ? Object.assign({}, s.resultData, { answers: s.answers || null, qs: s.qs || null }) : null }]) });
     await sb('/rest/v1/events?session_id=eq.' + enc(s.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     const rows = (s.events || []).map(e => { const { t, type, key, ...rest } = e; return { session_id: s.id, t: Math.round(t || 0), type, key: key || null, data: Object.keys(rest).length ? rest : null }; });
     for (let i = 0; i < rows.length; i += 500) await sb('/rest/v1/events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows.slice(i, i + 500)) });
@@ -784,7 +793,7 @@ async function pullRemote() {
       const p = pm[r.participant_id] || {};
       const events = evs.filter(e => e.session_id === r.id).map(e => Object.assign({ type: e.type, t: e.t }, e.key ? { key: e.key } : {}, e.data || {}));
       const s = { id: r.id, pid: r.participant_id, name: p.name || 'Participante', age: p.age, obs: p.obs || '', flow: r.flow, seq: r.seq, attempt: r.attempt || 1, plan: r.plan || null,
-        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', events };
+        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, events };
       s.syncedSig = sigOf(s); sessions.push(s); n++;
     });
   }
@@ -809,6 +818,7 @@ async function cloudKick(manual) {
     let check = false;
     if (!CLOUD.pulled || manual) { CLOUD.pulledN = await pullRemote(); CLOUD.pulled = true; check = true; }
     CLOUD.pushedN = await pushPending();
+    try { if (check) await entPull(); else await entPushAll(); } catch (e) {}
     const rows = await sbAll('/rest/v1/sessions?select=id');
     CLOUD.remoteIds = new Set(rows.map(r => r.id)); CLOUD.remoteN = rows.length;
     if (check) await reconcileGone();
@@ -940,12 +950,21 @@ function route() {
   if (r === 'relatorio') return viewRelatorio(p, q === '1');
   if (r === 'sessao') return viewSessao(p);
   if (r === 'geral') return viewGeral(p);
+  if (r === 'missoes') return viewMissoes();
+  if (r === 'missao') return viewMissaoEd(p);
+  if (r === 'roteiro') return viewRoteiroEd(p);
+  if (r === 'fluxo') return viewFluxoEd(p);
   viewHome();
 }
 window.addEventListener('hashchange', route);
 
 /* ================== Painel ================== */
 async function checkFlows() {
+  const bad = [];
+  for (const fl of entLive('flows')) { const mm = await loadManifest(fl.url, true); if (!mm) bad.push(baseUrl(fl.url) + ' (não encontrado ou sem manifesto)'); }
+  const el = $('#chk'); if (el && bad.length) el.innerHTML = `<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016"><b>Atenção:</b> não consegui ler o manifesto de: ${bad.map(esc).join(', ')}. Confira se o arquivo foi enviado ao GitHub.</div>`;
+}
+async function checkFlowsOld() {
   const bad = [];
   for (const f of Object.values(LIVE())) {
     try { const r = await fetch(furl(f.file, 'c=' + Date.now()), { cache: 'no-store' }); const t = await r.text(); if (!r.ok) bad.push(f.file + ' (não encontrado)'); else if (!t.includes('__recInit')) bad.push(f.file + ' (versão antiga, sem gravação)'); }
@@ -1046,7 +1065,8 @@ function viewNova() {
       <div class="card f" style="display:flex;flex-direction:column;gap:16px">
         <div class="two"><div><label>Nome do participante *</label><input type="text" id="f-name" autocomplete="off" autofocus></div>
           <div><label>Idade *</label><input type="number" id="f-age" min="1" max="120" inputmode="numeric"></div></div>
-        <div><div class="row" style="margin-bottom:6px"><label style="margin:0">Fluxos e ordem do teste</label><button class="btn sm" id="shuf" type="button">⤮ Sortear ordem</button></div>
+        <div><label>Roteiro</label><select id="f-rot"><option value="">Escolher missões manualmente</option>${entLive('scripts').map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
+        <div><div class="row" style="margin-bottom:6px"><label style="margin:0">Missões e ordem do teste</label><button class="btn sm" id="shuf" type="button">⤮ Sortear ordem</button></div>
           <div class="pick" id="fl"></div>
           <p class="muted" style="margin-top:6px">A ordem fica registrada no relatório, porque os fluxos compartilham telas e o primeiro influencia os seguintes.</p></div>
         <div><label>Observações (opcional)</label><textarea id="f-obs" placeholder="Perfil, experiência com consórcio, contexto…"></textarea></div>
@@ -1061,6 +1081,8 @@ function viewNova() {
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Descer">▼</button></div>`; }).join('');
   };
   draw();
+  $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
+    order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
   const fl = $('#fl');
   fl.onclick = e => {
     const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]');
@@ -1087,6 +1109,7 @@ function trayHTML() {
   return `<div class="rec"><i></i><span id="clock">${dur(Date.now() - A.t0)}</span></div>
     <div class="who">Participante: <b>${esc(s.name)}</b>, ${esc(s.age)} anos</div>
     <div class="who">Fluxo ${A.idx + 1} de ${A.plan.length}: <b>${flowTag(s.flow)}</b>${nx ? '<br>Próximo: ' + flowTag(A.plan[A.idx + 1]) : ''}</div>
+    ${missionTray(s)}
     <div class="btns"><button class="btn" id="mark">⚑ Marcar momento</button><button class="btn end" id="adv" data-label="${last ? 'Finalizar teste' : 'Próximo fluxo →'}">${last ? 'Finalizar teste' : 'Próximo fluxo →'}</button></div>
     ${last ? '' : '<button class="btn sm ghost" id="stop" data-label="Encerrar teste agora">Encerrar teste agora</button>'}
     <p class="muted" id="mk-n"></p>`;
@@ -1120,7 +1143,7 @@ function viewTeste(pid) {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
     A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1&v=' + Date.now());
-    renderTray(); toggle(false); startCheck();
+    renderTray(); toggle(false); startCheck(); missionUI();
   };
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
   scrim.onclick = () => toggle(false);
@@ -1130,8 +1153,9 @@ function viewTeste(pid) {
       const n = A.s.events.filter(x => x.type === 'marker').length + 1;
       A.s.events.push({ type: 'marker', t: Date.now() - A.t0, label: 'Marcador ' + n }); save();
       $('#mk-n').textContent = `Marcador ${n} registrado.`;
-    } else if (b.id === 'adv') arm(b, A.idx === A.plan.length - 1 ? endTest : nextFlow);
-    else if (b.id === 'stop') arm(b, endTest);
+    } else if (b.id === 'adv') arm(b, () => finishMission(A.s, A.idx === A.plan.length - 1 ? endTest : nextFlow));
+    else if (b.id === 'stop') arm(b, () => finishMission(A.s, endTest));
+    else if (b.id === 'mok' || b.id === 'mno') { A.s.result = b.id === 'mok' ? 'concluiu' : 'desistiu'; A.s.resultData = Object.assign({}, A.s.resultData, { at: Date.now() - A.t0, auto: false }); save(); renderTray(); missionUI(); }
   };
   renderTray(); startCheck();
   clearInterval(A.clock); clearInterval(A.auto);
@@ -1143,7 +1167,7 @@ window.addEventListener('message', e => {
   const m = e.data; if (!m || !m.hsf) return;
   const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
-  s.events.push(ev);
+  s.events.push(ev); checkMission(s, ev);
 });
 function endTest() {
   const A = ACTIVE; clearInterval(A.clock); clearInterval(A.auto); clearTimeout(A.chk);
@@ -1251,8 +1275,8 @@ const SCR_ORDER = ['splash', 'slide', 'login', 'ghome', 'gexp', 'sim', 'homeB', 
 const SCR_NAME = { splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home', gexp: 'Card expandido', sim: 'Simulação', homeB: 'Assembleias (contemplado)', detailB: 'Detalhe (contemplado)', nextB: 'Próximos passos', home: 'Assembleias', detail: 'Detalhe da assembleia', offer: 'Oferta de lance', next: 'Próximos passos' };
 const STATE_NAME = { normal: 'Tela normal', sheet: 'Bottomsheet aberto', calc: 'Cálculo da cota aberto' };
 const STATE_ORDER = ['normal', 'calc', 'sheet'];
-const stLabel = (scr, st) => (scr === 'login' && st === 'calc') ? 'Com erro de validação' : (scr === 'ghome' && st === 'calc') ? 'Cartão 2 em destaque' : STATE_NAME[st];
-const curLabel = (scr, cur) => !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : scr === 'sim' ? ` · ${SIMN[cur] || ''}` : scr === 'gexp' ? ` · ${cur === '2' ? 'Contemplado' : 'Em andamento'}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
+const stLabel = (scr, st) => (st === 'calc' && typeof MANSCR !== 'undefined' && MANSCR[scr] && MANSCR[scr].selName) ? MANSCR[scr].selName : (scr === 'login' && st === 'calc') ? 'Com erro de validação' : (scr === 'ghome' && st === 'calc') ? 'Cartão 2 em destaque' : STATE_NAME[st];
+const curLabel = (scr, cur) => (cur && typeof manCur === 'function' && manCur(scr, cur)) ? ' · ' + manCur(scr, cur) : !cur || scr === 'login' ? '' : scr === 'ghome' ? ` · ${GTABS[cur - 1] || ''}` : scr === 'sim' ? ` · ${SIMN[cur] || ''}` : scr === 'gexp' ? ` · ${cur === '2' ? 'Contemplado' : 'Em andamento'}` : (scr === 'slide' ? ` · slide ${cur}` : ` · ${cur}ª assembleia`);
 function heatPanel(host, flow, sessionsList, vw, vh, st) {
   const taps = sessionsList.flatMap(s => (s.events || []).filter(e => e.type === 'tap').map(t => Object.assign({}, t, { _vh: s.vh || vh })));
   const keys = []; sessionsList.forEach(s => (s.events || []).filter(e => e.type === 'view').forEach(v => { if (!keys.includes(v.key)) keys.push(v.key); }));
@@ -1277,7 +1301,7 @@ function heatPanel(host, flow, sessionsList, vw, vh, st) {
     const cs = cursOf(scr), ss = statesOf(scr, cur);
     $('#hrows').innerHTML =
       `<div class="seg2"><small>Tela</small><div class="tabs">${scrs.map(x => `<button data-s="${x}" class="${x === scr ? 'on' : ''}">${SCR_NAME[x]}<em>${cnt(match(x))}</em></button>`).join('')}</div></div>` +
-      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : scr === 'ghome' ? 'Aba' : scr === 'sim' ? 'Página' : scr === 'gexp' ? 'Card' : 'Assembleia'}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : scr === 'sim' ? SIMN[x] : scr === 'gexp' ? (x === '2' ? 'Contemplado' : 'Em andamento') : x + 'ª'}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
+      (cs.length > 1 ? `<div class="seg2"><small>${scr === 'slide' ? 'Slide' : (MANSCR[scr] && MANSCR[scr].curWord) || (scr === 'ghome' ? 'Aba' : scr === 'sim' ? 'Página' : scr === 'gexp' ? 'Card' : 'Assembleia')}</small><div class="tabs">${cs.map(x => `<button data-c="${x}" class="${x === cur ? 'on' : ''}">${scr === 'slide' ? 'Slide ' + x : scr === 'ghome' ? GTABS[x - 1] : manCur(scr, x) || (scr === 'sim' ? SIMN[x] : scr === 'gexp' ? (x === '2' ? 'Contemplado' : 'Em andamento') : x + 'ª')}<em>${cnt(match(scr, x))}</em></button>`).join('')}</div></div>` : '') +
       (ss.length > 1 ? `<div class="seg2"><small>Estado</small><div class="tabs">${ss.map(x => `<button data-t="${x}" class="${x === state ? 'on' : ''}">${stLabel(scr, x)}<em>${cnt(match(scr, cur || null, x))}</em></button>`).join('')}</div></div>` : '');
   };
   const side = ks => {
@@ -1599,6 +1623,302 @@ document.addEventListener('change', e => {
   r.onload = () => { try { const x = JSON.parse(r.result), arr = Array.isArray(x) ? x : (x.sessions || []); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save(); alert(n + ' sessão(ões) importada(s).'); viewHome(); } catch (err) { alert('Arquivo inválido.'); } };
   r.readAsText(e.target.files[0]);
 });
+/* ================== Fluxos, missões e roteiros (painel agnóstico ao fluxo) ================== */
+const ENT_LS = 'hsf_entities_v1';
+let ENT = lsGet(ENT_LS, { flows: [], missions: [], scripts: [] });
+['flows', 'missions', 'scripts'].forEach(k => { if (!Array.isArray(ENT[k])) ENT[k] = []; });
+if (!ENT.flows.length) ENT.flows.push({ id: 'f_hsf', name: 'HSF · Consórcio', url: 'app.html', updatedAt: 0 });
+const entLive = kind => ENT[kind].filter(x => !x.deleted);
+const entGet = (kind, id) => ENT[kind].find(x => x.id === id);
+function entSave(kind, obj) {
+  obj.updatedAt = Date.now(); obj.pushed = false;
+  const L = ENT[kind], i = L.findIndex(x => x.id === obj.id); if (i < 0) L.push(obj); else L[i] = obj;
+  lsSet(ENT_LS, ENT); syncMissionFlows(); entPushAll();
+}
+function entDelete(kind, id) { const o = entGet(kind, id); if (!o) return; o.deleted = true; entSave(kind, o); }
+async function entPushAll() {
+  if (!AUTH) return;
+  const kinds = { flows: 'flow', missions: 'mission', scripts: 'script' };
+  for (const k of Object.keys(kinds)) for (const o of ENT[k].filter(x => !x.pushed)) {
+    try {
+      await sb('/rest/v1/entities?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: o.id, kind: kinds[k], data: Object.assign({}, o, { pushed: undefined }), updated_at: new Date(o.updatedAt || Date.now()).toISOString() }]) });
+      o.pushed = true;
+    } catch (e) { /* tenta de novo na próxima sincronização */ }
+  }
+  lsSet(ENT_LS, ENT);
+}
+async function entPull() {
+  const rows = await sbAll('/rest/v1/entities?select=*');
+  const map = { flow: 'flows', mission: 'missions', script: 'scripts' }; let ch = false;
+  rows.forEach(r => {
+    const k = map[r.kind]; if (!k) return; const d = Object.assign({}, r.data, { pushed: true }), cur = entGet(k, r.id);
+    if (!cur || (d.updatedAt || 0) > (cur.updatedAt || 0)) { if (cur) Object.assign(cur, d); else ENT[k].push(d); ch = true; }
+  });
+  if (ch) { lsSet(ENT_LS, ENT); syncMissionFlows(); }
+  await entPushAll();
+}
+
+/* ---------- manifesto do app (lido do início do arquivo, sem baixar o app inteiro) ---------- */
+const MAN = {}, MANSCR = {};
+const baseUrl = u => String(u || '').split('?')[0];
+async function loadManifest(url, force) {
+  const u = baseUrl(url); if (!u) return null; if (MAN[u] && !force) return MAN[u];
+  let txt = '';
+  try { const r = await fetch(u + '?m=' + Date.now(), { headers: { Range: 'bytes=0-65535' }, cache: 'no-store' }); txt = await r.text(); } catch (e) { return null; }
+  const i = txt.indexOf('id="hsf-manifest">'); if (i < 0) return null;
+  let m = null; try { m = JSON.parse(txt.slice(i + 18, txt.indexOf('<\/script>', i))); } catch (e) { return null; }
+  MAN[u] = m; applyManifest(m); return m;
+}
+function applyManifest(m) {
+  (m.screens || []).forEach(sc => {
+    MANSCR[sc.scr] = sc; SCR_NAME[sc.scr] = sc.name; if (sc.color) COLORS[sc.scr] = sc.color;
+    if (!SCR_ORDER.includes(sc.scr)) SCR_ORDER.push(sc.scr);
+    if (sc.scr === 'sim' && sc.curNames) Object.assign(SIMN, sc.curNames);
+  });
+  if (m.sheetColor) COLORS.sheet = m.sheetColor;
+  const ord = (m.screens || []).map(s => s.scr); SCR_ORDER.sort((a, b) => (ord.indexOf(a) < 0 ? 99 : ord.indexOf(a)) - (ord.indexOf(b) < 0 ? 99 : ord.indexOf(b)));
+  syncMissionFlows(); MAN_SHEET = m.sheetName || MAN_SHEET;
+}
+let MAN_SHEET = 'Bottomsheet aberto';
+function manCur(scr, cur) {
+  const sc = MANSCR[scr]; if (!sc || !cur) return null;
+  if (sc.curNames && sc.curNames[cur]) return sc.curNames[cur];
+  if (sc.curFmt === 'ordinal') return cur + 'ª ' + (sc.curWord || '').toLowerCase();
+  return null;
+}
+function manKeyName(key) {
+  const k = parseKey(key), sc = MANSCR[k.scr]; if (!sc) return null;
+  let n = sc.name; const c = manCur(k.scr, k.cur); if (c) n += ' · ' + c;
+  if (k.sel) n += ' · ' + (sc.selName || 'seleção ' + k.sel);
+  return k.sheet ? `Bottomsheet (sobre ${n})` : n;
+}
+const startsOf = fl => ((MAN[baseUrl(fl && fl.url)] || {}).starts) || [];
+const startOf = (fl, id) => startsOf(fl).find(s => s.id === id);
+
+/* ---------- cada missão vira um "fluxo" do painel (reaproveita gravação, mapa de calor e relatórios) ---------- */
+function syncMissionFlows() {
+  Object.keys(FLOWS).forEach(k => { if (k.indexOf('M_') === 0) delete FLOWS[k]; });
+  ENT.missions.forEach((m, i) => {
+    const fl = entGet('flows', m.flow) || entLive('flows')[0]; if (!fl) return;
+    const st = startOf(fl, m.start);
+    FLOWS['M_' + m.id] = { n: 'M' + (entLive('missions').indexOf(m) + 1 || '–'), file: furl(fl.url, 'start=' + encodeURIComponent(m.start || '')), name: m.name || 'Missão sem nome',
+      sub: (st ? st.label : (m.start || 'início não definido')), logged: st ? !!st.logged : false, mission: m, legacy: !!m.deleted };
+  });
+}
+syncMissionFlows();
+entLive('flows').forEach(f => loadManifest(f.url));
+
+/* ---------- condição de fim e resultado ---------- */
+const keyMatch = (k, pat) => { if (!pat) return true; if (pat.endsWith('*')) return String(k || '').indexOf(pat.slice(0, -1)) === 0; return k === pat; };
+function condLabel(c) {
+  if (c.type === 'view') return 'Acessar a tela: ' + (keyName(c.key) || c.key);
+  return 'Tocar em: “' + c.label + '”' + (c.key ? ' (na tela ' + keyName(c.key) + ')' : '');
+}
+function visitedPath(s, upTo) {
+  const out = []; (s.events || []).forEach(e => { if (e.type === 'view' && (upTo == null || e.t <= upTo) && out[out.length - 1] !== e.key) out.push(e.key); }); return out;
+}
+function checkMission(s, ev) {
+  const f = FLOWS[s.flow], m = f && f.mission; if (!m || s.result) return;
+  const hit = (m.ends || []).some(c => c.type === 'view' ? (ev.type === 'view' && keyMatch(ev.key, c.key)) : (ev.type === 'tap' && ev.label === c.label && keyMatch(ev.key, c.key)));
+  if (!hit) return;
+  const path = (m.path || []).filter(Boolean), vis = visitedPath(s, ev.t);
+  const direto = path.length ? (vis.length === path.length && vis.every((k, i) => keyMatch(k, path[i]))) : null;
+  s.result = 'concluiu'; s.resultData = Object.assign({}, s.resultData, { at: ev.t, auto: true, how: ev.type === 'view' ? 'tela' : 'toque', direto });
+  save(); missionUI();
+}
+function missionUI() {
+  const A = ACTIVE; if (!A) return; const s = A.s, g = $('#grip'), box = $('#mis-st');
+  if (g) g.classList.toggle('ok', s.result === 'concluiu');
+  if (box) box.innerHTML = resultBadge(s, true);
+}
+function resultBadge(s, long) {
+  const r = s.result, d = s.resultData || {};
+  if (!FLOWS[s.flow] || !FLOWS[s.flow].mission) return '';
+  if (!r) return long ? '<span class="rb run">Em andamento…</span>' : '';
+  const t = d.at != null ? ' em ' + dur(d.at) : '';
+  if (r === 'concluiu') return `<span class="rb ok">✓ Concluiu${t}${d.direto === true ? ' · direto' : d.direto === false ? ' · indireto' : ''}${long && d.auto ? ' (detectado)' : ''}</span>`;
+  if (r === 'desistiu') return `<span class="rb no">✕ Desistiu${t}</span>`;
+  return '<span class="rb no">Não concluiu</span>';
+}
+
+/* ---------- perguntas pós-missão ---------- */
+function askQuestions(s, done) {
+  const m = FLOWS[s.flow] && FLOWS[s.flow].mission, qs = (m && m.questions || []).filter(q => q.text);
+  if (!qs.length) return done();
+  const host = $('#tray'); const ans = s.answers || {};
+  host.classList.add('on'); $('#scrim').classList.add('on');
+  host.innerHTML = `<div class="who"><b>Perguntas · ${esc(m.name)}</b><br><span class="muted">Leia para o participante e registre a resposta.</span></div>` +
+    qs.map((q, i) => `<div class="qq"><p>${esc(q.text)}</p>${q.type === 'scale'
+      ? `<div class="sc" data-q="${i}">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${n}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
+      : `<textarea data-q="${i}" rows="3">${esc(ans[i] || '')}</textarea>`}</div>`).join('') +
+    `<div class="btns"><button class="btn primary" id="qok">Salvar e continuar</button></div>`;
+  const prevClick = host.onclick;
+  host.onclick = e => {
+    const b = e.target.closest('.sc button'); if (b) { const g = b.parentNode; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans[g.dataset.q] = +b.dataset.v; return; }
+    if (e.target.id === 'qok') { host.querySelectorAll('textarea[data-q]').forEach(t => { ans[t.dataset.q] = t.value.trim(); }); s.answers = ans; s.qs = qs.map(q => q.text); save(); host.onclick = prevClick; done(); }
+  };
+}
+
+/* ================== Páginas: fluxos, missões e roteiros ================== */
+function viewMissoes() {
+  const fl = entLive('flows'), ms = entLive('missions'), sc = entLive('scripts');
+  $('#app').innerHTML = `<div class="form" style="max-width:980px">
+    <div><a class="crumb" href="#/">← Painel</a><h1>Missões</h1><p class="muted">Defina onde cada tarefa começa e o que conta como concluída. O painel detecta o fim sozinho durante o teste.</p></div>
+    <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></div>
+      ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
+        const f = FLOWS['M_' + m.id]; return `<tr><td>M${i + 1}</td><td><b>${esc(m.name)}</b><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
+        <td>${(m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>'}</td>
+        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>`; }).join('')}</tbody></table>`
+      : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
+    <div class="card"><div class="row"><h2 style="margin:0">Roteiros</h2><a class="btn sm primary" href="#/roteiro/novo">＋ Novo roteiro</a></div>
+      <p class="muted">Um roteiro é a sequência de missões de um teste. Você escolhe o roteiro ao cadastrar o participante.</p>
+      ${sc.length ? `<table><tbody>${sc.map(r => `<tr><td><b>${esc(r.name)}</b><br><span class="muted">${(r.missions || []).map(id => { const m = entGet('missions', id); return m && !m.deleted ? esc(m.name) : null; }).filter(Boolean).join(' → ') || 'sem missões'}</span></td>
+        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/roteiro/${enc(r.id)}">Editar</a> <button class="btn sm ghost" data-dels="${esc(r.id)}">Excluir</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum roteiro ainda.</p>'}</div>
+    <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
+      <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
+      <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b><br><span class="muted">${esc(f.url)}</span></td>
+        <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a></td></tr>`; }).join('')}</tbody></table></div>
+  </div>`;
+  $('#app').onclick = e => {
+    const d = e.target.closest('[data-delm]'), du = e.target.closest('[data-dupm]'), ds = e.target.closest('[data-dels]');
+    if (d && confirm('Excluir esta missão? As sessões já gravadas continuam no histórico.')) { entDelete('missions', d.dataset.delm); viewMissoes(); }
+    if (du) { const o = JSON.parse(JSON.stringify(entGet('missions', du.dataset.dupm))); o.id = 'm' + uid(); o.name += ' (cópia)'; entSave('missions', o); viewMissoes(); }
+    if (ds && confirm('Excluir este roteiro?')) { entDelete('scripts', ds.dataset.dels); viewMissoes(); }
+  };
+  if (fl.some(f => !MAN[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)])) viewMissoes(); });
+}
+
+function viewFluxoEd(id) {
+  const isNew = id === 'novo', f = isNew ? { id: 'f' + uid(), name: '', url: '' } : JSON.parse(JSON.stringify(entGet('flows', id) || {}));
+  $('#app').innerHTML = `<div class="form" style="max-width:640px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Novo fluxo' : 'Editar fluxo'}</h1></div>
+    <div class="card f" style="display:flex;flex-direction:column;gap:14px">
+      <div><label>Nome</label><input type="text" id="fx-n" value="${esc(f.name)}"></div>
+      <div><label>Endereço do app</label><input type="text" id="fx-u" value="${esc(f.url)}" placeholder="app.html ou https://…"><p class="muted" style="margin-top:6px">Pode ser um arquivo na mesma pasta (ex.: app.html) ou um endereço completo do mesmo site.</p></div>
+      <div id="fx-m" class="muted"></div><p class="err" id="fx-e"></p>
+      <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button></div></div></div>`;
+  const test = async () => { $('#fx-m').textContent = 'Lendo…'; const m = await loadManifest($('#fx-u').value.trim(), true);
+    $('#fx-m').innerHTML = m ? `<span class="rb ok">✓ ${esc(m.name)}</span> · ${m.starts.length} pontos de partida · ${m.screens.length} tipos de tela` : '<span class="err">Não encontrei o manifesto neste endereço.</span>'; return m; };
+  $('#fx-t').onclick = test;
+  $('#fx-s').onclick = async () => { f.name = $('#fx-n').value.trim(); f.url = $('#fx-u').value.trim();
+    if (!f.name || !f.url) { $('#fx-e').textContent = 'Preencha nome e endereço.'; return; }
+    entSave('flows', f); await test(); location.hash = '#/missoes'; };
+  if (f.url) test();
+}
+
+function viewMissaoEd(id) {
+  const isNew = id === 'novo', fl0 = entLive('flows')[0];
+  const m = isNew ? { id: 'm' + uid(), flow: fl0 && fl0.id, name: '', prompt: '', start: '', ends: [], path: [], limit: '', questions: [{ type: 'scale', text: 'De 1 a 7, quão fácil foi realizar esta tarefa?' }] }
+    : JSON.parse(JSON.stringify(entGet('missions', id) || {}));
+  if (!m.id) { location.hash = '#/missoes'; return; }
+  const CAP = { view: null, tap: null, rec: false, recPath: [] };
+  $('#app').innerHTML = `<div class="form" style="max-width:1180px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Nova missão' : 'Editar missão'}</h1></div>
+    <div class="med">
+      <div class="card f" style="display:flex;flex-direction:column;gap:14px">
+        <div class="two"><div><label>Nome da missão *</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x"></div>
+          <div><label>Fluxo</label><select id="mf">${entLive('flows').map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div></div>
+        <div><label>Enunciado (o que o participante deve fazer)</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea></div>
+        <div><label>Ponto de partida *</label><select id="ms"></select></div>
+        <div><label>Termina quando (qualquer uma conclui) *</label><div id="me" class="lst"></div>
+          <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="me-v" type="button">＋ Tela (digitar)</button><button class="btn sm" id="me-t" type="button">＋ Toque (digitar)</button></div></div>
+        <div><label>Caminho esperado (opcional) <span class="muted" style="font-weight:400">· define sucesso direto x indireto</span></label><div id="mpth" class="lst"></div></div>
+        <div class="two"><div><label>Tempo limite (min, opcional)</label><input type="number" id="ml" min="0" step="0.5" value="${esc(m.limit)}"></div><div></div></div>
+        <div><label>Perguntas depois da missão</label><div id="mq" class="lst"></div>
+          <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Escala 1 a 7</button><button class="btn sm" id="mq-t" type="button">＋ Resposta aberta</button></div></div>
+        <p class="err" id="merr"></p>
+        <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary" id="msave">Salvar missão</button></div>
+      </div>
+      <div class="card cap">
+        <h2 style="margin:0">Capturar no app</h2><p class="muted" style="margin:4px 0 10px">Navegue até o fim da tarefa e use os botões abaixo.</p>
+        <div class="capw"><iframe id="capf" title="Prévia do app"></iframe></div>
+        <div class="capi"><div><span class="muted">Tela atual</span><b id="cv">—</b><button class="btn sm" id="cv-u" type="button" disabled>Usar esta tela como fim</button></div>
+          <div><span class="muted">Último toque</span><b id="ct">—</b><button class="btn sm" id="ct-u" type="button" disabled>Usar este toque como fim</button></div>
+          <div><span class="muted">Caminho</span><b id="cp">—</b><div class="row" style="gap:6px;justify-content:flex-start"><button class="btn sm" id="cp-r" type="button">● Gravar caminho</button><button class="btn sm" id="cp-u" type="button" disabled>Usar como caminho esperado</button></div></div>
+          <button class="btn sm ghost" id="cap-re" type="button">↺ Recomeçar do ponto de partida</button></div>
+      </div>
+    </div></div>`;
+  const flowOf = () => entGet('flows', $('#mf').value) || fl0;
+  const fillStarts = async () => {
+    const f = flowOf(); await loadManifest(f.url); const ss = startsOf(f), groups = [...new Set(ss.map(s => s.group || ''))];
+    $('#ms').innerHTML = '<option value="">Escolha…</option>' + groups.map(g => `<optgroup label="${esc(g)}">${ss.filter(s => (s.group || '') === g).map(s => `<option value="${esc(s.id)}" ${s.id === m.start ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</optgroup>`).join('');
+    reloadCap();
+  };
+  const reloadCap = () => { const f = flowOf(), st = $('#ms').value; CAP.view = CAP.tap = null; CAP.recPath = []; drawCap();
+    $('#capf').src = st ? furl(f.url, 'start=' + encodeURIComponent(st) + '&rec=1&v=' + Date.now()) : 'about:blank'; };
+  const drawCap = () => {
+    $('#cv').textContent = CAP.view ? keyName(CAP.view) : '—'; $('#cv-u').disabled = !CAP.view;
+    $('#ct').textContent = CAP.tap ? '“' + CAP.tap.label + '” · ' + keyName(CAP.tap.key) : '—'; $('#ct-u').disabled = !(CAP.tap && CAP.tap.hit);
+    $('#cp').textContent = CAP.recPath.length ? CAP.recPath.map(k => keyName(k)).join(' → ') : (CAP.rec ? 'gravando…' : '—');
+    $('#cp-r').textContent = CAP.rec ? '■ Parar' : '● Gravar caminho'; $('#cp-u').disabled = !CAP.recPath.length;
+  };
+  const onMsg = e => {
+    const fr = $('#capf'); if (!fr) { window.removeEventListener('message', onMsg); return; } if (e.source !== fr.contentWindow) return;
+    const d = e.data; if (!d || !d.hsf || !d.ev) return; const ev = d.ev;
+    if (ev.type === 'view') { CAP.view = ev.key; if (CAP.rec && CAP.recPath[CAP.recPath.length - 1] !== ev.key) CAP.recPath.push(ev.key); }
+    if (ev.type === 'tap') CAP.tap = ev; drawCap();
+  };
+  window.addEventListener('message', onMsg);
+  const lst = (host, items, render, onDel) => { $(host).innerHTML = items.length ? items.map((it, i) => `<div class="li"><span>${render(it, i)}</span><button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></div>`).join('') : '<p class="muted">Nenhum.</p>';
+    $(host).onclick = e => { const b = e.target.closest('.x'); if (b) { onDel(+b.dataset.i); } }; };
+  const draw = () => {
+    lst('#me', m.ends, c => esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); });
+    lst('#mpth', m.path, (k, i) => (i + 1) + '. ' + esc(keyName(k)), i => { m.path.splice(i, 1); draw(); });
+    lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 7' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); });
+    $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
+  };
+  $('#mf').onchange = fillStarts; $('#ms').onchange = reloadCap; $('#cap-re').onclick = reloadCap;
+  $('#cv-u').onclick = () => { if (CAP.view && !m.ends.some(c => c.type === 'view' && c.key === CAP.view)) m.ends.push({ type: 'view', key: CAP.view }); draw(); };
+  $('#ct-u').onclick = () => { if (CAP.tap) m.ends.push({ type: 'tap', label: CAP.tap.label, key: CAP.tap.key }); draw(); };
+  $('#cp-r').onclick = () => { CAP.rec = !CAP.rec; if (CAP.rec) CAP.recPath = CAP.view ? [CAP.view] : []; drawCap(); };
+  $('#cp-u').onclick = () => { m.path = CAP.recPath.slice(); CAP.rec = false; drawCap(); draw(); };
+  $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use * no fim para “começa com”.'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
+  $('#me-t').onclick = () => { const l = prompt('Nome do elemento tocado, exatamente como aparece no caminho de cliques (ex.: Fui contemplado!)'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
+  $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 7, quão fácil foi realizar esta tarefa?' }); draw(); };
+  $('#mq-t').onclick = () => { m.questions.push({ type: 'text', text: '' }); draw(); };
+  $('#msave').onclick = () => {
+    m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = $('#ms').value; m.limit = $('#ml').value;
+    m.questions = m.questions.filter(q => (q.text || '').trim());
+    if (!m.name) { $('#merr').textContent = 'Dê um nome para a missão.'; return; }
+    if (!m.start) { $('#merr').textContent = 'Escolha o ponto de partida.'; return; }
+    if (!m.ends.length) { $('#merr').textContent = 'Defina pelo menos uma condição de fim (use a captura ao lado).'; return; }
+    window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
+  };
+  draw(); fillStarts();
+}
+
+function viewRoteiroEd(id) {
+  const isNew = id === 'novo', r = isNew ? { id: 's' + uid(), name: '', missions: [] } : JSON.parse(JSON.stringify(entGet('scripts', id) || {}));
+  if (!r.id) { location.hash = '#/missoes'; return; }
+  let order = r.missions.filter(x => { const m = entGet('missions', x); return m && !m.deleted; });
+  entLive('missions').forEach(m => { if (!order.includes(m.id)) order.push(m.id); });
+  const on = Object.fromEntries(order.map(x => [x, r.missions.includes(x)]));
+  $('#app').innerHTML = `<div class="form" style="max-width:720px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Novo roteiro' : 'Editar roteiro'}</h1></div>
+    <div class="card f" style="display:flex;flex-direction:column;gap:14px"><div><label>Nome do roteiro *</label><input type="text" id="rn" value="${esc(r.name)}" placeholder="Ex.: Teste de assembleias + simulação"></div>
+      <div><label>Missões e ordem</label><div class="pick" id="rl"></div></div><p class="err" id="rerr"></p>
+      <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary" id="rsave">Salvar roteiro</button></div></div></div>`;
+  const draw = () => { const act = order.filter(k => on[k]);
+    $('#rl').innerHTML = order.map((k, i) => { const m = entGet('missions', k); const f = FLOWS['M_' + k];
+      return `<div class="fo ${on[k] ? '' : 'off'}"><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''}><div><b>${esc(m.name)}</b><span class="s">${esc(f ? f.sub : '')}</span></div>
+        <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''}>▼</button></div>`; }).join('') || '<p class="muted">Crie missões primeiro.</p>'; };
+  draw();
+  $('#rl').onclick = e => { const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]');
+    if (u) { const i = +u.dataset.up; [order[i - 1], order[i]] = [order[i], order[i - 1]]; draw(); } if (d) { const i = +d.dataset.dn; [order[i + 1], order[i]] = [order[i], order[i + 1]]; draw(); } };
+  $('#rl').onchange = e => { const c = e.target.closest('[data-on]'); if (c) { on[c.dataset.on] = c.checked; draw(); } };
+  $('#rsave').onclick = () => { r.name = $('#rn').value.trim(); r.missions = order.filter(k => on[k]);
+    if (!r.name) { $('#rerr').textContent = 'Dê um nome ao roteiro.'; return; } if (!r.missions.length) { $('#rerr').textContent = 'Escolha pelo menos uma missão.'; return; }
+    entSave('scripts', r); location.hash = '#/missoes'; };
+}
+
+function missionTray(s) {
+  const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
+  return `<div class="mis"><span class="muted">Missão</span><b>${esc(mm.name)}</b>${mm.prompt ? `<p>${esc(mm.prompt)}</p>` : ''}<div id="mis-st">${resultBadge(s, true)}</div>${mm.limit ? `<p class="muted">Tempo limite: ${esc(mm.limit)} min</p>` : ''}
+    <div class="btns"><button class="btn sm" id="mok" ${s.result ? 'disabled' : ''}>✓ Concluiu</button><button class="btn sm" id="mno" ${s.result ? 'disabled' : ''}>✕ Desistiu</button></div></div>`;
+}
+function finishMission(s, cont) {
+  const f = FLOWS[s.flow]; if (!f || !f.mission) return cont();
+  if (!s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - ACTIVE.t0, auto: false }); }
+  save(); askQuestions(s, cont);
+}
+
 route();
 updateCloudUI();
 if (AUTH) setTimeout(() => cloudKick(), 800);
