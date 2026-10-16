@@ -1763,8 +1763,10 @@ function manCur(scr, cur) {
 function manKeyName(key) {
   const k = parseKey(key), sc = MANSCR[k.scr]; if (!sc) return null;
   let n = sc.name; const c = manCur(k.scr, k.cur); if (c) n += ' · ' + c;
-  if (k.sel) n += ' · ' + (sc.selName || 'seleção ' + k.sel);
-  return k.sheet ? `Bottomsheet (sobre ${n})` : n;
+  const sn = k.sel && sc.selNames && sc.selNames[k.sel];
+  if (k.sheet) return (sn ? sn + ' (folha sobre ' + n + ')' : `Bottomsheet (sobre ${n})`);
+  if (k.sel) n += ' · ' + (sn || sc.selName || 'seleção ' + k.sel);
+  return n;
 }
 const startsOf = fl => ((MAN[baseUrl(fl && fl.url)] || {}).starts) || [];
 const startOf = (fl, id) => startsOf(fl).find(s => s.id === id);
