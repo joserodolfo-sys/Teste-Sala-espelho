@@ -232,6 +232,14 @@ td.r,th.r{text-align:right}
 .capi{margin-top:10px;font-size:13px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
+.mst h3{font-size:14px;margin:0 0 8px}.rbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:14px;background:#f1f1f1}.rbar span{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:28px}
+.b-dir{background:#0a7a3c}.b-ind{background:#6fbf73}.b-ok{background:#2e9d5a}.b-des{background:#c0392b}.b-nc{background:#9ca3af}
+.rleg{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:12px;color:#555}.rleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.dist{display:flex;gap:10px;align-items:flex-end;height:96px;margin:4px 0 12px}.dist div{display:flex;flex-direction:column;align-items:center;gap:2px;width:34px}.dist span{display:block;width:24px;background:#cc0000;border-radius:4px 4px 0 0;min-height:2px}.dist i{font-style:normal;font-weight:700;font-size:12px}.dist small{color:#777;font-size:11px}
+.qtt{margin:0 0 4px;font-size:13px}.qtt b{color:#cc0000;margin-left:4px}.ansl{margin:0 0 10px;padding-left:18px;font-size:13px}.ansl li{margin:3px 0}
+.pc{display:inline-block;background:#f3f4f6;border:1px solid #e3e3e3;border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 0}.pa{color:#999;margin:0 4px}
+.mxt td.mx{text-align:center;cursor:pointer;border-radius:6px;font-size:12px}.mxt td.mx b{display:block}.mxt td.mx small{color:#555}
+.mxt td.ok{background:#e6f6ec;color:#0a7a3c}.mxt td.ind{background:#eef8ee;color:#2e7d32}.mxt td.des{background:#fdecee;color:#b00020}.mxt td.nc{background:#f3f4f6;color:#555}.mxt td.none{color:#bbb;cursor:default}
 .mov{position:absolute;inset:0;z-index:40;background:rgba(18,18,22,.55);display:grid;place-items:center;padding:16px;animation:movin .2s ease}
 @keyframes movin{from{opacity:0}to{opacity:1}}
 .mov .mc{width:100%;max-width:360px;background:#fff;border-radius:16px;padding:22px 18px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25);max-height:100%;overflow:auto}
@@ -679,8 +687,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 /* ================== Dados ================== */
 const FLOWS = {
-  J: { n: 1, file: 'app.html?start=ba', name: 'Jornada · início não logado', sub: 'Splash, carrossel, login, Home, Assembleias e Simulação' },
-  K: { n: 2, file: 'app.html?start=home', name: 'Jornada · início logado', sub: 'Começa na Home logada' },
+  J: { n: 1, file: 'app.html?start=ba', name: 'Jornada · início não logado', sub: 'Splash, carrossel, login, Home, Assembleias e Simulação', legacy: true },
+  K: { n: 2, file: 'app.html?start=home', name: 'Jornada · início logado', sub: 'Começa na Home logada', legacy: true },
   A: { n: 1, file: 'fluxo-1-nao-contemplado.html', name: 'Não contemplado', sub: 'Assembleia normal', legacy: true },
   B: { n: 2, file: 'fluxo-2-contemplado-sorteio.html', name: 'Contemplado', sub: 'Por sorteio', legacy: true },
   C: { n: 3, file: 'fluxo-3-cota-cancelada-sorteada.html', name: 'Cota cancelada sorteada', sub: 'Cotas duplicadas', legacy: true },
@@ -805,7 +813,7 @@ async function pushPending() {
   for (const s of pend) {
     const sig = sigOf(s);
     await sb('/rest/v1/sessions?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: s.id, participant_id: pidOf(s), flow: s.flow, seq: s.seq ?? null, attempt: s.attempt ?? null,
-      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: (s.resultData || s.answers) ? Object.assign({}, s.resultData, { answers: s.answers || null, qs: s.qs || null }) : null }]) });
+      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null }) }]) });
     await sb('/rest/v1/events?session_id=eq.' + enc(s.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     const rows = (s.events || []).map(e => { const { t, type, key, ...rest } = e; return { session_id: s.id, t: Math.round(t || 0), type, key: key || null, data: Object.keys(rest).length ? rest : null }; });
     for (let i = 0; i < rows.length; i += 500) await sb('/rest/v1/events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows.slice(i, i + 500)) });
@@ -829,7 +837,7 @@ async function pullRemote() {
       const p = pm[r.participant_id] || {};
       const events = evs.filter(e => e.session_id === r.id).map(e => Object.assign({ type: e.type, t: e.t }, e.key ? { key: e.key } : {}, e.data || {}));
       const s = { id: r.id, pid: r.participant_id, name: p.name || 'Participante', age: p.age, obs: p.obs || '', flow: r.flow, seq: r.seq, attempt: r.attempt || 1, plan: r.plan || null,
-        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, events };
+        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, events };
       s.syncedSig = sigOf(s); sessions.push(s); n++;
     });
   }
@@ -957,9 +965,10 @@ function participants() {
 const getP = id => participants().find(p => p.pid === id);
 function newSession(p, flow, plan, seq) {
   const attempt = sessions.filter(x => pidOf(x) === p.pid && x.flow === flow).length + 1;
-  return { id: uid(), pid: p.pid, name: p.name, age: p.age, obs: p.obs || '', flow, seq, plan, attempt, startedAt: Date.now(), endedAt: null, events: [], notesPost: '' };
+  return { id: uid(), pid: p.pid, name: p.name, age: p.age, obs: p.obs || '', flow, seq, plan, attempt, startedAt: Date.now(), endedAt: null, events: [], notesPost: '', script: SCRIPT_CUR || null };
 }
 function beginBattery(p, plan) {
+  SCRIPT_CUR = NEW_SCRIPT; NEW_SCRIPT = null;
   const seq = sessions.filter(x => pidOf(x) === p.pid).length;
   const s = newSession(p, plan[0], plan, seq); sessions.push(s); save();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
@@ -985,7 +994,8 @@ function route() {
   if (r === 'participante') return viewParticipante(p);
   if (r === 'relatorio') return viewRelatorio(p, q === '1');
   if (r === 'sessao') return viewSessao(p);
-  if (r === 'geral') return viewGeral(p);
+  if (r === 'geral') return viewGeral(p, decodeURIComponent(parts[3] || ''));
+  if (r === 'rotan') return viewRoteiroAn(p);
   if (r === 'missoes') return viewMissoes();
   if (r === 'missao') return viewMissaoEd(p);
   if (r === 'roteiro') return viewRoteiroEd(p);
@@ -1029,8 +1039,9 @@ function viewHome() {
       ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}
     </div>
     <div id="bk">${backupBanner()}</div>
-    <h2>Análise geral por fluxo</h2>
-    <div class="grid flows">${Object.entries(SHOWN(sessions)).map(([k, f]) => {
+    ${homeRoteiros()}
+    <h2>Análise geral por missão</h2>
+    <div class="grid flows">${Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, f]) => {
       const ss = done.filter(s => s.flow === k), an = ss.map(analyze);
       return `<button class="card flow" data-go="#/geral/${k}"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
         <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
@@ -1117,7 +1128,8 @@ function viewNova() {
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Descer">▼</button></div>`; }).join('');
   };
   draw();
-  $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
+  NEW_SCRIPT = null;
+  $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
     order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
   const fl = $('#fl');
   fl.onclick = e => {
@@ -1418,17 +1430,18 @@ function viewSessao(id) {
 }
 
 /* ================== Análise geral por fluxo ================== */
-function viewGeral(flow) {
+function viewGeral(flow, rot) {
   if (!FLOWS[flow]) { location.hash = '#/'; return; }
-  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length), an = ss.map(analyze);
+  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length && (!rot || s.script === rot)), an = ss.map(analyze);
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
-  const tabs = Object.entries(SHOWN(sessions)).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
+  const tabs = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
   const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.vw))) : 390;
   $('#app').innerHTML = `
     <a class="crumb" href="#/">← Painel</a>
     <div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div>
     <div class="ftabs">${tabs}</div>
+    ${missionStats(flow, ss, rot)}
     ${ss.length ? `<div class="grid kpis">
       ${kpi('SESSÕES', ss.length)}${kpi('DURAÇÃO MÉDIA', dur(avg(an.map(a => a.total))))}${kpi('TOQUES / SESSÃO', avg(an.map(a => a.tapN)).toFixed(1))}
       ${kpi('FORA DO ALVO', pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100))}
@@ -1438,6 +1451,7 @@ function viewGeral(flow) {
     <div class="card" style="margin-top:16px"><h2>Mapa de calor (todas as sessões)</h2><div id="heat"></div></div>
     <div class="card" style="margin-top:16px"><h2>Sessões</h2><div class="list">${ss.map(s => { const a = analyze(s); return `<div class="item" data-go="#/sessao/${s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span><span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN} toques</span><span>${a.tapN ? pc(a.missPct) : '–'}</span><span></span><span></span></div>`; }).join('')}</div></div>`
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
+  bindMissionStats(flow);
   if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
 }
 
@@ -2056,6 +2070,129 @@ function viewRoteiroEd(id) {
   $('#rsave').onclick = () => { r.name = $('#rn').value.trim(); r.missions = order.filter(k => on[k]);
     if (!r.name) { $('#rerr').textContent = 'Dê um nome ao roteiro.'; return; } if (!r.missions.length) { $('#rerr').textContent = 'Escolha pelo menos uma missão.'; return; }
     entSave('scripts', r); location.hash = '#/missoes'; };
+}
+
+/* ================== Etapa 3 · análise por missão e por roteiro ================== */
+let NEW_SCRIPT = null, SCRIPT_CUR = null;
+const pct = (a, n) => n ? Math.round(a / n * 100) : 0;
+const avgN = arr => arr.length ? arr.reduce((x, y) => x + y, 0) / arr.length : null;
+function sessResult(s) { return s.result || (s.endedAt ? 'nao_concluiu' : 'em_andamento'); }
+/* respostas agrupadas pelo texto da pergunta */
+function answersOf(ss) {
+  const by = {};
+  ss.forEach(s => (s.qs || []).forEach((q, i) => { const v = (s.answers || {})[i]; if (v == null || v === '') return;
+    const o = by[q] || (by[q] = { q, nums: [], texts: [] }); if (typeof v === 'number') o.nums.push(v); else o.texts.push({ v, name: s.name, sid: s.id }); }));
+  return Object.values(by);
+}
+function resultBar(c, n) {
+  const seg = (v, cls, lbl) => v ? `<span class="${cls}" style="flex:${v}" title="${lbl}: ${v}">${pct(v, n)}%</span>` : '';
+  return `<div class="rbar">${seg(c.dir, 'b-dir', 'Direto')}${seg(c.ind, 'b-ind', 'Indireto')}${seg(c.ok, 'b-ok', 'Concluiu')}${seg(c.des, 'b-des', 'Desistiu')}${seg(c.nc, 'b-nc', 'Não concluiu')}</div>
+    <div class="rleg">${c.dir || c.ind ? '<span><i class="b-dir"></i>Direto</span><span><i class="b-ind"></i>Indireto</span>' : ''}${c.ok ? '<span><i class="b-ok"></i>Concluiu</span>' : ''}<span><i class="b-des"></i>Desistiu</span><span><i class="b-nc"></i>Não concluiu</span></div>`;
+}
+function missionCounts(m, ss) {
+  const hasPath = !!(m && (m.path || []).length), c = { n: ss.length, dir: 0, ind: 0, ok: 0, des: 0, nc: 0, times: [] };
+  ss.forEach(s => { const r = sessResult(s), d = s.resultData || {};
+    if (r === 'concluiu') { if (hasPath && d.direto === true) c.dir++; else if (hasPath && d.direto === false) c.ind++; else c.ok++; if (d.at != null) c.times.push(d.at); }
+    else if (r === 'desistiu') c.des++; else c.nc++; });
+  c.suc = c.dir + c.ind + c.ok; return c;
+}
+function scaleAvg(ss) { const a = answersOf(ss).flatMap(o => o.nums); return a.length ? (avgN(a)).toFixed(1).replace('.', ',') : '–'; }
+function missionStats(flow, ss, rot) {
+  const f = FLOWS[flow], m = f && f.mission; if (!m) return '';
+  const rots = entLive('scripts').filter(r => (r.missions || []).includes(m.id)), c = missionCounts(m, ss), hasPath = (m.path || []).length > 0;
+  const ans = answersOf(ss);
+  /* caminhos */
+  const paths = {}; ss.forEach(s => { const d = s.resultData || {}, p = visitedPath(s, d.at != null ? d.at : null); const k = p.join(' › '); (paths[k] = paths[k] || { p, n: 0 }).n++; });
+  const top = Object.values(paths).sort((a, b) => b.n - a.n).slice(0, 6);
+  const exp = (m.path || []).map(keyBase), isExp = p => exp.length && p.length <= exp.length && p.every((k, i) => keyMatch(k, exp[i]));
+  const dev = {}; if (hasPath) ss.forEach(s => { const d = s.resultData || {}, p = visitedPath(s, d.at != null ? d.at : null);
+    const i = p.findIndex((k, j) => !exp[j] || !keyMatch(k, exp[j])); if (i >= 0) { const k = p[i]; dev[k] = (dev[k] || 0) + 1; } });
+  const devs = Object.entries(dev).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const chips = p => p.map(k => `<span class="pc">${esc(keyName(k))}</span>`).join('<span class="pa">›</span>');
+  return `<div class="card mst" id="mstat">
+    <div class="row" style="align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h2 style="margin:0">Resultado da missão</h2>
+      <p class="muted" style="margin:4px 0 0">${esc(m.prompt || 'Sem enunciado')}</p>
+      <p class="muted" style="margin:4px 0 0">Termina: ${(m.ends || []).map(x => esc(condLabel(x))).join(' · ou ') || '—'}</p></div>
+      <div class="row" style="gap:8px">${rots.length ? `<select id="mst-rot"><option value="">Todos os roteiros</option>${rots.map(r => `<option value="${esc(r.id)}" ${r.id === rot ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>` : ''}
+        <button class="btn sm" id="mst-pdf" type="button">⬇ PDF desta análise</button></div></div>
+    ${c.n ? `<div class="grid kpis" style="margin-top:14px">
+      ${kpi('TAXA DE SUCESSO', pct(c.suc, c.n) + '%', c.suc + ' de ' + c.n + ' concluíram')}
+      ${hasPath ? kpi('FORAM DIRETO', pct(c.dir, c.n) + '%', c.dir + ' pelo caminho ideal') : ''}
+      ${kpi('TEMPO ATÉ CONCLUIR', c.times.length ? dur(avgN(c.times)) : '–', 'média de quem concluiu')}
+      ${kpi('NOTA MÉDIA', scaleAvg(ss), 'escala de 1 a 5')}
+      ${kpi('DESISTIRAM', pct(c.des, c.n) + '%', c.des + ' participante(s)')}</div>
+    ${resultBar(c, c.n)}
+    <div class="two" style="margin-top:16px;gap:16px">
+      <div><h3>Notas</h3>${ans.filter(o => o.nums.length).map(o => { const d = [1, 2, 3, 4, 5].map(v => o.nums.filter(x => x === v).length), mx = Math.max(1, ...d);
+        return `<p class="qtt">${esc(o.q)} <b>${avgN(o.nums).toFixed(1).replace('.', ',')}</b></p><div class="dist">${d.map((v, i) => `<div><span style="height:${Math.round(v / mx * 60)}px"></span><i>${i + 1}</i><small>${v}</small></div>`).join('')}</div>`; }).join('') || '<p class="muted">Sem notas registradas.</p>'}</div>
+      <div><h3>Respostas abertas</h3>${ans.filter(o => o.texts.length).map(o => `<p class="qtt">${esc(o.q)}</p><ul class="ansl">${o.texts.map(t => `<li>“${esc(t.v)}” <span class="muted">— ${esc(t.name)}</span></li>`).join('')}</ul>`).join('') || '<p class="muted">Sem respostas abertas.</p>'}</div></div>
+    <h3 style="margin-top:18px">Caminhos percorridos</h3>
+    ${hasPath ? `<p class="muted" style="margin:0 0 6px">Caminho ideal: ${chips(exp)}</p>` : ''}
+    <table><tbody>${top.map(t => `<tr><td>${chips(t.p)}${isExp(t.p) ? ' <span class="rb ok">ideal</span>' : ''}</td><td class="r" style="white-space:nowrap">${t.n} (${pct(t.n, c.n)}%)</td></tr>`).join('')}</tbody></table>
+    ${devs.length ? `<h3 style="margin-top:14px">Onde saíram do caminho ideal</h3><table><tbody>${devs.map(([k, v]) => `<tr><td>${esc(keyName(k))}</td><td class="r">${v} participante(s)</td></tr>`).join('')}</tbody></table>` : ''}`
+    : '<p class="muted" style="margin-top:12px">Ainda não há sessões desta missão' + (rot ? ' neste roteiro' : '') + '.</p>'}
+  </div>`;
+}
+function bindMissionStats(flow) {
+  const sel = $('#mst-rot'); if (sel) sel.onchange = () => { location.hash = '#/geral/' + flow + (sel.value ? '/' + enc(sel.value) : ''); };
+  const b = $('#mst-pdf'); if (b) b.onclick = () => pdfOf($('#mstat'), 'hsf-missao-' + slugName(FLOWS[flow].name));
+}
+const slugName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'analise';
+
+/* ---------- análise por roteiro ---------- */
+function lastPer(ss) { const o = {}; ss.slice().sort((a, b) => a.startedAt - b.startedAt).forEach(s => { o[pidOf(s) + '|' + s.flow] = s; }); return o; }
+function viewRoteiroAn(id) {
+  const r = entGet('scripts', id); if (!r) { location.hash = '#/'; return; }
+  const ms = (r.missions || []).map(x => entGet('missions', x)).filter(Boolean);
+  const ss = sessions.filter(s => s.script === id && s.flow && s.flow.indexOf('M_') === 0), last = lastPer(ss);
+  const pids = [...new Set(ss.map(pidOf))], P = pids.map(pid => { const s0 = ss.find(s => pidOf(s) === pid); return { pid, name: s0.name, age: s0.age }; });
+  const cellOf = (pid, m) => last[pid + '|M_' + m.id];
+  const allOk = P.filter(p => ms.every(m => { const s = cellOf(p.pid, m); return s && sessResult(s) === 'concluiu'; })).length;
+  const totals = P.map(p => ms.reduce((t, m) => { const s = cellOf(p.pid, m); return t + (s && s.endedAt ? s.endedAt - s.startedAt : 0); }, 0)).filter(Boolean);
+  const cell = s => { if (!s) return '<td class="mx none">—</td>'; const r2 = sessResult(s), d = s.resultData || {};
+    const t = d.at != null ? dur(d.at) : '', cls = r2 === 'concluiu' ? (d.direto === false ? 'ind' : 'ok') : r2 === 'desistiu' ? 'des' : 'nc';
+    const ic = r2 === 'concluiu' ? (d.direto === true ? '✓ direto' : d.direto === false ? '✓ indireto' : '✓') : r2 === 'desistiu' ? '✕ desistiu' : '– não concluiu';
+    return `<td class="mx ${cls}" data-go="#/sessao/${s.id}" title="Abrir sessão"><b>${ic}</b>${t ? `<small>${t}</small>` : ''}</td>`; };
+  $('#app').innerHTML = `<a class="crumb" href="#/">← Painel</a>
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1>Análise do roteiro · ${esc(r.name)}</h1><p class="muted">${ms.map(m => esc(m.name)).join(' → ')}</p></div>
+      <button class="btn sm" id="rot-pdf" type="button">⬇ PDF desta análise</button></div>
+    <div id="rotwrap">${P.length ? `<div class="grid kpis">${kpi('PARTICIPANTES', P.length)}${kpi('COMPLETARAM TODAS', pct(allOk, P.length) + '%', allOk + ' de ' + P.length)}
+      ${kpi('TEMPO TOTAL MÉDIO', totals.length ? dur(avgN(totals)) : '–', 'soma das missões')}${kpi('NOTA MÉDIA GERAL', scaleAvg(ss), 'escala de 1 a 5')}</div>
+    <div class="card" style="margin-top:16px"><h2>Participante × missão</h2><p class="muted" style="margin:0 0 8px">Clique numa célula para abrir a sessão.</p>
+      <div style="overflow:auto"><table class="mxt"><thead><tr><th>Participante</th>${ms.map((m, i) => `<th>M${i + 1}. ${esc(m.name)}</th>`).join('')}</tr></thead>
+      <tbody>${P.map(p => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc(p.age)} anos</small></td>${ms.map(m => cell(cellOf(p.pid, m))).join('')}</tr>`).join('')}</tbody></table></div></div>
+    <div class="card" style="margin-top:16px"><h2>Missões deste roteiro</h2><table><thead><tr><th>Missão</th><th class="r">Sessões</th><th class="r">Sucesso</th><th class="r">Direto</th><th class="r">Tempo até concluir</th><th class="r">Nota</th><th></th></tr></thead>
+      <tbody>${ms.map((m, i) => { const s2 = ss.filter(s => s.flow === 'M_' + m.id), c = missionCounts(m, s2);
+        return `<tr><td>M${i + 1}. ${esc(m.name)}</td><td class="r">${c.n}</td><td class="r">${c.n ? pct(c.suc, c.n) + '%' : '–'}</td><td class="r">${(m.path || []).length && c.n ? pct(c.dir, c.n) + '%' : '–'}</td>
+          <td class="r">${c.times.length ? dur(avgN(c.times)) : '–'}</td><td class="r">${scaleAvg(s2)}</td><td class="r"><a class="btn sm" href="#/geral/M_${enc(m.id)}/${enc(id)}">Ver missão</a></td></tr>`; }).join('')}</tbody></table></div>`
+    : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste roteiro. Cadastre um participante escolhendo este roteiro.</div>'}</div>`;
+  $('#rot-pdf').onclick = () => pdfOf($('#rotwrap'), 'hsf-roteiro-' + slugName(r.name), 'Roteiro · ' + r.name);
+}
+function homeRoteiros() {
+  const rs = entLive('scripts'); if (!rs.length) return '';
+  return `<h2>Análise por roteiro</h2><div class="grid flows">${rs.map(r => { const ss = sessions.filter(s => s.script === r.id), np = new Set(ss.map(pidOf)).size;
+    return `<button class="card flow" data-go="#/rotan/${enc(r.id)}"><div class="n">R</div><b>${esc(r.name)}</b><span class="muted">${(r.missions || []).length} missão(ões)</span>
+      <div class="st"><span>${np} participante(s)</span>${ss.length ? `<span>nota média ${scaleAvg(ss)}</span>` : ''}</div></button>`; }).join('')}</div>`;
+}
+
+/* ---------- PDF de uma análise (captura a área e divide em páginas A4) ---------- */
+async function pdfOf(el, name, title) {
+  if (!el || !window.html2canvas || !window.jspdf) return alert('Não foi possível gerar o PDF neste navegador.');
+  const btns = [...document.querySelectorAll('#mst-pdf,#rot-pdf')]; btns.forEach(b => { b.disabled = true; b.dataset.t = b.textContent; b.textContent = 'Gerando PDF…'; });
+  try {
+    const cv = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff', logging: false, useCORS: true, windowWidth: Math.max(1100, el.scrollWidth) });
+    const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
+    const W = 190, pageH = 270, pxPerMm = cv.width / W, sliceH = Math.floor(pageH * pxPerMm);
+    for (let y = 0, pg = 0; y < cv.height; y += sliceH, pg++) {
+      const h = Math.min(sliceH, cv.height - y), c2 = document.createElement('canvas'); c2.width = cv.width; c2.height = h;
+      c2.getContext('2d').drawImage(cv, 0, y, cv.width, h, 0, 0, cv.width, h);
+      if (pg) doc.addPage();
+      doc.setFontSize(9); doc.setTextColor(120); doc.text((title || 'HSF · Análise') + ' · ' + new Date().toLocaleDateString('pt-BR'), 10, 8);
+      doc.addImage(c2.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 12, W, h / pxPerMm);
+    }
+    doc.save(name + '-' + new Date().toISOString().slice(0, 10) + '.pdf');
+  } catch (e) { alert('Erro ao gerar o PDF.'); }
+  btns.forEach(b => { b.disabled = false; b.textContent = b.dataset.t; });
 }
 
 function missionTray(s) {
