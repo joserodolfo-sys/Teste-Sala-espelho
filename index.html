@@ -130,7 +130,7 @@ td.r,th.r{text-align:right}
 
 .chk{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--sec);cursor:pointer}
 .chk input{accent-color:var(--red);width:18px;height:18px}
-.fo{display:grid;grid-template-columns:22px 1fr 28px 34px 34px;gap:10px;align-items:center;padding:10px 12px;border:1px solid #d3d4d8;border-radius:10px;background:#fff}
+.fo{display:grid;grid-template-columns:16px 22px 1fr 28px 34px 34px;gap:10px;align-items:center;padding:10px 12px;border:1px solid #d3d4d8;border-radius:10px;background:#fff}
 .fo.off{opacity:.5}
 .fo input{accent-color:var(--red);width:18px;height:18px}
 .fo b{font-size:13px;display:block}.fo span.s{font-size:11px;color:var(--sec)}
@@ -236,6 +236,9 @@ td.r,th.r{text-align:right}
 .rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
 .rmis .rres{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12.5px;margin-bottom:6px}
 .list .item.excl{opacity:.45}
+.fo .dh{cursor:grab;color:#a3a4a8;font-size:15px;line-height:1;letter-spacing:-3px;user-select:none;touch-action:none;padding:6px 2px;text-align:center}.fo .dh:hover{color:#555}
+.fo.dragging{box-shadow:0 12px 30px rgba(0,0,0,.18);border-color:#cc0000;opacity:.97}.fo-ph{border:2px dashed #e7b3b3;border-radius:10px;background:#fff6f6;margin:0}
+body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important}
 .redo{border:1px solid #eee;border-radius:10px;padding:12px;margin-top:10px}.tag.okk{background:#e6f6ec;color:#0a7a3c}
 .mst h3{font-size:14px;margin:0 0 8px}.rbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:14px;background:#f1f1f1}.rbar span{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:28px}
 .b-dir{background:#0a7a3c}.b-ind{background:#6fbf73}.b-ok{background:#2e9d5a}.b-des{background:#c0392b}.b-nc{background:#9ca3af}
@@ -1132,7 +1135,7 @@ function viewNova() {
   const draw = () => {
     const act = order.filter(k => on[k]);
     $('#fl').innerHTML = order.map((k, i) => { const f = FLOWS[k];
-      return `<div class="fo ${on[k] ? '' : 'off'}"><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''} aria-label="Incluir fluxo ${f.n}"><div><b>${f.n}. ${f.name}</b><span class="s">${f.sub}</span></div>
+      return `<div class="fo ${on[k] ? '' : 'off'}" data-k="${k}"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''} aria-label="Incluir fluxo ${f.n}"><div><b>${f.n}. ${f.name}</b><span class="s">${f.sub}</span></div>
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Descer">▼</button></div>`; }).join('');
   };
   draw();
@@ -1140,6 +1143,7 @@ function viewNova() {
   $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
     order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
   { const dflt = entLive('scripts').find(r => r.isDefault); if (dflt) { $('#f-rot').value = dflt.id; $('#f-rot').onchange(); } }
+  makeSortable($('#fl'), keys => { order = keys; draw(); });
   const fl = $('#fl');
   fl.onclick = e => {
     const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]');
@@ -2079,9 +2083,10 @@ function viewRoteiroEd(id) {
       <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary" id="rsave">Salvar roteiro</button></div></div></div>`;
   const draw = () => { const act = order.filter(k => on[k]);
     $('#rl').innerHTML = order.map((k, i) => { const m = entGet('missions', k); const f = FLOWS['M_' + k];
-      return `<div class="fo ${on[k] ? '' : 'off'}"><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''}><div><b>${esc(m.name)}</b><span class="s">${esc(f ? f.sub : '')}</span></div>
+      return `<div class="fo ${on[k] ? '' : 'off'}" data-k="${k}"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''}><div><b>${esc(m.name)}</b><span class="s">${esc(f ? f.sub : '')}</span></div>
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''}>▼</button></div>`; }).join('') || '<p class="muted">Crie missões primeiro.</p>'; };
   draw();
+  makeSortable($('#rl'), keys => { order = keys; draw(); });
   $('#rl').onclick = e => { const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]');
     if (u) { const i = +u.dataset.up; [order[i - 1], order[i]] = [order[i], order[i - 1]]; draw(); } if (d) { const i = +d.dataset.dn; [order[i + 1], order[i]] = [order[i], order[i + 1]]; draw(); } };
   $('#rl').onchange = e => { const c = e.target.closest('[data-on]'); if (c) { on[c.dataset.on] = c.checked; draw(); } };
@@ -2305,6 +2310,31 @@ document.addEventListener('change', e => {
 })();
 function setDefaultScript(id) { entLive('scripts').forEach(r => { const want = r.id === id; if (!!r.isDefault !== want) { r.isDefault = want; entSave('scripts', r); } }); }
 document.addEventListener('click', e => { const b = e.target.closest('[data-defs]'); if (!b) return; e.stopPropagation(); setDefaultScript(b.dataset.defs); route(); }, true);
+
+/* ---------- reordenar arrastando pela alça ⋮⋮ (cadastro e editor de roteiro) ---------- */
+const SORT = { d: null };
+function makeSortable(box, onDone) {
+  if (!box) return; box.__onSort = onDone;
+  if (box.__sortable) return; box.__sortable = true;
+  box.addEventListener('pointerdown', e => {
+    const h = e.target.closest('.dh'); if (!h) return; const it = h.closest('[data-k]'); if (!it || !box.contains(it)) return;
+    e.preventDefault(); const r = it.getBoundingClientRect(), ph = document.createElement('div'); ph.className = 'fo-ph'; ph.style.height = r.height + 'px';
+    it.parentNode.insertBefore(ph, it);
+    Object.assign(it.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', zIndex: 60, pointerEvents: 'none' }); it.classList.add('dragging');
+    document.body.classList.add('sorting'); SORT.d = { box, it, ph, dy: e.clientY - r.top };
+  });
+}
+window.addEventListener('pointermove', e => {
+  const d = SORT.d; if (!d) return; d.it.style.top = (e.clientY - d.dy) + 'px';
+  if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+  const sibs = [...d.box.querySelectorAll('[data-k]')].filter(x => x !== d.it); let before = null;
+  for (const s of sibs) { const r = s.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { before = s; break; } }
+  if (before) d.box.insertBefore(d.ph, before); else d.box.appendChild(d.ph);
+});
+const sortEnd = () => { const d = SORT.d; if (!d) return; SORT.d = null; document.body.classList.remove('sorting');
+  d.it.removeAttribute('style'); d.it.classList.remove('dragging'); d.ph.parentNode.insertBefore(d.it, d.ph); d.ph.remove();
+  if (d.box.__onSort) d.box.__onSort([...d.box.querySelectorAll('[data-k]')].map(x => x.dataset.k)); };
+window.addEventListener('pointerup', sortEnd); window.addEventListener('pointercancel', sortEnd);
 
 function missionTray(s) {
   const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
