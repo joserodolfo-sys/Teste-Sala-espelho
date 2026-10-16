@@ -233,6 +233,7 @@ td.r,th.r{text-align:right}
 .capi{margin-top:10px;font-size:13px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
+.redo{border:1px solid #eee;border-radius:10px;padding:12px;margin-top:10px}.tag.okk{background:#e6f6ec;color:#0a7a3c}
 .mst h3{font-size:14px;margin:0 0 8px}.rbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:14px;background:#f1f1f1}.rbar span{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:28px}
 .b-dir{background:#0a7a3c}.b-ind{background:#6fbf73}.b-ok{background:#2e9d5a}.b-des{background:#c0392b}.b-nc{background:#9ca3af}
 .rleg{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:12px;color:#555}.rleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
@@ -805,7 +806,7 @@ async function sb(path, opts = {}) {
   if (!r.ok) { const j = await sbJson(r); throw new Error((j && (j.message || j.hint || j.error)) || ('Erro ' + r.status)); }
   return sbJson(r);
 }
-const sigOf = s => [(s.events || []).length, s.endedAt || 0, s.notesPost || '', s.result || '', JSON.stringify(s.answers || ''), (s.events || []).filter(e => e.type === 'marker').map(e => e.label).join('|')].join('#');
+const sigOf = s => [(s.events || []).length, s.endedAt || 0, s.notesPost || '', s.result || '', JSON.stringify(s.answers || ''), s.archived ? 'A' : '', s.script || '', (s.events || []).filter(e => e.type === 'marker').map(e => e.label).join('|')].join('#');
 const isActive = s => ACTIVE && ACTIVE.s && ACTIVE.s.id === s.id;
 const pendingSessions = () => sessions.filter(s => !isActive(s) && (s.events || []).length && s.syncedSig !== sigOf(s));
 const MERGE = { Prefer: 'resolution=merge-duplicates,return=minimal' };
@@ -817,7 +818,7 @@ async function pushPending() {
   for (const s of pend) {
     const sig = sigOf(s);
     await sb('/rest/v1/sessions?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: s.id, participant_id: pidOf(s), flow: s.flow, seq: s.seq ?? null, attempt: s.attempt ?? null,
-      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null }) }]) });
+      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null, archived: s.archived }) }]) });
     await sb('/rest/v1/events?session_id=eq.' + enc(s.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     const rows = (s.events || []).map(e => { const { t, type, key, ...rest } = e; return { session_id: s.id, t: Math.round(t || 0), type, key: key || null, data: Object.keys(rest).length ? rest : null }; });
     for (let i = 0; i < rows.length; i += 500) await sb('/rest/v1/events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows.slice(i, i + 500)) });
@@ -841,7 +842,7 @@ async function pullRemote() {
       const p = pm[r.participant_id] || {};
       const events = evs.filter(e => e.session_id === r.id).map(e => Object.assign({ type: e.type, t: e.t }, e.key ? { key: e.key } : {}, e.data || {}));
       const s = { id: r.id, pid: r.participant_id, name: p.name || 'Participante', age: p.age, obs: p.obs || '', flow: r.flow, seq: r.seq, attempt: r.attempt || 1, plan: r.plan || null,
-        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, events };
+        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, archived: (r.result_data && 'archived' in r.result_data) ? !!r.result_data.archived : undefined, events };
       s.syncedSig = sigOf(s); sessions.push(s); n++;
     });
   }
@@ -1046,7 +1047,7 @@ function viewHome() {
     ${homeRoteiros()}
     <h2>Análise geral por missão</h2>
     <div class="grid flows">${Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, f]) => {
-      const ss = done.filter(s => s.flow === k), an = ss.map(analyze);
+      const ss = done.filter(s => s.flow === k && !s.archived), an = ss.map(analyze);
       return `<button class="card flow" data-go="#/geral/${k}"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
         <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
     }).join('')}</div>
@@ -1262,12 +1263,10 @@ function viewParticipante(pid) {
     <div class="grid kpis">${kpi('FLUXOS', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
     <div class="card"><h2>Comparativo entre fluxos</h2>
       <table><thead><tr><th>Ordem</th><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Telas</th><th class="r">Voltar</th><th class="r">1º toque</th></tr></thead><tbody>
-      ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr style="cursor:pointer" data-go="#/sessao/${s.id}"><td>${i + 1}º</td><td><b>${flowTag(s.flow)}</b>${(s.attempt || 1) > 1 ? ' <span class="tag gray">tentativa ' + s.attempt + '</span>' : ''}${s.endedAt ? '' : ' <span class="tag gray">interrompida</span>'}</td>
+      ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr style="cursor:pointer" data-go="#/sessao/${s.id}"><td>${i + 1}º</td><td><b>${flowTag(s.flow)}</b>${attTag(s, p)}${(s.attempt || 1) > 1 ? ' <span class="tag gray">tentativa ' + s.attempt + '</span>' : ''}${s.endedAt ? '' : ' <span class="tag gray">interrompida</span>'}</td>
         <td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
       <p class="muted" style="margin-top:8px">Toque em uma linha para ver a jornada e o mapa de calor daquele fluxo.</p></div>
-    <div class="card" style="margin-top:16px"><h2>Rodar outro fluxo com este participante</h2>
-      <div class="pick" style="margin-bottom:12px">${Object.entries(LIVE()).map(([k, f], i) => `<label><input type="radio" name="pf" value="${k}" ${i === 0 ? 'checked' : ''}><div><b>${f.n}. ${f.name}</b><span>${f.sub}${p.sessions.some(s => s.flow === k) ? ' · já feito (será tentativa ' + (p.sessions.filter(s => s.flow === k).length + 1) + ')' : ''}</span></div></label>`).join('')}</div>
-      <button class="btn primary" data-runflow="${esc(p.pid)}">▶ Iniciar fluxo</button></div>`;
+    ${redoCard(p)}`;
 }
 
 /* ================== Mapa de calor ================== */
@@ -1436,7 +1435,7 @@ function viewSessao(id) {
 /* ================== Análise geral por fluxo ================== */
 function viewGeral(flow, rot) {
   if (!FLOWS[flow]) { location.hash = '#/'; return; }
-  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length && (!rot || s.script === rot)), an = ss.map(analyze);
+  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length && !s.archived && (!rot || s.script === rot)), an = ss.map(analyze);
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
   const tabs = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
@@ -1662,7 +1661,7 @@ document.addEventListener('click', e => {
   const pp = e.target.closest('[data-pdfprint]');
   if (pp) { const a = $('#anon'); location.hash = '#/relatorio/' + enc(pp.dataset.pdfprint) + '/' + ((a ? a.checked : true) ? 1 : 0); return; }
   const rf = e.target.closest('[data-runflow]');
-  if (rf) { const p = getP(rf.dataset.runflow), f = document.querySelector('input[name=pf]:checked'); if (p && f) beginBattery(p, [f.value]); return; }
+  if (rf) { const p = getP(rf.dataset.runflow), f = document.querySelector('input[name=pf]:checked'); if (p && f) { archivePrev(p.pid, [f.value]); beginBattery(p, [f.value]); } return; }
   const ex = e.target.closest('[data-exp]');
   if (ex) {
     const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : sessions;
@@ -1712,6 +1711,7 @@ async function entPull() {
     if (!cur || (d.updatedAt || 0) > (cur.updatedAt || 0)) { if (cur) Object.assign(cur, d); else ENT[k].push(d); ch = true; }
   });
   if (ch) { lsSet(ENT_LS, ENT); syncMissionFlows(); }
+  archiveMigrate();
   await entPushAll();
 }
 
@@ -2149,7 +2149,7 @@ function lastPer(ss) { const o = {}; ss.slice().sort((a, b) => a.startedAt - b.s
 function viewRoteiroAn(id) {
   const r = entGet('scripts', id); if (!r) { location.hash = '#/'; return; }
   const ms = (r.missions || []).map(x => entGet('missions', x)).filter(Boolean);
-  const ss = sessions.filter(s => s.script === id && s.flow && s.flow.indexOf('M_') === 0), last = lastPer(ss);
+  const ss = sessions.filter(s => s.script === id && s.flow && s.flow.indexOf('M_') === 0 && !s.archived), last = lastPer(ss);
   const pids = [...new Set(ss.map(pidOf))], P = pids.map(pid => { const s0 = ss.find(s => pidOf(s) === pid); return { pid, name: s0.name, age: s0.age }; });
   const cellOf = (pid, m) => last[pid + '|M_' + m.id];
   const allOk = P.filter(p => ms.every(m => { const s = cellOf(p.pid, m); return s && sessResult(s) === 'concluiu'; })).length;
@@ -2175,7 +2175,7 @@ function viewRoteiroAn(id) {
 }
 function homeRoteiros() {
   const rs = entLive('scripts'); if (!rs.length) return '';
-  return `<h2>Análise por roteiro</h2><div class="grid flows">${rs.map(r => { const ss = sessions.filter(s => s.script === r.id), np = new Set(ss.map(pidOf)).size;
+  return `<h2>Análise por roteiro</h2><div class="grid flows">${rs.map(r => { const ss = sessions.filter(s => s.script === r.id && !s.archived), np = new Set(ss.map(pidOf)).size;
     return `<button class="card flow" data-go="#/rotan/${enc(r.id)}"><div class="n">R</div><b>${esc(r.name)}</b><span class="muted">${(r.missions || []).length} missão(ões)</span>
       <div class="st"><span>${np} participante(s)</span>${ss.length ? `<span>nota média ${scaleAvg(ss)}</span>` : ''}</div></button>`; }).join('')}</div>`;
 }
@@ -2222,6 +2222,42 @@ function cancelTest() {
   if (f && f.mission && !s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - A.t0, auto: false, cancel: true }); }
   save(); endTest();
 }
+
+/* ---------- tentativas: só uma conta na análise (as anteriores ficam arquivadas) ---------- */
+function archiveMigrate() {
+  const g = {}; sessions.forEach(s => { if (!s.flow || s.flow.indexOf('M_') !== 0) return; const k = pidOf(s) + '|' + s.flow; (g[k] = g[k] || []).push(s); });
+  let ch = false;
+  Object.values(g).forEach(L => { if (L.length < 2 || L.some(s => s.archived !== undefined)) return;
+    L.sort((a, b) => a.startedAt - b.startedAt); L.forEach((s, i) => { s.archived = i < L.length - 1; ch = true; }); });
+  if (ch) save();
+}
+function archivePrev(pid, flows) { sessions.forEach(s => { if (pidOf(s) === pid && flows.includes(s.flow) && !s.archived) s.archived = true; }); save(); }
+function useAttempt(sid) { const t = sessions.find(s => s.id === sid); if (!t) return; sessions.forEach(s => { if (pidOf(s) === pidOf(t) && s.flow === t.flow) s.archived = s.id !== t.id; }); save(); }
+function attTag(s, p) {
+  if (!s.flow || s.flow.indexOf('M_') !== 0) return '';
+  const others = (p.sessions || []).filter(x => x.flow === s.flow).length > 1; if (!others) return '';
+  return s.archived ? ` <span class="tag gray">arquivada</span> <button class="btn sm ghost" data-useatt="${esc(s.id)}" type="button">Usar esta na análise</button>` : ' <span class="tag okk">conta na análise</span>';
+}
+function redoCard(p) {
+  const rs = entLive('scripts'), ms = Object.entries(LIVE()).filter(([k]) => k.indexOf('M_') === 0);
+  const usedR = [...new Set((p.sessions || []).map(s => s.script).filter(Boolean))];
+  return `<div class="card" style="margin-top:16px"><h2>Refazer com este participante</h2>
+    <p class="muted" style="margin:0 0 12px">A tentativa nova passa a contar na análise. A anterior fica arquivada: sai das métricas, mas não é apagada e dá para voltar a usá-la.</p>
+    ${rs.length ? `<div class="redo"><b>Refazer um roteiro inteiro</b><div class="row" style="gap:8px;justify-content:flex-start;margin-top:8px"><select id="rd-rot">${rs.map(r => `<option value="${esc(r.id)}" ${usedR.includes(r.id) ? 'selected' : ''}>${esc(r.name)} · ${(r.missions || []).length} missão(ões)</option>`).join('')}</select><button class="btn primary" data-redorot="${esc(p.pid)}" type="button">▶ Refazer roteiro</button></div></div>` : ''}
+    <div class="redo"><b>Refazer só uma missão</b><div class="pick" style="margin:8px 0 12px">${ms.map(([k, f], i) => { const did = (p.sessions || []).some(s => s.flow === k);
+      return `<label><input type="radio" name="pf" value="${k}" ${i === 0 ? 'checked' : ''}><div><b>${f.n}. ${esc(f.name)}</b><span>${esc(f.sub)}${did ? ' · já feita (a anterior será arquivada)' : ''}</span></div></label>`; }).join('') || '<p class="muted">Nenhuma missão cadastrada.</p>'}</div>
+      ${ms.length ? `<button class="btn primary" data-runflow="${esc(p.pid)}" type="button">▶ Refazer missão</button>` : ''}</div></div>`;
+}
+document.addEventListener('click', e => {
+  const u = e.target.closest('[data-useatt]');
+  if (u) { e.preventDefault(); e.stopPropagation(); useAttempt(u.dataset.useatt); route(); return; }
+  const r = e.target.closest('[data-redorot]');
+  if (r) { e.preventDefault(); e.stopPropagation(); const p = getP(r.dataset.redorot), sc = entGet('scripts', ($('#rd-rot') || {}).value); if (!p || !sc) return;
+    const plan = (sc.missions || []).map(x => 'M_' + x).filter(k => FLOWS[k]); if (!plan.length) return;
+    if (!confirm('Refazer o roteiro “' + sc.name + '” com ' + p.name + '? As tentativas anteriores dessas missões ficam arquivadas.')) return;
+    archivePrev(p.pid, plan); NEW_SCRIPT = sc.id; beginBattery(p, plan); }
+}, true);
+archiveMigrate();
 
 function missionTray(s) {
   const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
