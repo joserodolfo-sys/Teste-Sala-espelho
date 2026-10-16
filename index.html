@@ -235,6 +235,7 @@ td.r,th.r{text-align:right}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
 .rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
 .rmis .rres{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12.5px;margin-bottom:6px}
+.list .item.excl{opacity:.45}
 .redo{border:1px solid #eee;border-radius:10px;padding:12px;margin-top:10px}.tag.okk{background:#e6f6ec;color:#0a7a3c}
 .mst h3{font-size:14px;margin:0 0 8px}.rbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:14px;background:#f1f1f1}.rbar span{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:28px}
 .b-dir{background:#0a7a3c}.b-ind{background:#6fbf73}.b-ok{background:#2e9d5a}.b-des{background:#c0392b}.b-nc{background:#9ca3af}
@@ -1119,7 +1120,7 @@ function viewNova() {
       <div class="card f" style="display:flex;flex-direction:column;gap:16px">
         <div class="two"><div><label>Nome do participante *</label><input type="text" id="f-name" autocomplete="off" autofocus></div>
           <div><label>Idade *</label><input type="number" id="f-age" min="1" max="120" inputmode="numeric"></div></div>
-        <div><label>Roteiro</label><select id="f-rot"><option value="">Escolher missões manualmente</option>${entLive('scripts').map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div>
+        <div><label>Roteiro</label><select id="f-rot"><option value="">Escolher missões manualmente</option>${entLive('scripts').map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.isDefault ? ' (padrão)' : ''}</option>`).join('')}</select></div>
         <div><div class="row" style="margin-bottom:6px"><label style="margin:0">Missões e ordem do teste</label><button class="btn sm" id="shuf" type="button">⤮ Sortear ordem</button></div>
           <div class="pick" id="fl"></div>
           <p class="muted" style="margin-top:6px">A ordem fica registrada no relatório, porque os fluxos compartilham telas e o primeiro influencia os seguintes.</p></div>
@@ -1138,6 +1139,7 @@ function viewNova() {
   NEW_SCRIPT = null;
   $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
     order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
+  { const dflt = entLive('scripts').find(r => r.isDefault); if (dflt) { $('#f-rot').value = dflt.id; $('#f-rot').onchange(); } }
   const fl = $('#fl');
   fl.onclick = e => {
     const u = e.target.closest('[data-up]'), d = e.target.closest('[data-dn]');
@@ -1287,12 +1289,12 @@ function palette() {
 }
 function drawHeat(H) {
   const cv = H.cv, W = cv.width, Hh = cv.height, ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, Hh);
-  const P = H.pts.map(p => ({ x: p.xf * W, y: p.ab ? H.viewH - p.yb : p.fixed ? (H.sheet ? p.y + (H.viewH - (p._vh || H.viewH)) : p.y) : p.y + H.top, hit: p.hit }));
+  const P = H.pts.map(p => ({ x: p.xf * W, y: p.ab ? H.viewH - p.yb : p.fixed ? (H.sheet ? p.y + (H.viewH - (p._vh || H.viewH)) : p.y) : p.y + H.top, hit: p.hit, n: p.n }));
   if (H.mode === 'dots') {
     P.forEach((p, i) => {
       ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, 7); ctx.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
-      ctx.fillStyle = '#fff'; ctx.font = '700 10px Montserrat,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(i + 1, p.x, p.y + .5);
+      ctx.fillStyle = '#fff'; ctx.font = '700 10px Montserrat,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.n || (i + 1), p.x, p.y + .5);
     }); return;
   }
   const off = document.createElement('canvas'); off.width = W; off.height = Hh; const o = off.getContext('2d'), r = 30;
@@ -1437,7 +1439,7 @@ function viewSessao(id) {
 /* ================== Análise geral por fluxo ================== */
 function viewGeral(flow, rot) {
   if (!FLOWS[flow]) { location.hash = '#/'; return; }
-  const f = FLOWS[flow], ss = sessions.filter(s => s.flow === flow && s.events && s.events.length && !s.archived && (!rot || s.script === rot)), an = ss.map(analyze);
+  const f = FLOWS[flow], allSS = sessions.filter(s => s.flow === flow && s.events && s.events.length && !s.archived && (!rot || s.script === rot)), ss = allSS.filter(s => !GEXCL.has(s.id)), an = ss.map(analyze);
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
   const tabs = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
@@ -1446,6 +1448,7 @@ function viewGeral(flow, rot) {
     <a class="crumb" href="#/">← Painel</a>
     <div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div>
     <div class="ftabs">${tabs}</div>
+    ${allSS.length !== ss.length ? `<div class="hint" style="margin:10px 0">Filtro ativo: analisando <b>${ss.length} de ${allSS.length}</b> sessões. <button class="btn sm ghost" data-exclall type="button">Incluir todas</button></div>` : ''}
     ${missionStats(flow, ss, rot)}
     ${ss.length ? `<div class="grid kpis">
       ${kpi('SESSÕES', ss.length)}${kpi('DURAÇÃO MÉDIA', dur(avg(an.map(a => a.total))))}${kpi('TOQUES / SESSÃO', avg(an.map(a => a.tapN)).toFixed(1))}
@@ -1454,7 +1457,7 @@ function viewGeral(flow, rot) {
     <div class="card"><h2>Por tela</h2><table><thead><tr><th>Tela</th><th class="r">Sessões que viram</th><th class="r">Tempo médio</th><th class="r">Toques</th><th class="r">Fora do alvo</th></tr></thead>
       <tbody>${ks.map(k => `<tr><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${keyColor(k.key)};margin-right:6px"></i>${esc(keyName(k.key))}</td><td class="r">${k.n}</td><td class="r">${dur(avg(k.ms))}</td><td class="r">${k.taps}</td><td class="r">${k.taps ? pc(k.miss / k.taps * 100) : '–'}</td></tr>`).join('')}</tbody></table></div>
     <div class="card" style="margin-top:16px"><h2>Mapa de calor (todas as sessões)</h2><div id="heat"></div></div>
-    <div class="card" style="margin-top:16px"><h2>Sessões</h2><div class="list">${ss.map(s => { const a = analyze(s); return `<div class="item" data-go="#/sessao/${s.id}"><span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span><span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN} toques</span><span>${a.tapN ? pc(a.missPct) : '–'}</span><span></span><span></span></div>`; }).join('')}</div></div>`
+    <div class="card" style="margin-top:16px"><div class="row"><h2 style="margin:0">Sessões</h2>${allSS.length !== ss.length ? `<span class="muted">analisando ${ss.length} de ${allSS.length} · <button class="btn sm ghost" data-exclall type="button">Incluir todas</button></span>` : '<span class="muted">desmarque para tirar da análise</span>'}</div><div class="list" style="margin-top:8px">${allSS.map(s => { const a = analyze(s), inc = !GEXCL.has(s.id); return `<div class="item ${inc ? '' : 'excl'}" data-go="#/sessao/${s.id}"><span style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-excl="${s.id}" ${inc ? 'checked' : ''} aria-label="Incluir na análise" style="width:18px;height:18px;accent-color:#cc0000"><span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span></span><span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN} toques</span><span>${a.tapN ? pc(a.missPct) : '–'}</span><span></span><span></span></div>`; }).join('')}</div></div>`
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
   bindMissionStats(flow);
   if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
@@ -1493,6 +1496,9 @@ function reportBody(p, anon) {
   p = Object.assign({}, p, { sessions: p.sessions.filter(s => !s.archived) });
   const who = anon ? p.code : p.name, t = sessTotals(p), now = new Date().toLocaleString('pt-BR');
   const jobs = []; let jid = 0;
+  const dotsBlock = (s, g) => { const id = 'th' + (jid++), taps = (s.events || []).filter(e => e.type === 'tap').sort((a, b) => a.t - b.t);
+    const g2 = Object.assign({}, g, { pts: g.pts.map(x => Object.assign({}, x, { n: taps.indexOf(taps.find(e => e.t === x.t && e.x === x.x && e.y === x.y)) + 1 || undefined })) });
+    jobs.push({ id, s, g: g2, mode: 'dots' }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>toques ${g2.pts.map(x => x.n).filter(Boolean).join(', ')} · número = ordem na tabela de cliques</figcaption></figure>`; };
   const heatBlock = (s, g) => { const id = 'th' + (jid++); jobs.push({ id, s, g }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>${g.n} toque(s) · ${pc(g.miss / g.n * 100)} fora do alvo</figcaption></figure>`; };
   const names = { home: 'Home', detail: 'Detalhe', offer: 'Oferta', next: 'Próximos passos', sheet: 'Bottomsheet', splash: 'Splash', slide: 'Carrossel', login: 'Login', ghome: 'Home', gexp: 'Card expandido', sim: 'Simulação', homeB: 'Assembleias (contemplado)', detailB: 'Detalhe (contemplado)', nextB: 'Próximos passos' };
   const sections = p.sessions.map((s, i) => {
@@ -1510,6 +1516,7 @@ function reportBody(p, anon) {
       <h3>Caminho de cliques · ordem dos toques${cp.n ? ' (' + cp.n + ')' : ''}</h3>${cp.html}
       <div class="${groups.length ? 'hsec' : ''}"><h3>Mapas de calor</h3>
       ${groups.length ? `<div class="hgrid">${groups.map(g => heatBlock(s, g)).join('')}</div>` : '<p class="muted">Nenhum toque registrado neste fluxo.</p>'}
+      ${groups.length ? `</div><div class="hsec"><h3>Toques em ordem</h3><p class="muted" style="font-size:11px;margin:-4px 0 8px">Cada toque numerado na ordem em que aconteceu. Preto = tocou em algo com ação; vermelho = fora do alvo.</p><div class="hgrid">${groups.map(g => dotsBlock(s, g)).join('')}</div>` : ''}
       <div class="rtwo"><div><h3>Elementos mais tocados</h3>${a.top.length ? `<table><tbody>${a.top.slice(0, 8).map(x => `<tr><td>${esc(x.label)}</td><td class="r ${x.hit ? 'pill-hit' : 'pill-miss'}">${x.hit ? 'ação' : 'fora'}</td><td class="r"><b>${x.n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">–</p>'}</div>
         <div><h3>Marcadores e anotações</h3>${a.markers.length ? `<table><tbody>${a.markers.map(mk => { const st = a.steps.find(x => mk.t >= x.t0 && mk.t < x.t1); return `<tr><td style="width:44px"><b>${dur(mk.t)}</b></td><td>${esc(mk.label)}<br><span class="muted">${st ? esc(keyName(st.key)) : ''}</span></td></tr>`; }).join('')}</tbody></table>` : '<p class="muted">Sem marcadores.</p>'}
         ${s.notesPost ? `<p style="font-size:11.5px;line-height:1.55;margin-top:10px;white-space:pre-wrap"><b>Anotações:</b> ${esc(s.notesPost)}</p>` : ''}</div></div></div>
@@ -1559,7 +1566,7 @@ async function viewRelatorio(pid, anon) {
   upd();
   const readies = jobs.map(j => {
     const host = $('#' + j.id), vw = j.s.vw || 390, vh = j.s.vh || 780;
-    const H = mountHeat(host, { flow: j.s.flow, key: j.g.render, pts: j.g.pts.map(x => Object.assign({}, x, { _vh: vh })), vw, vh, st: j.s.st, mode: 'heat' });
+    const H = mountHeat(host, { flow: j.s.flow, key: j.g.render, pts: j.g.pts.map(x => Object.assign({}, x, { _vh: vh })), vw, vh, st: j.s.st, mode: j.mode || 'heat' });
     return H.ready.then(() => {
       const wrap = host.firstChild, hh = H.height || 800, sc = Math.min(330 / vw, 860 / hh);
       if (wrap) { wrap.style.transformOrigin = '0 0'; wrap.style.transform = `scale(${sc})`; wrap.style.boxShadow = 'none'; wrap.style.borderRadius = '0'; }
@@ -1580,7 +1587,7 @@ function pdfOverlay(msg) {
 async function heatImage(j) {
   const host = document.getElementById(j.id); if (!host) return;
   const vw = j.s.vw || 390, vh = j.s.vh || 780;
-  const H = mountHeat(host, { flow: j.s.flow, key: j.g.render, pts: j.g.pts.map(x => Object.assign({}, x, { _vh: vh })), vw, vh, st: j.s.st, mode: 'heat' });
+  const H = mountHeat(host, { flow: j.s.flow, key: j.g.render, pts: j.g.pts.map(x => Object.assign({}, x, { _vh: vh })), vw, vh, st: j.s.st, mode: j.mode || 'heat' });
   await H.ready;
   try {
     const fr = host.querySelector('iframe'), d = fr.contentDocument; if (d.fonts && d.fonts.ready) await d.fonts.ready;
@@ -1872,9 +1879,9 @@ function viewMissoes() {
         <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>`; }).join('')}</tbody></table>`
       : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Roteiros</h2><a class="btn sm primary" href="#/roteiro/novo">＋ Novo roteiro</a></div>
-      <p class="muted">Um roteiro é a sequência de missões de um teste. Você escolhe o roteiro ao cadastrar o participante.</p>
-      ${sc.length ? `<table><tbody>${sc.map(r => `<tr><td><b>${esc(r.name)}</b><br><span class="muted">${(r.missions || []).map(id => { const m = entGet('missions', id); return m && !m.deleted ? esc(m.name) : null; }).filter(Boolean).join(' → ') || 'sem missões'}</span></td>
-        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/roteiro/${enc(r.id)}">Editar</a> <button class="btn sm ghost" data-dels="${esc(r.id)}">Excluir</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum roteiro ainda.</p>'}</div>
+      <p class="muted">Um roteiro é a sequência de missões de um teste. O roteiro marcado como <b>★ padrão</b> já vem selecionado ao cadastrar um participante.</p>
+      ${sc.length ? `<table><tbody>${sc.map(r => `<tr><td><b>${esc(r.name)}</b>${r.isDefault ? ' <span class="rb ok">★ padrão</span>' : ''}<br><span class="muted">${(r.missions || []).map(id => { const m = entGet('missions', id); return m && !m.deleted ? esc(m.name) : null; }).filter(Boolean).join(' → ') || 'sem missões'}</span></td>
+        <td class="r" style="white-space:nowrap">${r.isDefault ? '' : `<button class="btn sm ghost" data-defs="${esc(r.id)}" type="button">★ Tornar padrão</button> `}<a class="btn sm" href="#/roteiro/${enc(r.id)}">Editar</a> <button class="btn sm ghost" data-dels="${esc(r.id)}">Excluir</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum roteiro ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
       <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
       <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b><br><span class="muted">${esc(f.url)}</span></td>
@@ -2279,6 +2286,25 @@ function reportSub(p) {
   const rs = [...new Set((p.sessions || []).map(s => s.script).filter(Boolean))].map(id => entGet('scripts', id)).filter(Boolean).map(r => r.name);
   return rs.length ? 'Roteiro: ' + rs.map(esc).join(', ') : 'Missões do teste de usabilidade';
 }
+
+/* ---------- análise: incluir/excluir sessões da visualização (filtro temporário, não altera dados) ---------- */
+const GEXCL = new Set();
+document.addEventListener('click', e => { if (e.target.closest('[data-excl]')) e.stopPropagation();
+  const all = e.target.closest('[data-exclall]'); if (all) { e.stopPropagation(); GEXCL.clear(); route(); } }, true);
+document.addEventListener('change', e => {
+  const c = e.target.closest('[data-excl]'); if (!c) return;
+  if (!c.checked) { const vis = [...document.querySelectorAll('[data-excl]')].filter(x => x.checked); if (!vis.length) { c.checked = true; alert('Deixe pelo menos uma sessão marcada.'); return; } GEXCL.add(c.dataset.excl); }
+  else GEXCL.delete(c.dataset.excl);
+  const y = window.scrollY; route(); window.scrollTo(0, y);
+});
+
+/* ---------- roteiro padrão (vem marcado no cadastro do participante) ---------- */
+(function () {
+  const live = entLive('scripts');
+  if (!live.some(r => r.isDefault)) { const r = live.find(x => (x.name || '').trim().toLowerCase() === 'roteiro login antigo e catálogo novo'); if (r) { r.isDefault = true; entSave('scripts', r); } }
+})();
+function setDefaultScript(id) { entLive('scripts').forEach(r => { const want = r.id === id; if (!!r.isDefault !== want) { r.isDefault = want; entSave('scripts', r); } }); }
+document.addEventListener('click', e => { const b = e.target.closest('[data-defs]'); if (!b) return; e.stopPropagation(); setDefaultScript(b.dataset.defs); route(); }, true);
 
 function missionTray(s) {
   const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
