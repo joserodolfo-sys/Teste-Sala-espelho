@@ -233,6 +233,8 @@ td.r,th.r{text-align:right}
 .capi{margin-top:10px;font-size:13px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
+.rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
+.rmis .rres{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12.5px;margin-bottom:6px}
 .redo{border:1px solid #eee;border-radius:10px;padding:12px;margin-top:10px}.tag.okk{background:#e6f6ec;color:#0a7a3c}
 .mst h3{font-size:14px;margin:0 0 8px}.rbar{display:flex;height:26px;border-radius:8px;overflow:hidden;margin-top:14px;background:#f1f1f1}.rbar span{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:28px}
 .b-dir{background:#0a7a3c}.b-ind{background:#6fbf73}.b-ok{background:#2e9d5a}.b-des{background:#c0392b}.b-nc{background:#9ca3af}
@@ -1260,8 +1262,8 @@ function viewParticipante(pid) {
     <a class="crumb" href="#/">← Painel</a>
     <div class="row"><div><h1>${esc(p.name)}, ${esc(p.age)} anos</h1><p class="muted">${p.code} · ${p.sessions.length} sessão(ões) · primeiro teste em ${dt(p.sessions[0].startedAt)}${p.obs ? '<br>Obs.: ' + esc(p.obs) : ''}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="chk" style="font-size:12px"><input type="checkbox" id="anon" checked> Anonimizar PDF</label><button class="btn primary" data-pdf="${esc(p.pid)}">⬇ PDF</button><button class="btn" data-pjson="${esc(p.pid)}">⬇ JSON</button><button class="btn danger" data-delp="${esc(p.pid)}">Excluir</button></div></div>
-    <div class="grid kpis">${kpi('FLUXOS', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
-    <div class="card"><h2>Comparativo entre fluxos</h2>
+    <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
+    <div class="card"><h2>Comparativo entre missões</h2>
       <table><thead><tr><th>Ordem</th><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Telas</th><th class="r">Voltar</th><th class="r">1º toque</th></tr></thead><tbody>
       ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr style="cursor:pointer" data-go="#/sessao/${s.id}"><td>${i + 1}º</td><td><b>${flowTag(s.flow)}</b>${attTag(s, p)}${(s.attempt || 1) > 1 ? ' <span class="tag gray">tentativa ' + s.attempt + '</span>' : ''}${s.endedAt ? '' : ' <span class="tag gray">interrompida</span>'}</td>
         <td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
@@ -1411,7 +1413,7 @@ function viewSessao(id) {
       ${kpi('USOU "VOLTAR"', a.backs + 'x', a.sheets + ' abertura(s) de bottomsheet')}
     </div>
     <div class="card"><h2>Jornada</h2>
-      <div class="legend">${legendKeys.map(k => `<span><i style="background:${COLORS[k]}"></i>${names[k]}</span>`).join('')}</div>
+      <div class="legend">${legendKeys.map(k => `<span><i style="background:${COLORS[k]}"></i>${SCR_NAME[k] || names[k]}</span>`).join('')}</div>
       <div class="timeline">${a.steps.map(st => `<div title="${esc(keyName(st.key))} · ${dur(st.ms)}" style="flex:${Math.max(st.ms, 1)};background:${keyColor(st.key)}"></div>`).join('')}</div>
       <div class="pins">${a.markers.map(m => `<span class="pin" style="left:${a.total ? m.t / a.total * 100 : 0}%">⚑ ${dur(m.t)}</span>`).join('')}</div>
       <table style="margin-top:18px"><thead><tr><th>#</th><th>Tela</th><th class="r">Início</th><th class="r">Tempo</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Rolagem</th></tr></thead>
@@ -1488,6 +1490,7 @@ function reportGroups(s) {
   }).filter(x => x.n > 0).sort((a, b) => SCR_ORDER.indexOf(a.scr) - SCR_ORDER.indexOf(b.scr) || (a.scr === 'sim' ? SIMORDER.indexOf(a.cur) - SIMORDER.indexOf(b.cur) : (b.cur || 0) - (a.cur || 0)));
 }
 function reportBody(p, anon) {
+  p = Object.assign({}, p, { sessions: p.sessions.filter(s => !s.archived) });
   const who = anon ? p.code : p.name, t = sessTotals(p), now = new Date().toLocaleString('pt-BR');
   const jobs = []; let jid = 0;
   const heatBlock = (s, g) => { const id = 'th' + (jid++); jobs.push({ id, s, g }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>${g.n} toque(s) · ${pc(g.miss / g.n * 100)} fora do alvo</figcaption></figure>`; };
@@ -1496,7 +1499,8 @@ function reportBody(p, anon) {
     const a = t.an[i], f = FLOWS[s.flow], groups = s.vw ? reportGroups(s) : [], cp = pathTables(s);
     const lk = [...new Set(a.steps.map(st => parseKey(st.key).sheet ? 'sheet' : parseKey(st.key).scr))];
     return `<section class="rpage">
-      <h2 class="rh">Fluxo ${f.n} · ${f.name}<small>${f.sub} · ${i + 1}º fluxo do teste${(s.attempt || 1) > 1 ? ' · tentativa ' + s.attempt : ''} · ${dt(s.startedAt)}${s.endedAt ? '' : ' · sessão interrompida'}</small></h2>
+      <h2 class="rh">${f.mission ? 'Missão' : 'Fluxo'} ${f.n} · ${esc(f.name)}<small>${f.mission ? 'Começa em: ' : ''}${f.sub} · ${i + 1}ª do teste${(s.attempt || 1) > 1 ? ' · tentativa ' + s.attempt : ''} · ${dt(s.startedAt)}${s.endedAt ? '' : ' · sessão interrompida'}</small></h2>
+      ${missionReportHead(s)}
       <div class="grid kpis k6">${kpi('DURAÇÃO', dur(a.total))}${kpi('TOQUES', a.tapN)}${kpi('FORA DO ALVO', a.tapN ? pc(a.missPct) : '–', a.miss + ' de ' + a.tapN)}${kpi('TELAS', a.screens, a.steps.length + ' passagens')}${kpi('1º TOQUE', a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–')}${kpi('VOLTAR', a.backs + 'x', a.sheets + ' bottomsheet(s)')}</div>
       <h3>Jornada</h3>
       <div class="legend">${lk.map(k => `<span><i style="background:${COLORS[k]}"></i>${names[k]}</span>`).join('')}</div>
@@ -1514,22 +1518,24 @@ function reportBody(p, anon) {
   const html = `<div class="report">
       <section class="rpage">
         <div class="muted" style="letter-spacing:1.5px;text-transform:uppercase;font-weight:700">HSF · Teste de usabilidade</div>
-        <div class="rtitle">Relatório do teste · Assembleias</div><div class="rsub">Sala Espelho · fluxos de assembleia do app de consórcio</div>
+        <div class="rtitle">Relatório do teste de usabilidade</div><div class="rsub">${reportSub(p)}</div>
         <table class="meta"><tbody>
           <tr><td>Participante</td><td><b>${esc(who)}</b></td></tr><tr><td>Idade</td><td>${esc(p.age)} anos</td></tr>
           <tr><td>Data</td><td>${dt(p.sessions[0].startedAt)}</td></tr>
-          <tr><td>Ordem dos fluxos</td><td>${p.sessions.map((s, i) => `${i + 1}º ${flowTag(s.flow)}`).join('<br>')}</td></tr>
+          <tr><td>Ordem das missões</td><td>${p.sessions.map((s, i) => `${i + 1}º ${flowTag(s.flow)}`).join('<br>')}</td></tr>
           ${anon ? '<tr><td>Observações</td><td class="muted">omitidas na versão anonimizada</td></tr>' : (p.obs ? `<tr><td>Observações</td><td>${esc(p.obs)}</td></tr>` : '')}
         </tbody></table>
-        <div class="grid kpis">${kpi('FLUXOS', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
-        <h3>Comparativo entre fluxos</h3>
+        <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
+        <h3>Comparativo entre missões</h3>
         <table><thead><tr><th>Ordem</th><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Telas</th><th class="r">Voltar</th><th class="r">1º toque</th></tr></thead><tbody>
-        ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr><td>${i + 1}º</td><td>${flowTag(s.flow)}${(s.attempt || 1) > 1 ? ' (tent. ' + s.attempt + ')' : ''}</td><td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
+        ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr><td>${i + 1}º</td><td>${flowTag(s.flow)}${(s.attempt || 1) > 1 ? ' (tent. ' + s.attempt + ')' : ''} ${resultBadge(s)}</td><td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
         <h3>Como ler este relatório</h3>
         <ul><li><b>Toque fora do alvo:</b> toque em uma área sem ação (texto, espaço vazio). Indica expectativa de que algo seria tocável ou dificuldade de achar o alvo.</li>
         <li><b>Jornada:</b> sequência de telas e tempo em cada uma. O mesmo fluxo pode passar várias vezes pela mesma tela.</li>
-        <li><b>Mapa de calor:</b> concentração de toques sobre a tela real do protótipo. Azul = poucos toques, vermelho = muitos. Cada tela é agrupada por assembleia e por estado (normal, cálculo aberto, bottomsheet aberto).</li>
-        <li><b>Ordem dos fluxos:</b> os fluxos compartilham telas; o primeiro realizado pode influenciar tempo e toques dos seguintes.</li>
+        <li><b>Mapa de calor:</b> concentração de toques sobre a tela real do protótipo. Azul = poucos toques, vermelho = muitos. Cada tela é agrupada por variação (aba, assembleia, modelo) e por estado (normal, seleção aberta, bottomsheet aberto).</li>
+        <li><b>Resultado da missão:</b> “concluiu” quando o participante chegou ao fim definido na missão (detectado automaticamente ou marcado pelo moderador). “Direto” significa que seguiu o caminho ideal, sem desvios; “indireto”, que concluiu passando por outras telas.</li>
+        <li><b>Avaliação:</b> notas de 1 (muito difícil) a 5 (muito fácil) e respostas abertas dadas ao fim de cada missão.</li>
+        <li><b>Ordem das missões:</b> as missões compartilham telas; a primeira realizada pode influenciar o tempo e os toques das seguintes.</li>
         <li><b>1º toque:</b> tempo entre ver a primeira tela e o primeiro toque.</li></ul>
         <p class="rfoot">Gerado em ${now}${anon ? ' · versão anonimizada' : ''}. Dados coletados localmente pelo painel do moderador; este documento não substitui o backup em JSON.</p>
       </section>${sections}
@@ -1621,7 +1627,7 @@ async function downloadPdf(pid, anon) {
     });
     stage.querySelector('.report').remove(); meas.remove();
     const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait', compress: true });
-    doc.setProperties({ title: 'Relatório de teste de usabilidade · ' + R.who, subject: 'HSF · Assembleias', creator: 'HSF · Teste de usabilidade' });
+    doc.setProperties({ title: 'Relatório de teste de usabilidade · ' + R.who, subject: 'HSF · Teste de usabilidade', creator: 'HSF · Teste de usabilidade' });
     for (let i = 0; i < pages.length; i++) {
       ov.set(`Montando página ${i + 1} de ${pages.length}…`);
       const pg = document.createElement('div'); pg.className = 'rpage pdfpage'; pages[i].forEach(b => pg.append(b.cloneNode(true))); stage.append(pg);
@@ -2258,6 +2264,21 @@ document.addEventListener('click', e => {
     archivePrev(p.pid, plan); NEW_SCRIPT = sc.id; beginBattery(p, plan); }
 }, true);
 archiveMigrate();
+
+/* ---------- relatório do participante: dados da missão ---------- */
+function missionReportHead(s) {
+  const f = FLOWS[s.flow], m = f && f.mission; if (!m) return '';
+  const d = s.resultData || {}, r = sessResult(s);
+  const rt = r === 'concluiu' ? ('✓ Concluiu' + (d.direto === true ? ' · direto' : d.direto === false ? ' · indireto' : '')) : r === 'desistiu' ? '✕ Desistiu' : 'Não concluiu';
+  const qa = (s.qs || []).map((q, i) => { const v = (s.answers || {})[i]; return v == null || v === '' ? '' : `<tr><td>${esc(q)}</td><td class="r"><b>${typeof v === 'number' ? v + ' de 5' : '“' + esc(v) + '”'}</b></td></tr>`; }).join('');
+  return `<div class="rmis">${m.prompt ? `<div class="rtask"><span>Tarefa</span><p>${esc(m.prompt)}</p></div>` : ''}
+    <div class="rres"><span class="rb ${r === 'concluiu' ? 'ok' : 'no'}">${rt}</span>${d.at != null ? `<span>Tempo até ${r === 'concluiu' ? 'concluir' : 'encerrar'}: <b>${dur(d.at)}</b></span>` : ''}${d.how ? `<span class="muted">fim detectado por ${esc(d.how)}</span>` : (d.auto === false && r === 'concluiu' ? '<span class="muted">marcado pelo moderador</span>' : '')}${s.skippedQs ? '<span class="muted">avaliação pulada</span>' : ''}</div>
+    ${qa ? `<h3>Avaliação</h3><table><tbody>${qa}</tbody></table>` : ''}</div>`;
+}
+function reportSub(p) {
+  const rs = [...new Set((p.sessions || []).map(s => s.script).filter(Boolean))].map(id => entGet('scripts', id)).filter(Boolean).map(r => r.name);
+  return rs.length ? 'Roteiro: ' + rs.map(esc).join(', ') : 'Missões do teste de usabilidade';
+}
 
 function missionTray(s) {
   const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
