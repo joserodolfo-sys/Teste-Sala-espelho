@@ -72,8 +72,9 @@ h2{font-size:15px;font-weight:700;margin-bottom:12px}
 #test[hidden]{display:none}
 .tv{position:relative;width:100%;max-width:480px;height:100%;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.14)}
 .tv iframe{width:100%;height:100%;border:0;display:block}
-.grip{position:absolute;top:0;left:50%;transform:translateX(-50%);width:72px;height:22px;z-index:30;display:grid;place-items:start center;padding-top:1px;color:rgba(255,255,255,.55)}
-.grip i{display:block;width:30px;height:11px;border-radius:0 0 8px 8px;background:rgba(255,255,255,.14);display:grid;place-items:center}
+.grip{position:absolute;top:0;left:50%;transform:translateX(-50%);width:80px;height:26px;z-index:30;display:grid;place-items:start center;padding-top:0;color:#fff}
+.grip i{display:block;width:44px;height:18px;border-radius:0 0 10px 10px;background:rgba(22,22,26,.78);border:1px solid rgba(255,255,255,.45);border-top:0;box-shadow:0 2px 8px rgba(0,0,0,.35);display:grid;place-items:center;color:#fff}
+.grip:hover i{background:rgba(22,22,26,.92)}
 .grip svg{display:block}
 .grip.warn i{background:#e40521}
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:31;opacity:0;pointer-events:none;transition:.2s}
@@ -240,13 +241,16 @@ td.r,th.r{text-align:right}
 .pc{display:inline-block;background:#f3f4f6;border:1px solid #e3e3e3;border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 0}.pa{color:#999;margin:0 4px}
 .mxt td.mx{text-align:center;cursor:pointer;border-radius:6px;font-size:12px}.mxt td.mx b{display:block}.mxt td.mx small{color:#555}
 .mxt td.ok{background:#e6f6ec;color:#0a7a3c}.mxt td.ind{background:#eef8ee;color:#2e7d32}.mxt td.des{background:#fdecee;color:#b00020}.mxt td.nc{background:#f3f4f6;color:#555}.mxt td.none{color:#bbb;cursor:default}
-.mov{position:absolute;inset:0;z-index:40;background:rgba(18,18,22,.55);display:grid;place-items:center;padding:16px;animation:movin .2s ease}
+.mov{position:absolute;inset:0;z-index:28;background:rgba(18,18,22,.55);display:grid;place-items:center;padding:16px;animation:movin .2s ease}
 @keyframes movin{from{opacity:0}to{opacity:1}}
 .mov .mc{width:100%;max-width:360px;background:#fff;border-radius:16px;padding:22px 18px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.25);max-height:100%;overflow:auto}
 .mov .mi{width:56px;height:56px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:28px;font-weight:800;color:#fff}.mov .mi.ok{background:#0a7a3c}.mov .mi.no{background:#8a8b90}
 .mov h2{margin:0;font-size:20px}.mov .mn{margin:6px 0 0;color:#555}.mov .mt{margin:10px 0 0;font-size:15px}
 .mov .btn.big{width:100%;margin-top:18px}.mov .qq{text-align:left;margin-top:16px}.mov .qq p{font-weight:600;margin:0 0 8px}
 .mov .sc{display:flex;gap:6px}.mov .sc button{flex:1;height:44px;border:1px solid #ccc;border-radius:10px;background:#fff;font-weight:700;font-size:16px;cursor:pointer}.mov .sc button.on{background:#cc0000;color:#fff;border-color:#cc0000}
+.mov .step{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#cc0000}
+.mov .task{text-align:left;background:#f7f7f9;border-radius:12px;padding:14px;margin-top:14px}.mov .task span{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:6px}.mov .task p{margin:0;font-size:16px;line-height:1.45;color:#222}
+.mov.intro{background:rgba(18,18,22,.7)}
 .mov .sl{display:flex;justify-content:space-between;font-size:11px;color:#777;margin-top:4px}.mov textarea{width:100%}.mov .err{margin:8px 0 0}
 .pkc{margin-top:12px;padding:12px;border:2px solid #cc0000;border-radius:10px;background:#fff8f8;display:flex;flex-direction:column;gap:8px}.pkc p{margin:0}.pkc .pkb{display:flex;flex-direction:column;gap:6px}.pkc .chk{display:flex;gap:6px;align-items:center;font-size:13px}
 .sec{padding-top:12px;border-top:1px solid #eee}
@@ -1159,7 +1163,7 @@ function trayHTML() {
     <div class="who">Fluxo ${A.idx + 1} de ${A.plan.length}: <b>${flowTag(s.flow)}</b>${nx ? '<br>Próximo: ' + flowTag(A.plan[A.idx + 1]) : ''}</div>
     ${missionTray(s)}
     <div class="btns"><button class="btn" id="mark">⚑ Marcar momento</button><button class="btn end" id="adv" data-label="${last ? 'Finalizar teste' : 'Próximo fluxo →'}">${last ? 'Finalizar teste' : 'Próximo fluxo →'}</button></div>
-    ${last ? '' : '<button class="btn sm ghost" id="stop" data-label="Encerrar teste agora">Encerrar teste agora</button>'}
+    <button class="btn sm ghost" id="stop" data-label="Encerrar teste agora">Encerrar teste agora (sem avaliação)</button>
     <p class="muted" id="mk-n"></p>`;
 }
 function viewTeste(pid) {
@@ -1191,7 +1195,7 @@ function viewTeste(pid) {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
     A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1&v=' + Date.now());
-    renderTray(); toggle(false); startCheck(); missionUI();
+    renderTray(); toggle(false); startCheck(); missionUI(); missionIntro();
   };
   A.next = () => (A.idx === A.plan.length - 1 ? endTest() : nextFlow()); A.toggle = toggle;
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
@@ -1203,10 +1207,10 @@ function viewTeste(pid) {
       A.s.events.push({ type: 'marker', t: Date.now() - A.t0, label: 'Marcador ' + n }); save();
       $('#mk-n').textContent = `Marcador ${n} registrado.`;
     } else if (b.id === 'adv') arm(b, () => finishMission(A.s, A.idx === A.plan.length - 1 ? endTest : nextFlow));
-    else if (b.id === 'stop') arm(b, () => finishMission(A.s, endTest));
+    else if (b.id === 'stop') arm(b, cancelTest);
     else if (b.id === 'mok' || b.id === 'mno') { A.s.result = b.id === 'mok' ? 'concluiu' : 'desistiu'; A.s.resultData = Object.assign({}, A.s.resultData, { at: Date.now() - A.t0, auto: false }); save(); renderTray(); missionUI(); finishMission(A.s, A.next); }
   };
-  renderTray(); startCheck();
+  renderTray(); startCheck(); setTimeout(missionIntro, 0);
   clearInterval(A.clock); clearInterval(A.auto);
   A.clock = setInterval(() => { const c = $('#clock'); if (c) c.textContent = dur(Date.now() - A.t0); }, 500);
   A.auto = setInterval(save, 3000);
@@ -1836,7 +1840,7 @@ function askQuestions(s, done) {
       qs.map((q, i) => `<div class="qq"><p>${esc(q.text)}</p>${q.type === 'scale'
         ? `<div class="sc" data-q="${i}">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${n}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
         : `<textarea data-q="${i}" rows="3" placeholder="Escreva aqui…">${esc(ans[i] || '')}</textarea>`}</div>`).join('') +
-      `<p class="err" id="mov-err"></p><button class="btn primary big" id="mov-ok">Enviar e ${last ? 'finalizar' : 'ir para a próxima missão'}</button></div>`;
+      `<p class="err" id="mov-err"></p><button class="btn primary big" id="mov-ok">Enviar e ${last ? 'finalizar' : 'ir para a próxima missão'}</button>${s.result === 'nao_concluiu' ? '<button class="btn ghost" id="mov-skip" type="button" style="width:100%;margin-top:8px">Pular avaliação</button>' : ''}</div>`;
     ov.onclick = e => { const b = e.target.closest('.sc button'); if (b) { const g = b.parentNode; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans[g.dataset.q] = +b.dataset.v; const er = ov.querySelector('#mov-err'); if (er) er.textContent = ''; } };
     ov.querySelector('#mov-ok').onclick = () => {
       ov.querySelectorAll('textarea[data-q]').forEach(t => { ans[t.dataset.q] = t.value.trim(); });
@@ -1844,6 +1848,7 @@ function askQuestions(s, done) {
       if (miss >= 0) { ov.querySelector('#mov-err').textContent = 'Escolha uma nota de 1 a 5.'; return; }
       s.answers = ans; s.qs = qs.map(q => q.text); save(); close();
     };
+    const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
   };
   const close = () => { ov.remove(); done(); };
   stepResult();
@@ -2193,6 +2198,29 @@ async function pdfOf(el, name, title) {
     doc.save(name + '-' + new Date().toISOString().slice(0, 10) + '.pdf');
   } catch (e) { alert('Erro ao gerar o PDF.'); }
   btns.forEach(b => { b.disabled = false; b.textContent = b.dataset.t; });
+}
+
+
+/* ---------- tela de início da missão ---------- */
+function missionIntro() {
+  const A = ACTIVE; if (!A || !A.s) return; const s = A.s, f = FLOWS[s.flow], m = f && f.mission; if (!m || s.introDone) return;
+  const tv = document.querySelector('#test .tv'); if (!tv) return;
+  const old = tv.querySelector('.mov'); if (old) old.remove();
+  const ov = document.createElement('div'); ov.className = 'mov intro'; tv.appendChild(ov);
+  const total = A.plan.length, nth = A.idx + 1;
+  ov.innerHTML = `<div class="mc"><p class="step">Missão ${nth} de ${total}</p><h2>${esc(m.name)}</h2>
+    ${m.prompt ? `<div class="task"><span>Sua tarefa</span><p>${esc(m.prompt)}</p></div>` : ''}
+    <button class="btn primary big" id="mov-start">Começar</button></div>`;
+  ov.querySelector('#mov-start').onclick = () => {
+    const now = Date.now(), delta = now - A.t0;
+    A.t0 = now; s.startedAt = now; (s.events || []).forEach(e => { e.t = Math.max(0, (e.t || 0) - delta); });
+    s.introDone = true; save(); ov.remove();
+  };
+}
+function cancelTest() {
+  const A = ACTIVE; if (!A) return; const s = A.s, f = FLOWS[s.flow];
+  if (f && f.mission && !s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - A.t0, auto: false, cancel: true }); }
+  save(); endTest();
 }
 
 function missionTray(s) {
