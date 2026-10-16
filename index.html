@@ -1933,9 +1933,10 @@ function viewMissaoEd(id) {
         <section class="stp" data-s="1"><div class="sh"><i>1</i><div><h3>Sobre a missão</h3><p>Dê um nome curto e escreva a tarefa como você vai ler para o participante.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Nome da missão</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x">
             <label>Enunciado da tarefa</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea>
-            ${flows.length > 1 ? `<label>Fluxo (app)</label><select id="mf">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>` : `<input type="hidden" id="mf" value="${esc((flows[0] || {}).id || '')}">`}</div></section>
-        <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>A tela em que o app abre para o participante. A prévia muda para esse ponto.</p></div><span class="ok"></span></div>
-          <div class="sb"><select id="ms"></select></div></section>
+</div></section>
+        <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Em qual app e em qual tela a missão abre para o participante. A prévia muda para esse ponto.</p></div><span class="ok"></span></div>
+          <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
+            <label>Tela de partida</label><select id="ms"></select></div></section>
         <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="me" class="lst"></div>
             <div class="how"><b>Como definir:</b> navegue na prévia até onde a tarefa termina, toque em <b>“Escolher na prévia”</b> e clique no botão final (o clique não aciona o app).</div>

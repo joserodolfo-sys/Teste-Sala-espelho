@@ -46,6 +46,18 @@ html.static #hsf-toast{display:none}
 /* catálogo: o cabeçalho fixo tem 140 px com a barra; sem ela, encolhe junto */
 @media (max-width:480px){.c-header{height:auto!important}}
 html.iphone .c-header{height:auto!important}
+
+/* imagens não arrastáveis; carrosséis com encaixe no toque */
+#device img{-webkit-user-drag:none;user-select:none;-webkit-user-select:none}
+.slider{scroll-snap-type:x mandatory}.slider>.kv,.slider>.promo{scroll-snap-align:start;scroll-snap-stop:always}
+.cc-hscroll{scroll-snap-type:x proximity}.cc-hscroll>*{scroll-snap-align:start}
+/* banners: 1 pontinho por banner; setas clicáveis */
+.dots i{display:block;width:6px;height:6px;border-radius:50%;background:#d7d8da;transition:width .2s,background .2s}
+.dots i.on{width:24px;border-radius:1000px;background:var(--brand)}
+.stepper>img.hsf-arrow{cursor:pointer}.stepper>img.dis{opacity:.35;cursor:default}
+/* como no app.html: arrastar não seleciona texto (campos de digitação continuam normais) */
+#device{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+#device input,#device textarea{user-select:text;-webkit-user-select:text}
 </style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -1064,6 +1076,16 @@ window.CAT_ASSETS = {"card00": "data:image/webp;base64,UklGRuZUAABXRUJQVlA4WAoAA
     dev.style.left = Math.max(0, (window.innerWidth - W) / 2) + 'px'; dev.style.top = '0px';
     document.documentElement.style.setProperty('--s', S);
   }
+  /* telas exportadas sem área de rolagem: o conteúdo principal vira rolável (no celular a altura é menor que 800) */
+  document.querySelectorAll('.screen').forEach(function (scr) {
+    if (scr.querySelector('.scroll')) return;
+    var body = [].slice.call(scr.children).filter(function (c) { return !/HEADER/.test(c.tagName) && !/header|statusbar|bottomnav/.test(c.className); })
+      .sort(function (a, b) { return b.scrollHeight - a.scrollHeight; })[0];
+    if (!body) return;
+    var top = body.offsetTop;
+    Object.assign(body.style, { position: 'absolute', left: '0', right: '0', top: top + 'px', bottom: '0', height: 'auto', overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'none' });
+    body.classList.add('scroll');
+  });
   /* sem a barra de status falsa (celular), o conteúdo das telas com cabeçalho fixo sobe os 42 px que ela ocupava */
   function compact() {
     var mobile = document.documentElement.classList.contains('iphone') || window.innerWidth <= 480 || STATIC;
@@ -1077,7 +1099,7 @@ window.CAT_ASSETS = {"card00": "data:image/webp;base64,UklGRuZUAABXRUJQVlA4WAoAA
   /* ---------- aviso de fora do escopo ---------- */
   var toastEl = document.createElement('div'); toastEl.id = 'hsf-toast'; dev.appendChild(toastEl); var tt;
   function toast(m) { toastEl.textContent = m || 'Destino fora do escopo deste teste'; toastEl.classList.add('on'); clearTimeout(tt); tt = setTimeout(function () { toastEl.classList.remove('on'); }, 2200); }
-  var HANDLED = '[data-nav],[data-back],[data-overlay],[data-close],[data-backdrop],[data-pill],[data-filtro],[data-ordem],[data-modal-opt],[data-fav],.d-zoom,input,select,textarea,label';
+  var HANDLED = '.hsf-arrow,[data-nav],[data-back],[data-overlay],[data-close],[data-backdrop],[data-pill],[data-filtro],[data-ordem],[data-modal-opt],[data-fav],.d-zoom,input,select,textarea,label';
   var LOOKS = '.btn-primary,.btn-ghost,.pcta,.scard,.srow>*,.cta,.mitem,.mcta,.bn,.d-btn,.c-card,.cc,.act44,.story,.soc,.kv,.promo,.notice,.userinfo,.c-viewpill,.c-rpill,.f-pill,.o-item,.m-btn,button,a';
   document.addEventListener('click', function (e) {
     if (STATIC) return; var t = e.target;
@@ -1151,6 +1173,52 @@ window.CAT_ASSETS = {"card00": "data:image/webp;base64,UklGRuZUAABXRUJQVlA4WAoAA
   window.addEventListener('pointerup', function () {
     if (!dg) return; var g = dg; dg = null; if (g.mode !== 'v') return; var v = g.v * 16 / S;
     (function glide() { if (Math.abs(v) > .5) { var b = g.sc.scrollTop; g.sc.scrollTop += v; v *= .95; if (Math.abs(g.sc.scrollTop - b) > .5) requestAnimationFrame(glide); } })();
+  });
+
+  /* ---------- imagens não são "arrastáveis" (senão o mouse arrasta a foto em vez de rolar a tela) ---------- */
+  document.addEventListener('dragstart', function (e) { e.preventDefault(); }, true);
+
+  /* ---------- carrosséis horizontais: o arrasto do Figma é trocado por um com encaixe ---------- */
+  document.addEventListener('mousedown', function (e) { if (e.target.closest('.slider,.cc-hscroll')) e.stopPropagation(); }, true);
+  function hpos(sl, items) { var f = items[0].offsetLeft, mx = sl.scrollWidth - sl.clientWidth; return items.map(function (it) { return Math.min(mx, Math.max(0, it.offsetLeft - f)); }); }
+  function nearest(p, l) { var b = 0; p.forEach(function (v, i) { if (Math.abs(v - l) < Math.abs(p[b] - l)) b = i; }); return b; }
+  function ease(sl, to, done) { var from = sl.scrollLeft, t0 = performance.now(); (function f() { var k = Math.min(1, (performance.now() - t0) / 320), e2 = 1 - Math.pow(1 - k, 3); sl.scrollLeft = from + (to - from) * e2; if (k < 1) requestAnimationFrame(f); else { sl.style.scrollSnapType = ''; done && done(); } })(); }
+  var HD = null;
+  document.addEventListener('pointerdown', function (e) {
+    if (STATIC || e.pointerType !== 'mouse' || e.button !== 0) return; var sl = e.target.closest('.slider,.cc-hscroll'); if (!sl) return;
+    HD = { sl: sl, x: e.clientX, l: sl.scrollLeft, t: performance.now(), v: 0, lx: e.clientX, mode: null };
+  }, true);
+  window.addEventListener('pointermove', function (e) {
+    if (!HD) return; var dx = e.clientX - HD.x; if (!HD.mode) { if (Math.abs(dx) < 6) return; HD.mode = 'h'; HD.sl.style.scrollSnapType = 'none'; }
+    var now = performance.now(), dt = now - HD.t; if (dt > 0) HD.v = .6 * HD.v + .4 * ((HD.lx - e.clientX) / dt); HD.lx = e.clientX; HD.t = now;
+    HD.sl.scrollLeft = HD.l - dx / S;
+  });
+  window.addEventListener('pointerup', function (e) {
+    var h = HD; HD = null; if (!h || h.mode !== 'h') return;
+    var sl = h.sl, items = [].slice.call(sl.children).filter(function (c) { return !c.classList.contains('padfake') && c.offsetWidth > 0; }); if (!items.length) return;
+    var p = hpos(sl, items);
+    if (sl.classList.contains('slider')) {               /* banners: um por vez, para frente ou para trás */
+      var i0 = nearest(p, h.l), dx = e.clientX - h.x, dir = (Math.abs(dx) > 30 * S || Math.abs(h.v) > .35) ? (dx < 0 ? 1 : -1) : 0;
+      var i = Math.max(0, Math.min(items.length - 1, i0 + dir)); ease(sl, p[i], function () { sl.dispatchEvent(new Event('scroll')); });
+    } else {                                               /* cards: desliza com inércia e encaixa no mais próximo */
+      var v = (performance.now() - h.t > 90 ? 0 : h.v) * 16 / S;
+      (function glide() { if (Math.abs(v) > .5) { var b = sl.scrollLeft; sl.scrollLeft += v; v *= .94; if (Math.abs(sl.scrollLeft - b) > .5) { requestAnimationFrame(glide); return; } } ease(sl, p[nearest(p, sl.scrollLeft)]); })();
+    }
+  });
+  /* banners da Home: pontinhos conforme a quantidade de banners e setas que funcionam */
+  document.querySelectorAll('.slider-wrap').forEach(function (w) {
+    var sl = w.querySelector('.slider'), dots = w.querySelector('.dots'), ar = w.querySelectorAll('.stepper > img'); if (!sl || !dots) return;
+    var items = [].slice.call(sl.children).filter(function (c) { return !c.classList.contains('padfake'); });
+    var draw = function (i) { dots.innerHTML = items.map(function (_, k) { return '<i class="' + (k === i ? 'on' : '') + '"></i>'; }).join('');
+      if (ar.length) { ar[0].classList.toggle('dis', i === 0); ar[ar.length - 1].classList.toggle('dis', i === items.length - 1); } };
+    var cur = function () { return nearest(hpos(sl, items), sl.scrollLeft); };
+    var go2 = function (d) { var i = Math.max(0, Math.min(items.length - 1, cur() + d)); sl.style.scrollSnapType = 'none'; ease(sl, hpos(sl, items)[i], function () { draw(i); }); draw(i); };
+    if (ar.length) {
+      ar[0].classList.add('hsf-arrow'); ar[0].dataset.label = 'Banner anterior'; ar[ar.length - 1].classList.add('hsf-arrow'); ar[ar.length - 1].dataset.label = 'Próximo banner';
+      ar[0].addEventListener('click', function () { go2(-1); }); ar[ar.length - 1].addEventListener('click', function () { go2(1); });
+    }
+    var tm; sl.addEventListener('scroll', function () { clearTimeout(tm); tm = setTimeout(function () { draw(cur()); }, 60); });
+    draw(0);
   });
 
   /* ---------- pontos de partida (?start=) ---------- */
