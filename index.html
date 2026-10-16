@@ -820,7 +820,7 @@ async function pushPending() {
   for (const s of pend) {
     const sig = sigOf(s);
     await sb('/rest/v1/sessions?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: s.id, participant_id: pidOf(s), flow: s.flow, seq: s.seq ?? null, attempt: s.attempt ?? null,
-      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null, archived: s.archived }) }]) });
+      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null, archived: s.archived, skippedQs: s.skippedQs || undefined }) }]) });
     await sb('/rest/v1/events?session_id=eq.' + enc(s.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     const rows = (s.events || []).map(e => { const { t, type, key, ...rest } = e; return { session_id: s.id, t: Math.round(t || 0), type, key: key || null, data: Object.keys(rest).length ? rest : null }; });
     for (let i = 0; i < rows.length; i += 500) await sb('/rest/v1/events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows.slice(i, i + 500)) });
@@ -844,7 +844,7 @@ async function pullRemote() {
       const p = pm[r.participant_id] || {};
       const events = evs.filter(e => e.session_id === r.id).map(e => Object.assign({ type: e.type, t: e.t }, e.key ? { key: e.key } : {}, e.data || {}));
       const s = { id: r.id, pid: r.participant_id, name: p.name || 'Participante', age: p.age, obs: p.obs || '', flow: r.flow, seq: r.seq, attempt: r.attempt || 1, plan: r.plan || null,
-        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, archived: (r.result_data && 'archived' in r.result_data) ? !!r.result_data.archived : undefined, events };
+        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, archived: (r.result_data && 'archived' in r.result_data) ? !!r.result_data.archived : undefined, skippedQs: !!(r.result_data && r.result_data.skippedQs), events };
       s.syncedSig = sigOf(s); sessions.push(s); n++;
     });
   }
