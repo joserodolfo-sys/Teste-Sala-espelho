@@ -268,7 +268,7 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .hint2{margin:4px 0 10px;font-size:13px;color:#555;min-height:36px}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
-.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
+.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
 .rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
@@ -4302,9 +4302,9 @@ function viewMissaoEd(id) {
           <div class="sb"><label>Nome da missão</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x">
             <label>Enunciado da tarefa</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea>
 </div></section>
-        <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Escolha o início de um grande fluxo. Para começar em outra tela, navegue na prévia até ela e toque em “Usar esta tela como início”.</p></div><span class="ok"></span></div>
+        <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Escolha um fluxo para abrir na prévia, navegue até a tela onde a missão começa e confirme em “Usar esta tela como início”. Escolher o fluxo ou navegar não muda o início.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
-            <label>Início do fluxo</label><select id="ms"></select>
+            <label>Abrir na prévia</label><select id="ms"></select>
             <p class="stl" id="ms-lb"></p></div></section>
         <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. O último passo vira o fim da missão (passo 4), e o caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mpth" class="chips"></div>
@@ -4337,7 +4337,7 @@ function viewMissaoEd(id) {
   const capWin = () => { const f = $('#capf'); return f && f.contentWindow; };
   const HINTS = {
     1: 'Esta é a prévia do app. Ela abre no início que você escolher no passo 2.',
-    2: 'Escolha o início do fluxo no passo 2. Depois navegue na prévia até a tela exata e toque em “Usar esta tela como início”: o participante começa nela, com tudo no padrão.',
+    2: 'Escolha um fluxo no passo 2 para abrir aqui. Navegue até a tela exata e toque em “Usar esta tela como início”: só então o início muda. O participante começa nela, com tudo no padrão.',
     3: 'Toque em “Gravar o caminho na prévia” (passo 3) e faça a tarefa como o participante ideal: telas e toques entram no caminho, e o último passo vira o fim.',
     4: 'O fim vem do último passo do caminho ideal. Para trocar, use “Usar como fim” num passo do caminho, ou “Outras formas de definir o fim”.',
     5: 'A prévia continua disponível para você conferir o fluxo.' };
@@ -4355,23 +4355,24 @@ function viewMissaoEd(id) {
     $('#pk-on').textContent = on ? '✕ Cancelar escolha' : '🎯 Escolher na prévia'; $('#capw').classList.toggle('picking', on); hint();
   };
   /* ---- início da missão: a tela exibida na prévia manda; o dropdown mostra só os grandes fluxos (épicos) ---- */
-  let START = m.start || '';
+  let START = m.start || '', PREV = START;   /* START: início confirmado da missão · PREV: o que a prévia abre (fluxo escolhido no dropdown ou o próprio início) */
   const manOf = () => MAN[baseUrl(flowOf().url)] || {};
   const metaOf = id => (manOf().starts || []).find(x => x.id === id) || null;
   const epicOfStart = id => { const x = metaOf(id); return x ? x.epic : null; };
   const nameOfStart = id => { const k = (manOf().startKeys || {})[id]; return k ? keyName(k) : ((metaOf(id) || {}).label || id || '—'); };
   const startForKey = kb => { const mn = manOf(), ks = mn.keyStarts || {}; return ks[kb] || ks[kb.replace(/_(sobre|seguro)$/, '')] || (mn.typeStarts || {})[kb.split('@')[0]] || null; };   /* tela exata; senão a tela-mãe (folha sobre o modelo); senão o início padrão do tipo */
   const drawStart = () => {
-    const eps = manOf().epics || [], ep = epicOfStart(START), e = eps.find(x => x.id === ep), custom = !!START && (!e || e.start !== START);
-    $('#ms').innerHTML = '<option value="">Escolha o início de um grande fluxo…</option>' + (custom ? `<option value="__x" selected>${e ? 'Tela escolhida na prévia · ' + esc(e.label) : 'Início anterior · ' + esc(START)}</option>` : '')
+    const eps = manOf().epics || [], ep = epicOfStart(PREV), e = eps.find(x => x.id === ep), custom = !!PREV && (!e || e.start !== PREV), se = eps.find(x => x.id === epicOfStart(START));
+    $('#ms').innerHTML = '<option value="">Escolha o início de um grande fluxo…</option>' + (custom ? `<option value="__x" selected>${e ? 'Tela do início · ' + esc(e.label) : 'Início anterior · ' + esc(PREV)}</option>` : '')
       + eps.map(x => `<option value="${esc(x.id)}" ${(!custom && e && x.id === e.id) ? 'selected' : ''}>${esc(x.label)}</option>`).join('');
-    $('#ms-lb').innerHTML = START ? `Começa em: <b>${esc(nameOfStart(START))}</b>${e ? ` <span class="muted">· fluxo ${esc(e.label)}</span>` : ''}` : '<span class="muted">Nenhum início escolhido.</span>';
+    $('#ms-lb').innerHTML = START ? `Começa em: <b>${esc(nameOfStart(START))}</b>${se ? ` <span class="muted">· fluxo ${esc(se.label)}</span>` : ''}`
+      : '<span class="pend">Início ainda não confirmado.</span> <span class="muted">Navegue na prévia até a tela e toque em “Usar esta tela como início”.</span>';
   };
   /* botão "Usar esta tela como início": só quando a tela exibida é outra, e não durante a gravação do caminho nem a escolha do fim */
   const updUse = () => {
     const w = $('#cap-use-w'); if (!w) return;
     const kb = keyBase(CAP.view || '').replace(/^sheet~/, ''), sk = keyBase(((manOf().startKeys || {})[START]) || '');
-    if (!kb || !START || CAP.rec || CAP.picking || kb === sk) { w.hidden = true; return; }
+    if (!kb || CAP.rec || CAP.picking || (START && kb === sk)) { w.hidden = true; return; }
     const sid = startForKey(kb);
     if (sid === START) { w.hidden = true; return; }
     w.hidden = false; $('#cap-use-nm').textContent = keyName(CAP.view); $('#cap-use').hidden = !sid; $('#cap-use').dataset.sid = sid || '';
@@ -4382,8 +4383,8 @@ function viewMissaoEd(id) {
     const f = flowOf(); await loadManifest(f.url); drawStart(); reloadCap(); draw();
   };
   const reloadCap = () => { const f = flowOf(); CAP.view = null; $('#pk-card').hidden = true; setPick(false);
-    $('#cv').textContent = START ? 'carregando…' : '—'; updUse();
-    $('#capf').src = START ? furl(f.url, 'start=' + encodeURIComponent(START) + '&rec=1&v=' + Date.now()) : 'about:blank'; draw(); };
+    $('#cv').textContent = PREV ? 'carregando…' : '—'; updUse();
+    $('#capf').src = PREV ? furl(f.url, 'start=' + encodeURIComponent(PREV) + '&rec=1&v=' + Date.now()) : 'about:blank'; draw(); };
   if (!Array.isArray(m.steps)) m.steps = (m.path || []).map(k => ({ t: 'v', key: k }));       /* missões antigas: só telas */
   const syncPath = () => { m.path = []; m.steps.forEach(x => { if (x.t === 'v' && m.path[m.path.length - 1] !== x.key) m.path.push(x.key); }); };
   const stepEnd = x => x.t === 'tap' ? { type: 'tap', label: x.label, key: x.key } : { type: 'view', key: x.key };
@@ -4463,13 +4464,13 @@ function viewMissaoEd(id) {
     draw();
   });
   $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList('path');
-  $('#mf').onchange = () => { START = ''; fillStarts(); };
-  $('#ms').onchange = () => { const v = $('#ms').value; if (v === '__x') return; const e = (manOf().epics || []).find(x => x.id === v); START = e ? e.start : ''; drawStart(); reloadCap(); };
-  $('#cap-use').onclick = () => { const sid = $('#cap-use').dataset.sid; if (!sid) return; START = sid; drawStart(); updUse(); draw(); };
-  $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } reloadCap(); };
+  $('#mf').onchange = () => { START = ''; PREV = ''; fillStarts(); };
+  $('#ms').onchange = () => { const v = $('#ms').value; if (v === '__x') return; const e = (manOf().epics || []).find(x => x.id === v); PREV = e ? e.start : ''; drawStart(); reloadCap(); };
+  $('#cap-use').onclick = () => { const sid = $('#cap-use').dataset.sid; if (!sid) return; START = sid; PREV = sid; drawStart(); updUse(); draw(); };
+  $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } if (START) PREV = START; drawStart(); reloadCap(); };
   $('#mn').oninput = draw; $('#ml').oninput = draw;
   $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(4); setPick(!CAP.picking); };
-  $('#rec-go').onclick = () => { if (!START) { $('#merr').textContent = 'Escolha primeiro onde a missão começa (passo 2).'; return; } setPick(false); CAP.rec = true; CAP.recSteps = []; setStep(3); recDraw(); reloadCap(); hint(); };
+  $('#rec-go').onclick = () => { if (!START) { $('#merr').textContent = 'Confirme primeiro onde a missão começa (passo 2: “Usar esta tela como início”).'; return; } PREV = START; drawStart(); setPick(false); CAP.rec = true; CAP.recSteps = []; setStep(3); recDraw(); reloadCap(); hint(); };
   const endNote = t => { const n = $('#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
   $('#rec-ok').onclick = () => {
     if (CAP.recSteps.length) {
@@ -4489,7 +4490,7 @@ function viewMissaoEd(id) {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = START; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
     syncPath(); const miss = !m.name ? 1 : !m.start ? 2 : !m.ends.length ? 4 : 0;
-    if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: escolha onde a missão começa.', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: confirme onde a missão começa (“Usar esta tela como início”, na prévia).', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
   };
   recDraw(); setStep(isNew ? 1 : 3); draw(); fillStarts();
