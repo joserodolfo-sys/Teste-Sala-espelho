@@ -4306,17 +4306,19 @@ function viewMissaoEd(id) {
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
             <label>Abrir na prévia</label><select id="ms"></select>
             <p class="stl" id="ms-lb"></p></div></section>
-        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. O último passo vira o fim da missão (passo 4), e o caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
+        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. Ao concluir, você escolhe se a missão termina no <b>último toque</b> ou na <b>última tela</b> (passo 4). O caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mpth" class="chips"></div>
-            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora.</p><div id="rec-l" class="chips"></div>
+            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora; se o último toque for fora do escopo, ele ainda pode virar o fim.</p><div id="rec-l" class="chips"></div>
               <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="rec-ok" type="button">✓ Concluir gravação</button><button class="btn sm ghost" id="rec-x" type="button">Cancelar</button></div></div>
+            <div id="rec-fim" class="pkc" hidden></div>
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
             <div class="slh" data-for="path"></div></div></section>
         <section class="stp" data-s="4"><div class="sh"><i>4</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
-            <div class="how"><b>Como definir:</b> grave o caminho ideal no passo 3. O último passo (uma <b>tela</b> ou um <b>toque</b>) vira o fim automaticamente. Para trocar, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
+            <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Escolher na prévia</b> e clique no botão ou na tela onde termina. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
+            <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Escolher na prévia</button></div>
             <details class="adv"><summary>Outras formas de definir o fim</summary>
-              <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="pk-on" type="button">🎯 Escolher na prévia</button><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
+              <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
               <div class="slh" data-for="end"></div></details></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
@@ -4417,11 +4419,11 @@ function viewMissaoEd(id) {
     const d = e.data; if (!d || !d.hsf || !d.ev) return; const ev = d.ev;
     if (ev.type === 'view') { CAP.view = ev.key; $('#cv').textContent = keyName(ev.key); updUse(); const kb = keyBase(ev.key); CAP.views = (CAP.views || 0) + 1;
       const lastS = CAP.recSteps[CAP.recSteps.length - 1];
-      if (CAP.rec && !(lastS && lastS.t === 'v' && lastS.key === kb)) { CAP.recSteps.push({ t: 'v', key: kb }); recDraw(); } }
+      if (CAP.rec && !(lastS && lastS.t === 'v' && lastS.key === kb)) { CAP.lastOos = null; CAP.recSteps.push({ t: 'v', key: kb }); recDraw(); } }
     if (ev.type === 'tap' && CAP.rec && !CAP.picking && ev.hit !== false && ev.label && ev.label !== 'Sem ação') {
       const st = { t: 'tap', label: ev.label, key: keyBase(ev.key || CAP.view || '') }, v0 = CAP.views || 0;
-      CAP.recSteps.push(st); recDraw();
-      setTimeout(() => { if ((CAP.views || 0) === v0 && oosShown()) { const i = CAP.recSteps.indexOf(st); if (i >= 0) { CAP.recSteps.splice(i, 1); recDraw(); } } }, 450);
+      CAP.lastOos = null; CAP.recSteps.push(st); recDraw();
+      setTimeout(() => { if ((CAP.views || 0) === v0 && oosShown()) { const i = CAP.recSteps.indexOf(st); if (i >= 0) { const last = i === CAP.recSteps.length - 1; CAP.recSteps.splice(i, 1); if (last) CAP.lastOos = st; recDraw(); } } }, 450);
     }
     if (ev.type === 'tap' && CAP.picking) pickCard(Object.assign({}, ev, { key: ev.key || CAP.view }));
   };
@@ -4470,17 +4472,37 @@ function viewMissaoEd(id) {
   $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } if (START) PREV = START; drawStart(); reloadCap(); };
   $('#mn').oninput = draw; $('#ml').oninput = draw;
   $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(4); setPick(!CAP.picking); };
-  $('#rec-go').onclick = () => { if (!START) { $('#merr').textContent = 'Confirme primeiro onde a missão começa (passo 2: “Usar esta tela como início”).'; return; } PREV = START; drawStart(); setPick(false); CAP.rec = true; CAP.recSteps = []; setStep(3); recDraw(); reloadCap(); hint(); };
+  $('#rec-go').onclick = () => { if (!START) { $('#merr').textContent = 'Confirme primeiro onde a missão começa (passo 2: “Usar esta tela como início”).'; return; } PREV = START; drawStart(); setPick(false); CAP.rec = true; CAP.recSteps = []; CAP.lastOos = null; $('#rec-fim').hidden = true; setStep(3); recDraw(); reloadCap(); hint(); };
   const endNote = t => { const n = $('#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
   $('#rec-ok').onclick = () => {
     if (CAP.recSteps.length) {
       m.steps = CAP.recSteps.slice(); syncPath();
-      m.ends = [stepEnd(m.steps[m.steps.length - 1])];          /* o último passo (tela ou toque) vira o fim */
-      endNote('Definido pelo último passo do caminho ideal. Para trocar, use “Usar como fim” em outro passo.');
+      askEnd();
     }
     CAP.rec = false; recDraw(); hint(); draw();
   };
-  $('#rec-x').onclick = () => { CAP.rec = false; CAP.recSteps = []; recDraw(); hint(); };
+  $('#rec-x').onclick = () => { CAP.rec = false; CAP.recSteps = []; CAP.lastOos = null; recDraw(); hint(); };
+  /* cartão do fim: último toque (sugestão destacada) ou última tela do caminho gravado */
+  function askEnd() {
+    const st = m.steps, li = st.length - 1, lastV = st.slice().reverse().find(x => x.t === 'v');
+    let tap = null, oos = false;
+    if (CAP.lastOos) { tap = CAP.lastOos; oos = true; }
+    else if (st[li] && st[li].t === 'tap') tap = st[li];
+    else if (st[li - 1] && st[li - 1].t === 'tap' && st[li].t === 'v') tap = st[li - 1];      /* o toque que levou à última tela */
+    const opts = [];
+    if (tap) opts.push({ c: { type: 'tap', label: tap.label, key: tap.key }, t: 'Quando o participante tocar em “' + tap.label + '”' + (oos ? ' (fora do escopo)' : '') });
+    if (lastV) opts.push({ c: { type: 'view', key: lastV.key }, t: 'Quando chegar na tela “' + keyName(lastV.key) + '”' });
+    const box = $('#rec-fim'); CAP.lastOos = null;
+    if (opts.length < 2) { box.hidden = true; m.ends = opts[0] ? [opts[0].c] : []; if (opts[0]) endNote('Fim definido pelo caminho: ' + opts[0].t.toLowerCase() + '.'); return; }
+    m.ends = [];
+    box.innerHTML = '<b>Como a missão deve terminar?</b><p class="muted" style="margin:0">O caminho gravado termina com um toque e uma tela. Escolha o que conta como “concluiu”:</p><div class="pkb">'
+      + opts.map((o, i) => '<button class="btn sm ' + (i === 0 ? 'primary' : '') + '" data-fim="' + i + '" type="button">' + (o.c.type === 'tap' ? '👆 ' : '📱 ') + esc(o.t) + '</button>').join('')
+      + '</div><p class="muted" style="margin:0;font-size:12px">Destacado: a sugestão (o último toque). Dá para trocar depois com 🏁 Usar como fim.</p>';
+    box.hidden = false;
+    box.onclick = e => { const b = e.target.closest('[data-fim]'); if (!b) return; const o = opts[+b.dataset.fim]; m.ends = [o.c]; box.hidden = true;
+      endNote(o.c.type === 'tap' ? 'Fim: no toque em “' + o.c.label + '”.' : 'Fim: ao chegar na tela ' + keyName(o.c.key) + '.'); draw(); };
+    setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  }
   $('#cp-clr').onclick = () => { m.steps = []; syncPath(); draw(); };
   $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use @* para “qualquer variação” (ex.: home@*).'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
