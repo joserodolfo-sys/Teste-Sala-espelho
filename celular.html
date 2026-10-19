@@ -211,6 +211,8 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .ph-or{display:flex;align-items:center;gap:10px;color:#888;font-size:13px}.ph-or:before,.ph-or:after{content:'';flex:1;height:1px;background:#ddd}
 .ph-cam{display:flex;flex-direction:column;gap:8px}.ph-cam video{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:14px;background:#000}
 .err.ok{color:#0a7a3c}.ph-acc{font-size:12px;margin-top:8px}
+.ph-cd{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e5e5e5;border-radius:12px;background:#fafafa}.ph-cd span{font-size:12px;color:#777}.ph-cd b{font-size:34px;letter-spacing:6px}
+.ph-help{text-align:left;font-size:13px;border:1px solid #eee;border-radius:10px;padding:10px 12px}.ph-help summary{font-weight:600;cursor:pointer}.ph-help p{margin:8px 0 0}
 .esp{display:flex;flex-direction:column;gap:16px}
 .esp-wait{display:flex;gap:28px;align-items:center;flex-wrap:wrap}.esp-qr svg{width:240px;height:240px;display:block}.esp-wi ol{margin:6px 0;padding-left:20px;line-height:1.6}
 .esp-code{font-size:42px;font-weight:700;letter-spacing:6px;margin:6px 0;font-variant-numeric:tabular-nums}
@@ -14905,8 +14907,20 @@ function phoneRoute(r, p) {
   return viewCelular(r === 'celular' ? p : '');
 }
 const phErr = (t, ok) => { const e = $('#ph-err'); if (e) { e.textContent = t || ''; e.classList.toggle('ok', !!ok); } };
-function viewCelular(code) {
+/* aberto pelo Safari (ex.: QR lido pela câmera do iPhone) em vez do app instalado: orienta, sem pedir login */
+const inSafariIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !navigator.standalone && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+function viewCelular(code, force) {
   stopScan();
+  if (inSafariIOS() && !force) {
+    const c = String(code || '').replace(/\D/g, '').slice(0, 6);
+    $('#app').innerHTML = `<div class="ph-wrap"><div class="ph-logo">Sala Espelho</div><h1>Abra pelo app Sala Espelho</h1>
+      <p>Este link abriu no navegador. O teste deve ser feito pelo app <b>Sala Espelho</b>, na tela inicial do iPhone, que abre em tela cheia e já tem o acesso configurado.</p>
+      ${c.length === 6 ? `<div class="ph-cd"><span>Código deste teste</span><b>${fmtCode(c)}</b></div><p class="muted">No app, toque em <b>Ler QR code</b> ou digite este código.</p>` : ''}
+      <details class="ph-help"><summary>O app ainda não está na tela inicial?</summary><p>Toque em <b>Compartilhar</b> (o quadrado com a seta) › <b>Adicionar à Tela de Início</b> › <b>Adicionar</b>. Depois abra o ícone <b>Sala Espelho</b> e entre uma única vez com a conta do painel.</p></details>
+      <a href="#" id="ph-force" class="muted" style="font-size:12px">Continuar mesmo assim no navegador</a></div>`;
+    $('#ph-force').onclick = e => { e.preventDefault(); viewCelular(code, true); };
+    return;
+  }
   if (!AUTH) {
     $('#app').innerHTML = `<div class="ph-wrap"><div class="ph-logo">Sala Espelho</div><h1>Configurar este iPhone</h1>
       <p class="muted">Entre uma única vez com a conta do painel (a mesma da nuvem). Depois, cada teste começa pelo QR code.</p>
@@ -14914,7 +14928,7 @@ function viewCelular(code) {
       <button class="btn primary big" id="ph-login">Entrar</button><p class="err" id="ph-err"></p></div>`;
     $('#ph-login').onclick = async () => {
       phErr('Entrando…', true);
-      try { await sbLogin($('#ph-email').value.trim(), $('#ph-pass').value); viewCelular(code); } catch (e) { phErr(e.message); }
+      try { await sbLogin($('#ph-email').value.trim(), $('#ph-pass').value); viewCelular(code, true); } catch (e) { phErr(e.message); }
     };
     return;
   }
@@ -14929,7 +14943,7 @@ function viewCelular(code) {
   $('#ph-scan').onclick = startScan; $('#ph-stop').onclick = stopScan;
   $('#ph-code').oninput = e => { const d = e.target.value.replace(/\D/g, '').slice(0, 6); e.target.value = fmtCode(d); if (d.length === 6) joinTest(d); };
   $('#ph-go').onclick = () => joinTest($('#ph-code').value);
-  $('#ph-out').onclick = e => { e.preventDefault(); AUTH = null; localStorage.removeItem('hsf_auth'); viewCelular(); };
+  $('#ph-out').onclick = e => { e.preventDefault(); AUTH = null; localStorage.removeItem('hsf_auth'); viewCelular('', true); };
   if (code) joinTest(code);
 }
 const upsertEnt = (kind, o) => { const L = ENT[kind], i = L.findIndex(x => x.id === o.id), d = Object.assign({}, o, { pushed: true }); if (i < 0) L.push(d); else L[i] = d; };
