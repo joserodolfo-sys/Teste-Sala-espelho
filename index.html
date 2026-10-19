@@ -268,7 +268,7 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .hint2{margin:4px 0 10px;font-size:13px;color:#555;min-height:36px}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
-.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
+.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.stbox{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:12px 0 4px;padding:10px 12px;border:1px solid #d9e6dd;border-radius:8px;background:#f3faf5;font-size:13px}.stbox b{font-size:15px}.stbox.pend{background:#fff7e6;border-color:#f1d9a3}.stbox .pend{color:#b45309}.stbox .btn{margin-top:4px}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
 .rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
@@ -4304,19 +4304,19 @@ function viewMissaoEd(id) {
 </div></section>
         <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Escolha um fluxo para abrir na prévia, navegue até a tela onde a missão começa e confirme em “Usar esta tela como início”. Escolher o fluxo ou navegar não muda o início.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
-            <label>Abrir na prévia</label><select id="ms"></select>
-            <p class="stl" id="ms-lb"></p></div></section>
+            <div class="stbox" id="ms-lb"></div>
+            <label>Abrir um fluxo na prévia</label><select id="ms"></select></div></section>
         <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. Ao concluir, você escolhe se a missão termina no <b>último toque</b> ou na <b>última tela</b> (passo 4). O caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mpth" class="chips"></div>
-            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora; se o último toque for fora do escopo, ele ainda pode virar o fim.</p><div id="rec-l" class="chips"></div>
+            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao início da missão (<b id="rec-st"></b>). Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora; se o último toque for fora do escopo, ele ainda pode virar o fim.</p><div id="rec-l" class="chips"></div>
               <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="rec-ok" type="button">✓ Concluir gravação</button><button class="btn sm ghost" id="rec-x" type="button">Cancelar</button></div></div>
             <div id="rec-fim" class="pkc" hidden></div>
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
             <div class="slh" data-for="path"></div></div></section>
         <section class="stp" data-s="4"><div class="sh"><i>4</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
-            <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Escolher na prévia</b> e clique no botão ou na tela onde termina. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
-            <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Escolher na prévia</button></div>
+            <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Definir a última ação na prévia</b>: passe o mouse (o que é clicável fica com contorno vermelho) e clique. O clique não aciona o app, então vale mesmo para um botão que leva a outra tela. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
+            <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Definir a última ação na prévia</button></div>
             <details class="adv"><summary>Outras formas de definir o fim</summary>
               <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
@@ -4341,7 +4341,7 @@ function viewMissaoEd(id) {
     1: 'Esta é a prévia do app. Ela abre no início que você escolher no passo 2.',
     2: 'Escolha um fluxo no passo 2 para abrir aqui. Navegue até a tela exata e toque em “Usar esta tela como início”: só então o início muda. O participante começa nela, com tudo no padrão.',
     3: 'Toque em “Gravar o caminho na prévia” (passo 3) e faça a tarefa como o participante ideal: telas e toques entram no caminho, e o último passo vira o fim.',
-    4: 'O fim vem do último passo do caminho ideal. Para trocar, use “Usar como fim” num passo do caminho, ou “Outras formas de definir o fim”.',
+    4: 'Defina o fim: ao concluir a gravação, escolha no cartão (último toque ou última tela). Ou toque em “Definir a última ação na prévia”, passe o mouse e clique no botão: o clique não aciona o app.',
     5: 'A prévia continua disponível para você conferir o fluxo.' };
   const hint = () => {
     updUse();
@@ -4354,7 +4354,7 @@ function viewMissaoEd(id) {
   document.querySelectorAll('.stp').forEach(x => x.addEventListener('click', () => setStep(+x.dataset.s)));
   const setPick = on => {
     CAP.picking = on; const w = capWin(); if (w) w.postMessage({ hsfcmd: 'pick', on }, '*');
-    $('#pk-on').textContent = on ? '✕ Cancelar escolha' : '🎯 Escolher na prévia'; $('#capw').classList.toggle('picking', on); hint();
+    $('#pk-on').textContent = on ? '✕ Cancelar' : '🎯 Definir a última ação na prévia'; $('#capw').classList.toggle('picking', on); hint();
   };
   /* ---- início da missão: a tela exibida na prévia manda; o dropdown mostra só os grandes fluxos (épicos) ---- */
   let START = m.start || '', PREV = START;   /* START: início confirmado da missão · PREV: o que a prévia abre (fluxo escolhido no dropdown ou o próprio início) */
@@ -4365,10 +4365,10 @@ function viewMissaoEd(id) {
   const startForKey = kb => { const mn = manOf(), ks = mn.keyStarts || {}; return ks[kb] || ks[kb.replace(/_(sobre|seguro)$/, '')] || (mn.typeStarts || {})[kb.split('@')[0]] || null; };   /* tela exata; senão a tela-mãe (folha sobre o modelo); senão o início padrão do tipo */
   const drawStart = () => {
     const eps = manOf().epics || [], ep = epicOfStart(PREV), e = eps.find(x => x.id === ep), custom = !!PREV && (!e || e.start !== PREV), se = eps.find(x => x.id === epicOfStart(START));
-    $('#ms').innerHTML = '<option value="">Escolha o início de um grande fluxo…</option>' + (custom ? `<option value="__x" selected>${e ? 'Tela do início · ' + esc(e.label) : 'Início anterior · ' + esc(PREV)}</option>` : '')
-      + eps.map(x => `<option value="${esc(x.id)}" ${(!custom && e && x.id === e.id) ? 'selected' : ''}>${esc(x.label)}</option>`).join('');
-    $('#ms-lb').innerHTML = START ? `Começa em: <b>${esc(nameOfStart(START))}</b>${se ? ` <span class="muted">· fluxo ${esc(se.label)}</span>` : ''}`
-      : '<span class="pend">Início ainda não confirmado.</span> <span class="muted">Navegue na prévia até a tela e toque em “Usar esta tela como início”.</span>';
+    $('#ms').innerHTML = '<option value="" selected>Escolha um fluxo para abrir na prévia…</option>' + eps.map(x => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');   /* ação, não estado: nunca mostra o início */
+    $('#ms-lb').className = 'stbox' + (START ? '' : ' pend');
+    $('#ms-lb').innerHTML = START ? `<span class="muted">Início da missão</span><b>${esc(nameOfStart(START))}</b><span class="muted">O participante e a gravação do caminho começam nesta tela${se ? ' · fluxo ' + esc(se.label) : ''}.</span><button class="btn sm ghost" id="ms-see" type="button">Ver o início na prévia</button>`
+      : '<b class="pend">Início ainda não confirmado</b><span class="muted">Abra um fluxo na prévia, navegue até a tela onde a missão começa e toque em “Usar esta tela como início”.</span>';
   };
   /* botão "Usar esta tela como início": só quando a tela exibida é outra, e não durante a gravação do caminho nem a escolha do fim */
   const updUse = () => {
@@ -4467,12 +4467,22 @@ function viewMissaoEd(id) {
   });
   $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList('path');
   $('#mf').onchange = () => { START = ''; PREV = ''; fillStarts(); };
-  $('#ms').onchange = () => { const v = $('#ms').value; if (v === '__x') return; const e = (manOf().epics || []).find(x => x.id === v); PREV = e ? e.start : ''; drawStart(); reloadCap(); };
+  $('#ms').onchange = () => { const v = $('#ms').value; const e = (manOf().epics || []).find(x => x.id === v); if (!e) return; PREV = e.start; reloadCap(); $('#ms').value = ''; };
+  $('#ms-lb').onclick = e => { if (e.target.closest('#ms-see')) { PREV = START; reloadCap(); } };
   $('#cap-use').onclick = () => { const sid = $('#cap-use').dataset.sid; if (!sid) return; START = sid; PREV = sid; drawStart(); updUse(); draw(); };
   $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } if (START) PREV = START; drawStart(); reloadCap(); };
   $('#mn').oninput = draw; $('#ml').oninput = draw;
   $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(4); setPick(!CAP.picking); };
-  $('#rec-go').onclick = () => { if (!START) { $('#merr').textContent = 'Confirme primeiro onde a missão começa (passo 2: “Usar esta tela como início”).'; return; } PREV = START; drawStart(); setPick(false); CAP.rec = true; CAP.recSteps = []; CAP.lastOos = null; $('#rec-fim').hidden = true; setStep(3); recDraw(); reloadCap(); hint(); };
+  const startRec = () => { $('#rec-fim').hidden = true; PREV = START; drawStart(); $('#rec-st').textContent = nameOfStart(START); setPick(false); CAP.rec = true; CAP.recSteps = []; CAP.lastOos = null; setStep(3); recDraw(); reloadCap(); hint(); };
+  $('#rec-go').onclick = () => {
+    if (!START) { $('#merr').textContent = 'Confirme primeiro onde a missão começa (passo 2: “Usar esta tela como início”).'; return; }
+    const kb = keyBase(CAP.view || '').replace(/^sheet~/, ''), sk = keyBase(((manOf().startKeys || {})[START]) || ''), sid = kb ? startForKey(kb) : null;
+    if (!kb || kb === sk || !sid || sid === START) return startRec();
+    const box = $('#rec-fim'); box.hidden = false;
+    box.innerHTML = '<b>De onde gravar o caminho?</b><p class="muted" style="margin:0">A gravação começa no <b>início da missão</b>: ' + esc(nameOfStart(START)) + '. A prévia agora está em: ' + esc(keyName(CAP.view)) + '.</p><div class="pkb">'
+      + '<button class="btn sm primary" data-rs="ini" type="button">Gravar a partir do início da missão</button><button class="btn sm" data-rs="cur" type="button">Usar a tela atual como início e gravar</button><button class="btn sm ghost" data-rs="x" type="button">Cancelar</button></div>';
+    box.onclick = e => { const b = e.target.closest('[data-rs]'); if (!b) return; const a = b.dataset.rs; box.hidden = true; if (a === 'x') return; if (a === 'cur') { START = sid; draw(); } startRec(); };
+  };
   const endNote = t => { const n = $('#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
   $('#rec-ok').onclick = () => {
     if (CAP.recSteps.length) {
