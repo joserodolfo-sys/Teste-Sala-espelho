@@ -234,7 +234,9 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .esp-scr .row{margin-bottom:10px;gap:10px}.esp-frame{max-height:74vh;overflow:auto;border-radius:16px;border:1px solid #ddd;background:#f3f3f3}
 .esp-side{display:flex;flex-direction:column;gap:12px}.esp-clock{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .esp-log{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px}.esp-cmd{display:flex;flex-direction:column;gap:8px}
-.esp-cmd .btn.arm{background:#e40521;border-color:#e40521;color:#fff}.esp-fim{text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.esp-cmd .btn.arm{background:#e40521;border-color:#e40521;color:#fff}
+.esp-mkf{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid #e5e5e5;border-radius:10px;background:#fafafa}.esp-mkf p{margin:0;font-size:12px}
+.esp-mkf textarea{font:inherit;font-size:14px;padding:10px;border:1px solid #d3d3d5;border-radius:8px;resize:vertical;min-height:64px}.esp-mkf .row{gap:8px;justify-content:flex-start}.esp-fim{text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
 .med{display:grid;grid-template-columns:1fr 430px;gap:16px;align-items:start}@media(max-width:1000px){.med{grid-template-columns:1fr}}
 .cap .capw{width:390px;height:700px;border-radius:24px;overflow:hidden;border:1px solid #ddd;margin:0 auto;background:#f3f3f3}.cap iframe{width:100%;height:100%;border:0}
 .capi{display:flex;flex-direction:column;gap:10px;margin-top:12px}.capi>div{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #eee;border-radius:8px}.capi b{font-size:13px}
@@ -4786,6 +4788,9 @@ function viewEspelho(code) {
           <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div></div>
         <div class="card"><h3 style="margin:0 0 8px">Últimos toques</h3><ol class="esp-log" id="esp-log"></ol></div>
         <div class="card esp-cmd"><button class="btn" id="esp-mark">⚑ Marcar momento</button>
+          <div class="esp-mkf" id="esp-mkf" hidden><p class="muted" id="esp-mkw"></p>
+            <textarea id="esp-mkt" rows="3" maxlength="280" placeholder="O que aconteceu neste momento? (opcional)"></textarea>
+            <div class="row"><button class="btn sm primary" id="esp-mks" type="button">Enviar</button><button class="btn sm" id="esp-mkc" type="button">Limpar</button><button class="btn sm ghost" id="esp-mkx" type="button">Cancelar</button></div></div>
           <button class="btn" id="esp-skip" data-label="Encerrar a missão atual">Encerrar a missão atual</button>
           <button class="btn sm ghost" id="esp-end" data-label="Encerrar teste agora (sem avaliação)">Encerrar teste agora (sem avaliação)</button>
           <p class="muted" id="esp-msg"></p></div>
@@ -4797,9 +4802,9 @@ function viewEspelho(code) {
   try { const qr = qrcode(0, 'M'); qr.addData(phoneURL(code)); qr.make(); $('#esp-qr').innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true }); }
   catch (e) { $('#esp-qr').textContent = phoneURL(code); }
   $('#esp-cancel').onclick = async () => { await remDel(['conv-' + code, 'live-' + code, 'cmd-' + code]); location.hash = '#/'; };
-  const send = async (cmd, msg) => {
+  const send = async (cmd, msg, extra) => {
     RM.cmdN = Math.max(Date.now(), (RM.cmdN || 0) + 1);      /* número = horário: continua valendo mesmo se esta página for recarregada */
-    try { await remPut('cmd-' + code, 'cmd', { n: RM.cmdN, cmd, at: Date.now() }); $('#esp-msg').textContent = msg; return true; }
+    try { await remPut('cmd-' + code, 'cmd', Object.assign({ n: RM.cmdN, cmd, at: Date.now() }, extra || {})); $('#esp-msg').textContent = msg; return true; }
     catch (e) { $('#esp-msg').textContent = 'Não foi possível enviar ao iPhone: ' + e.message; return false; }
   };
   const lockCmds = (on, msg) => { ['#esp-mark', '#esp-skip', '#esp-end'].forEach(s => { const b = $(s); if (b) b.disabled = on; }); if (msg) $('#esp-msg').textContent = msg; };
@@ -4808,7 +4813,25 @@ function viewEspelho(code) {
     b.classList.add('arm'); b.textContent = 'Clique de novo para confirmar';
     setTimeout(() => { if (b.isConnected && b.classList.contains('arm')) { b.classList.remove('arm'); b.textContent = b.dataset.label; } }, 4000);
   };
-  $('#esp-mark').onclick = () => send('mark', 'Marcador registrado no iPhone.');
+  /* marcar momento: guarda o instante do clique; o texto é opcional e pode ser escrito com calma */
+  let mk = null;
+  const mkClose = () => { mk = null; $('#esp-mkf').hidden = true; $('#esp-mark').hidden = false; $('#esp-mkt').value = ''; };
+  $('#esp-mark').onclick = () => {
+    const t = live && live.status !== 'intro' ? (live.elapsed || 0) + (Date.now() - recvAt) : 0;
+    mk = { t: Math.round(t), idx: live ? live.idx : null };
+    $('#esp-mkw').textContent = 'Momento marcado em ' + dur(mk.t) + (live ? ' · missão ' + (live.idx + 1) : '') + '. Escreva uma nota, se quiser:';
+    $('#esp-mark').hidden = true; $('#esp-mkf').hidden = false; $('#esp-mkt').focus();
+  };
+  const mkSend = async () => {
+    if (!mk) return; const text = $('#esp-mkt').value.trim(), m0 = mk;
+    $('#esp-mks').disabled = true;
+    const ok = await send('mark', text ? 'Marcador registrado no iPhone: “' + text + '”' : 'Marcador registrado no iPhone.', { text, t: m0.t, idx: m0.idx });
+    $('#esp-mks').disabled = false; if (ok) mkClose();
+  };
+  $('#esp-mks').onclick = mkSend;
+  $('#esp-mkc').onclick = () => { $('#esp-mkt').value = ''; $('#esp-mkt').focus(); };
+  $('#esp-mkx').onclick = mkClose;
+  $('#esp-mkt').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); mkSend(); } else if (e.key === 'Escape') mkClose(); };
   $('#esp-skip').onclick = e => armB(e.currentTarget, () => send('skip', 'Missão encerrada pelo moderador.'));
   $('#esp-end').onclick = e => armB(e.currentTarget, async () => {
     if (!(await send('end', 'Encerrando o teste no iPhone…'))) return;
@@ -4959,7 +4982,13 @@ async function phoneCmd() {
   if (!RM.code || !ACTIVE) return; let c = null;
   try { c = await remGet('cmd-' + RM.code); } catch (e) { return; }
   if (!c || !(c.n > RM.cmdN) || !ACTIVE) return; RM.cmdN = c.n; const A = ACTIVE;
-  if (c.cmd === 'mark') { const n = A.s.events.filter(x => x.type === 'marker').length + 1; A.s.events.push({ type: 'marker', t: Date.now() - A.t0, label: 'Marcador ' + n }); save(); }
+  if (c.cmd === 'mark') {
+    const n = A.s.events.filter(x => x.type === 'marker').length + 1, now = Date.now() - A.t0;
+    const t = typeof c.t === 'number' && c.idx === A.idx && c.t >= 0 && c.t <= now ? c.t : now;
+    const ev = { type: 'marker', t, label: String(c.text || '').trim() || 'Marcador ' + n };
+    const i = A.s.events.findIndex(x => (x.t || 0) > t); if (i < 0) A.s.events.push(ev); else A.s.events.splice(i, 0, ev);   /* fica na ordem do tempo */
+    save();
+  }
   else if (c.cmd === 'skip') { if (!A.s._closing) finishMission(A.s, () => A.next()); }
   else if (c.cmd === 'end') cancelTest();
   phonePublish(true);
