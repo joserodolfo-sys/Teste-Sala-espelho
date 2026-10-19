@@ -211,12 +211,11 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .ph-or{display:flex;align-items:center;gap:10px;color:#888;font-size:13px}.ph-or:before,.ph-or:after{content:'';flex:1;height:1px;background:#ddd}
 .ph-cam{display:flex;flex-direction:column;gap:8px}.ph-cam video{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:14px;background:#000}
 .err.ok{color:#0a7a3c}.ph-acc{font-size:12px;margin-top:8px}
-.ph-cd{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid #e5e5e5;border-radius:12px;background:#fafafa}.ph-cd span{font-size:12px;color:#777}.ph-cd b{font-size:34px;letter-spacing:6px}
-.ph-help{text-align:left;font-size:13px;border:1px solid #eee;border-radius:10px;padding:10px 12px}.ph-help summary{font-weight:600;cursor:pointer}.ph-help p{margin:8px 0 0}
 .esp{display:flex;flex-direction:column;gap:16px}
 .esp-wait{display:flex;gap:28px;align-items:center;flex-wrap:wrap}.esp-qr svg{width:240px;height:240px;display:block}.esp-wi ol{margin:6px 0;padding-left:20px;line-height:1.6}
 .esp-code{font-size:42px;font-weight:700;letter-spacing:6px;margin:6px 0;font-variant-numeric:tabular-nums}
-.esp-live{display:grid;grid-template-columns:minmax(0,auto) minmax(280px,1fr);gap:16px;align-items:start}@media(max-width:900px){.esp-live{grid-template-columns:1fr}}
+.esp-live{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr);gap:16px;align-items:start}@media(max-width:900px){.esp-live{grid-template-columns:1fr}}
+.esp-now{display:flex;flex-direction:column;gap:4px;margin-top:16px;padding:14px;border:1px solid #e5e5e5;border-radius:12px;background:#fafafa}.esp-now b{font-size:18px}
 .esp-scr .row{margin-bottom:10px;gap:10px}.esp-frame{max-height:74vh;overflow:auto;border-radius:16px;border:1px solid #ddd;background:#f3f3f3}
 .esp-side{display:flex;flex-direction:column;gap:12px}.esp-clock{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
 .esp-log{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px}.esp-cmd{display:flex;flex-direction:column;gap:8px}
@@ -14814,7 +14813,7 @@ async function createInvite(p, plan) {
 }
 
 /* ---------- notebook: espelho ao vivo ---------- */
-function stopMirror() { clearTimeout(RM.poll); RM.poll = null; RM.H = null; RM.hkey = ''; }
+function stopMirror() { clearTimeout(RM.poll); RM.poll = null; }
 const ESP_ST = { intro: ['Lendo a missão', 'run'], rodando: ['Em teste', 'run'], avaliando: ['Respondendo a avaliação', 'run'], fim: ['Concluído', 'ok'] };
 function viewEspelho(code) {
   stopMirror(); RM.cmdN = 0;
@@ -14828,10 +14827,10 @@ function viewEspelho(code) {
         <p class="esp-code">${fmtCode(code)}</p><p class="muted" id="esp-st">Esperando o participante entrar…</p>
         <button class="btn sm ghost" id="esp-cancel">Cancelar convite</button></div></div>
     <div class="esp-live" id="esp-live" hidden>
-      <div class="card esp-scr"><div class="row"><b id="esp-key">Abrindo o app…</b><span class="muted" id="esp-n"></span></div><div class="esp-frame" id="esp-frame"></div></div>
+      <div class="card esp-main"><div class="row"><span class="rb run" id="esp-badge">Em teste</span><span class="esp-clock" id="esp-clock">0:00</span></div>
+        <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div>
+        <div class="esp-now"><span class="muted">Tela atual</span><b id="esp-key">Abrindo o app…</b><span class="muted" id="esp-n"></span></div></div>
       <div class="esp-side">
-        <div class="card"><div class="row"><span class="rb run" id="esp-badge">Em teste</span><span class="esp-clock" id="esp-clock">0:00</span></div>
-          <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div></div>
         <div class="card"><h3 style="margin:0 0 8px">Últimos toques</h3><ol class="esp-log" id="esp-log"></ol></div>
         <div class="card esp-cmd"><button class="btn" id="esp-mark">⚑ Marcar momento</button>
           <button class="btn" id="esp-skip" data-label="Encerrar a missão atual">Encerrar a missão atual</button>
@@ -14866,7 +14865,7 @@ function viewEspelho(code) {
       const d = await remGet('live-' + code);
       if (d && (!live || d.seq !== live.seq)) { live = d; recvAt = Date.now(); await renderLive(code, d); if (d.status === 'fim') return; }
     } catch (e) { const st = $('#esp-st'); if (st) st.textContent = 'Sem conexão com a nuvem: ' + e.message; }
-    RM.poll = setTimeout(loop, 1000);
+    RM.poll = setTimeout(loop, 700);
   };
   loop();
 }
@@ -14882,12 +14881,6 @@ async function renderLive(code, d) {
   $('#esp-key').textContent = d.key ? keyName(d.key) : 'Abrindo o app…';
   $('#esp-n').textContent = d.nTaps ? d.nTaps + ' toque(s) na missão' : '';
   $('#esp-log').innerHTML = (d.log || []).slice().reverse().map(x => `<li><span class="muted">${dur(x.t || 0)}</span> ${esc(x.l)}</li>`).join('') || '<li class="muted">Nenhum toque ainda.</li>';
-  /* tela atual do participante com os toques numerados (mesma visão do mapa de calor) */
-  const pts = (d.taps || []).map((p, i) => Object.assign({ n: i + 1 }, p)), hk = d.flow + '|' + d.key;
-  if (d.key && FLOWS[d.flow] && d.vw) {
-    if (RM.hkey !== hk) { RM.hkey = hk; RM.H = mountHeat($('#esp-frame'), { flow: d.flow, key: d.key, vw: d.vw, vh: d.vh, st: d.st, pts, mode: 'dots' }); }
-    else if (RM.H) { RM.H.pts = pts; if (RM.H.ok) drawHeat(RM.H); }
-  }
 }
 async function finishMirror(code, d) {
   stopMirror(); if (!$('#esp-fim')) return;
@@ -14907,20 +14900,8 @@ function phoneRoute(r, p) {
   return viewCelular(r === 'celular' ? p : '');
 }
 const phErr = (t, ok) => { const e = $('#ph-err'); if (e) { e.textContent = t || ''; e.classList.toggle('ok', !!ok); } };
-/* aberto pelo Safari (ex.: QR lido pela câmera do iPhone) em vez do app instalado: orienta, sem pedir login */
-const inSafariIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) && !navigator.standalone && !(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-function viewCelular(code, force) {
+function viewCelular(code) {
   stopScan();
-  if (inSafariIOS() && !force) {
-    const c = String(code || '').replace(/\D/g, '').slice(0, 6);
-    $('#app').innerHTML = `<div class="ph-wrap"><div class="ph-logo">Sala Espelho</div><h1>Abra pelo app Sala Espelho</h1>
-      <p>Este link abriu no navegador. O teste deve ser feito pelo app <b>Sala Espelho</b>, na tela inicial do iPhone, que abre em tela cheia e já tem o acesso configurado.</p>
-      ${c.length === 6 ? `<div class="ph-cd"><span>Código deste teste</span><b>${fmtCode(c)}</b></div><p class="muted">No app, toque em <b>Ler QR code</b> ou digite este código.</p>` : ''}
-      <details class="ph-help"><summary>O app ainda não está na tela inicial?</summary><p>Toque em <b>Compartilhar</b> (o quadrado com a seta) › <b>Adicionar à Tela de Início</b> › <b>Adicionar</b>. Depois abra o ícone <b>Sala Espelho</b> e entre uma única vez com a conta do painel.</p></details>
-      <a href="#" id="ph-force" class="muted" style="font-size:12px">Continuar mesmo assim no navegador</a></div>`;
-    $('#ph-force').onclick = e => { e.preventDefault(); viewCelular(code, true); };
-    return;
-  }
   if (!AUTH) {
     $('#app').innerHTML = `<div class="ph-wrap"><div class="ph-logo">Sala Espelho</div><h1>Configurar este iPhone</h1>
       <p class="muted">Entre uma única vez com a conta do painel (a mesma da nuvem). Depois, cada teste começa pelo QR code.</p>
@@ -14928,7 +14909,7 @@ function viewCelular(code, force) {
       <button class="btn primary big" id="ph-login">Entrar</button><p class="err" id="ph-err"></p></div>`;
     $('#ph-login').onclick = async () => {
       phErr('Entrando…', true);
-      try { await sbLogin($('#ph-email').value.trim(), $('#ph-pass').value); viewCelular(code, true); } catch (e) { phErr(e.message); }
+      try { await sbLogin($('#ph-email').value.trim(), $('#ph-pass').value); viewCelular(code); } catch (e) { phErr(e.message); }
     };
     return;
   }
@@ -14943,7 +14924,7 @@ function viewCelular(code, force) {
   $('#ph-scan').onclick = startScan; $('#ph-stop').onclick = stopScan;
   $('#ph-code').oninput = e => { const d = e.target.value.replace(/\D/g, '').slice(0, 6); e.target.value = fmtCode(d); if (d.length === 6) joinTest(d); };
   $('#ph-go').onclick = () => joinTest($('#ph-code').value);
-  $('#ph-out').onclick = e => { e.preventDefault(); AUTH = null; localStorage.removeItem('hsf_auth'); viewCelular('', true); };
+  $('#ph-out').onclick = e => { e.preventDefault(); AUTH = null; localStorage.removeItem('hsf_auth'); viewCelular(); };
   if (code) joinTest(code);
 }
 const upsertEnt = (kind, o) => { const L = ENT[kind], i = L.findIndex(x => x.id === o.id), d = Object.assign({}, o, { pushed: true }); if (i < 0) L.push(d); else L[i] = d; };
@@ -14985,17 +14966,16 @@ async function startScan() {
 function stopScan() { cancelAnimationFrame(RM.scan); if (RM.stream) RM.stream.getTracks().forEach(t => t.stop()); RM.stream = null; const cam = $('#ph-cam'); if (cam) cam.hidden = true; }
 
 /* ---------- iPhone: publica o resumo ao vivo e obedece aos comandos do notebook ---------- */
-function startPhoneLive() { stopPhoneLive(); RM.pub = setInterval(phonePublish, 1000); RM.cmd = setInterval(phoneCmd, 1500); phonePublish(true); }
+function startPhoneLive() { stopPhoneLive(); RM.pub = setInterval(phonePublish, 600); RM.cmd = setInterval(phoneCmd, 1500); phonePublish(true); }
 function stopPhoneLive() { clearInterval(RM.pub); clearInterval(RM.cmd); RM.pub = RM.cmd = null; }
 function liveState() {
   const A = ACTIVE; if (!A || !A.s) return null;
   const s = A.s, f = FLOWS[s.flow], m = f && f.mission, ev = s.events || [];
   const views = ev.filter(e => e.type === 'view'), key = views.length ? views[views.length - 1].key : null;
-  const taps = ev.filter(e => e.type === 'tap' && e.key === key).slice(-25).map(e => ({ x: e.x, y: e.y, xf: e.xf, fixed: e.fixed, ab: e.ab, yb: e.yb, hit: e.hit }));
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? '⚑ ' + (e.label || 'Marcador') : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)') }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    status, key, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, taps, log, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    status, key, log, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -15031,6 +15011,7 @@ async function viewObrigado(pid) {
   const sy = $('#ph-sync'); if (sy) sy.textContent = ok ? 'Resultados enviados.' : 'Sem conexão agora: os resultados serão enviados assim que houver internet.';
   const nb = $('#ph-new'); if (nb) { nb.hidden = false; nb.onclick = () => { RM.code = null; location.hash = '#/celular'; }; }
 }
+
 
 route();
 updateCloudUI();
