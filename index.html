@@ -214,7 +214,14 @@ body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .esp{display:flex;flex-direction:column;gap:16px}
 .esp-wait{display:flex;gap:28px;align-items:center;flex-wrap:wrap}.esp-qr svg{width:240px;height:240px;display:block}.esp-wi ol{margin:6px 0;padding-left:20px;line-height:1.6}
 .esp-code{font-size:42px;font-weight:700;letter-spacing:6px;margin:6px 0;font-variant-numeric:tabular-nums}
-.esp-live{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,1fr);gap:16px;align-items:start}@media(max-width:900px){.esp-live{grid-template-columns:1fr}}
+.esp-live{display:grid;grid-template-columns:auto minmax(300px,1fr);gap:24px;align-items:start}@media(max-width:900px){.esp-live{grid-template-columns:1fr}}
+.mir-col{display:flex;flex-direction:column;align-items:center;gap:10px}.mir-wrap{position:relative}
+.mir-phone{position:absolute;left:0;top:0;transform-origin:0 0;border-radius:46px;background:#111;padding:12px;box-shadow:0 14px 40px rgba(0,0,0,.28)}
+.mir-in{position:relative;overflow:hidden;border-radius:34px;background:#fff}
+#mir-screens{position:absolute;inset:0}.mir-fr{position:absolute;left:0;top:0;border:0;visibility:hidden;pointer-events:none}.mir-fr.on{visibility:visible}
+#mir-dots{position:absolute;left:0;top:0;pointer-events:none;z-index:2}.mir-lock{position:absolute;inset:0;z-index:3;cursor:default}
+.mir-wait{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:4;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:4px 12px;border-radius:99px}
+.mir-cap{margin:0;display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}.mir-cap b{font-size:15px}
 .esp-now{display:flex;flex-direction:column;gap:4px;margin-top:16px;padding:14px;border:1px solid #e5e5e5;border-radius:12px;background:#fafafa}.esp-now b{font-size:18px}
 .esp-scr .row{margin-bottom:10px;gap:10px}.esp-frame{max-height:74vh;overflow:auto;border-radius:16px;border:1px solid #ddd;background:#f3f3f3}
 .esp-side{display:flex;flex-direction:column;gap:12px}.esp-clock{font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
@@ -3636,7 +3643,7 @@ const VIEW_H = 800;
 function mountHeat(host, o) {
   host.innerHTML = '';
   const sheet = o.key.startsWith('sheet~'), wrap = document.createElement('div'); wrap.className = 'hv'; wrap.style.width = o.vw + 'px';
-  const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; fr.src = staticURL(o.flow, o.key, o.st, o.vh);
+  const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; setStaticFrame(fr, o.flow, o.key, o.st, o.vh);
   const cv = document.createElement('canvas'); wrap.append(fr, cv); host.append(wrap);
   const H = { cv, pts: o.pts, mode: o.mode, top: 0, sheet, viewH: VIEW_H, height: VIEW_H }; H.ready = new Promise(res => { H._res = res; });
   const measure = final => {
@@ -3649,7 +3656,7 @@ function mountHeat(host, o) {
     } catch (e) { if (final && !H.ok) host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); return false; }
   };
   /* a tela pode chegar em duas etapas (arquivo único): mede algumas vezes até assentar */
-  fr.addEventListener('load', () => [600, 1400, 2600].forEach((t, i) => setTimeout(() => { if (measure(i === 2)) H.ok = true; if (i === 2 || H.ok) H._res(); }, t)));
+  fr.addEventListener('load', () => (fr.srcdoc || fr.getAttribute('src')) && [600, 1400, 2600].forEach((t, i) => setTimeout(() => { if (measure(i === 2)) H.ok = true; if (i === 2 || H.ok) H._res(); }, t)));
   return H;
 }
 /* painel de mapa de calor: Tela > Assembleia > Estado */
@@ -4712,7 +4719,7 @@ async function createInvite(p, plan) {
 }
 
 /* ---------- notebook: espelho ao vivo ---------- */
-function stopMirror() { clearTimeout(RM.poll); RM.poll = null; }
+function stopMirror() { clearTimeout(RM.poll); RM.poll = null; mirReset(); }
 const ESP_ST = { intro: ['Lendo a missão', 'run'], rodando: ['Em teste', 'run'], avaliando: ['Respondendo a avaliação', 'run'], fim: ['Concluído', 'ok'] };
 function viewEspelho(code) {
   stopMirror(); RM.cmdN = 0;
@@ -4726,10 +4733,12 @@ function viewEspelho(code) {
         <p class="esp-code">${fmtCode(code)}</p><p class="muted" id="esp-st">Esperando o participante entrar…</p>
         <button class="btn sm ghost" id="esp-cancel">Cancelar convite</button></div></div>
     <div class="esp-live" id="esp-live" hidden>
-      <div class="card esp-main"><div class="row"><span class="rb run" id="esp-badge">Em teste</span><span class="esp-clock" id="esp-clock">0:00</span></div>
-        <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div>
-        <div class="esp-now"><span class="muted">Tela atual</span><b id="esp-key">Abrindo o app…</b><span class="muted" id="esp-n"></span></div></div>
+      <div class="mir-col"><div class="mir-wrap" id="mir-wrap"><div class="mir-phone" id="mir-phone"><div class="mir-in" id="mir-in">
+          <div id="mir-screens"></div><canvas id="mir-dots"></canvas><div class="mir-lock" aria-hidden="true"></div><div class="mir-wait" id="mir-wait" hidden>atualizando…</div></div></div></div>
+        <p class="mir-cap"><b id="esp-key">Abrindo o app…</b><span class="muted" id="esp-n"></span></p></div>
       <div class="esp-side">
+        <div class="card"><div class="row"><span class="rb run" id="esp-badge">Em teste</span><span class="esp-clock" id="esp-clock">0:00</span></div>
+          <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div></div>
         <div class="card"><h3 style="margin:0 0 8px">Últimos toques</h3><ol class="esp-log" id="esp-log"></ol></div>
         <div class="card esp-cmd"><button class="btn" id="esp-mark">⚑ Marcar momento</button>
           <button class="btn" id="esp-skip" data-label="Encerrar a missão atual">Encerrar a missão atual</button>
@@ -4780,6 +4789,10 @@ async function renderLive(code, d) {
   $('#esp-key').textContent = d.key ? keyName(d.key) : 'Abrindo o app…';
   $('#esp-n').textContent = d.nTaps ? d.nTaps + ' toque(s) na missão' : '';
   $('#esp-log').innerHTML = (d.log || []).slice().reverse().map(x => `<li><span class="muted">${dur(x.t || 0)}</span> ${esc(x.l)}</li>`).join('') || '<li class="muted">Nenhum toque ainda.</li>';
+  if (d.vw && d.vh && (MIR.vw !== d.vw || MIR.vh !== d.vh)) { mirReset(); MIR.vw = d.vw; MIR.vh = d.vh; }
+  if (d.name && !MIR.nome) MIR.nome = primeiroNome(d.name);
+  mirSize(); MIR.d = d;
+  if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st);
 }
 async function finishMirror(code, d) {
   stopMirror(); if (!$('#esp-fim')) return;
@@ -4870,11 +4883,14 @@ function stopPhoneLive() { clearInterval(RM.pub); clearInterval(RM.cmd); RM.pub 
 function liveState() {
   const A = ACTIVE; if (!A || !A.s) return null;
   const s = A.s, f = FLOWS[s.flow], m = f && f.mission, ev = s.events || [];
-  const views = ev.filter(e => e.type === 'view'), key = views.length ? views[views.length - 1].key : null;
+  let lv = -1; for (let i = ev.length - 1; i >= 0; i--) if (ev[i].type === 'view') { lv = i; break; }
+  const key = lv >= 0 ? ev[lv].key : null, since = ev.slice(lv + 1);
+  const taps = since.filter(e => e.type === 'tap' && e.key === key).slice(-25).map(e => ({ x: e.x, y: e.y, xf: e.xf, fixed: e.fixed, ab: e.ab, yb: e.yb, hit: e.hit }));
+  const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? '⚑ ' + (e.label || 'Marcador') : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)') }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    status, key, log, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    status, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -4911,6 +4927,123 @@ async function viewObrigado(pid) {
   const nb = $('#ph-new'); if (nb) { nb.hidden = false; nb.onclick = () => { RM.code = null; location.hash = '#/celular'; }; }
 }
 
+
+/* ---------- carregamento único do app: cada tela é montada a partir da cópia na memória (sem baixar de novo) ---------- */
+const APPHTML = {};
+const fileBase = f => new URL(String(f).split('?')[0], location.href).href;
+function appHTML(file) {
+  const u = fileBase(file);
+  if (!APPHTML[u]) APPHTML[u] = fetch(u, { cache: 'force-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).catch(e => { delete APPHTML[u]; throw e; });
+  return APPHTML[u];
+}
+function staticDoc(html, file, qs) {
+  const inj = '<base href="' + fileBase(file) + '"><script>window.__HSFQ=' + JSON.stringify(qs) + ';window.__Q=' + JSON.stringify(qs) + ';<\/script>';
+  const m = html.match(/<head[^>]*>/i); if (!m) return inj + html; const j = m.index + m[0].length; return html.slice(0, j) + inj + html.slice(j);
+}
+function setStaticFrame(fr, flow, key, st, vh, extra) {
+  const url = staticURL(flow, key, st, vh) + (extra || ''), file = FLOWS[flow].file;
+  return appHTML(file).then(h => { if (h.indexOf('hsf-static-srcdoc') < 0) { fr.src = url; return; } fr.srcdoc = staticDoc(h, file, url.split('?')[1] || ''); }).catch(() => { fr.src = url; });
+}
+
+/* ---------- espelho: telas montadas nos bastidores, últimas 6 guardadas e as 2 prováveis próximas adiantadas ---------- */
+const MIR = { cache: new Map(), cur: null, want: null, vw: 390, vh: 844, d: null, pre: 0 };
+function mirReset() { MIR.cache.forEach(e => e.fr.remove()); MIR.cache.clear(); MIR.cur = MIR.want = null; MIR.pre = 0; MIR.nome = ''; }
+function mirSize() {
+  const w = $('#mir-wrap'), ph = $('#mir-phone'), inn = $('#mir-in'), cv = $('#mir-dots'); if (!w) return;
+  const ow = MIR.vw + 24, oh = MIR.vh + 24, k = Math.min(1, Math.max(.4, (window.innerHeight - 170) / oh));
+  w.style.width = ow * k + 'px'; w.style.height = oh * k + 'px'; ph.style.width = ow + 'px'; ph.style.height = oh + 'px'; ph.style.transform = 'scale(' + k + ')';
+  inn.style.width = MIR.vw + 'px'; inn.style.height = MIR.vh + 'px';
+  if (cv.width !== MIR.vw || cv.height !== MIR.vh) { cv.width = MIR.vw; cv.height = MIR.vh; cv.style.width = MIR.vw + 'px'; cv.style.height = MIR.vh + 'px'; }
+}
+window.addEventListener('resize', () => { if ($('#mir-wrap')) mirSize(); });
+function mirLoad(flow, key, st) {
+  const id = flow + '|' + key; let e = MIR.cache.get(id);
+  if (e) { MIR.cache.delete(id); MIR.cache.set(id, e); return e; }
+  const host = $('#mir-screens'); if (!host) return null;
+  const fr = document.createElement('iframe'); fr.className = 'mir-fr'; fr.tabIndex = -1; fr.setAttribute('aria-hidden', 'true');
+  fr.style.width = MIR.vw + 'px'; fr.style.height = MIR.vh + 'px'; host.appendChild(fr);   /* já no tamanho final: sem redimensionar depois (algumas telas se re-esticam ao redimensionar) */
+  e = { id, flow, key, fr, top: 0, ok: false }; e.ready = new Promise(res => { e._res = res; });
+  fr.addEventListener('load', () => { if (fr.srcdoc || fr.getAttribute('src')) mirSettle(e); });
+  setStaticFrame(fr, flow, key, st, MIR.vh, MIR.nome ? '&nome=' + encodeURIComponent(MIR.nome) : '');
+  MIR.cache.set(id, e);
+  for (const [k0, e0] of MIR.cache) { if (MIR.cache.size <= 6) break; if (e0 === MIR.cur || e0 === MIR.want || e0 === e) continue; e0.fr.remove(); MIR.cache.delete(k0); }
+  return e;
+}
+function mirSettle(e) {
+  let n = 0;
+  const tryIt = () => {
+    if (!e.fr.isConnected || e.ok) return;
+    try {
+      const d = e.fr.contentDocument, sc = d && d.getElementById('screen');
+      if (sc && sc.getBoundingClientRect().height > 100) { mirViewport(e, d, sc); e.ok = true; e._res(); return; }
+    } catch (err) {}
+    if (++n < 40) setTimeout(tryIt, 150); else { e.ok = true; e._res(); }
+  };
+  setTimeout(tryIt, 120);
+}
+/* a tela estática vem "esticada" (página inteira); aqui ela volta ao tamanho do aparelho do participante:
+   cabeçalho e barras fixas no lugar, conteúdo rolável só por programa (travado para o moderador) */
+function mirViewport(e, d, sc) {
+  const win = e.fr.contentWindow;
+  const findScroller = root => { let best = null, gap = 10; (root || d).querySelectorAll('*').forEach(el => { const cs = win.getComputedStyle(el), g = el.scrollHeight - el.clientHeight;
+    if (g > gap && el.clientHeight > 150 && /(auto|scroll)/.test(cs.overflowY) && el.offsetParent !== null) { best = el; gap = g; } }); return best; };
+  const ct0 = d.getElementById('content') || d.querySelector('.screen.active .scroll, .screen.on .scroll');
+  e.top = ct0 ? ct0.getBoundingClientRect().top : 0;          /* início do conteúdo na página esticada (para posicionar os toques) */
+  const sheet = e.key.startsWith('sheet~');
+  if (d.body.classList.contains('static') && !sheet) {
+    /* partes do app.html: tirar a marca "static" devolve o layout normal (tela do tamanho do aparelho, conteúdo rolável) */
+    d.querySelectorAll('.static').forEach(el => el.classList.remove('static')); d.body.classList.remove('static'); sc.style.height = '';
+  } else if (!sheet) {
+    const dev = d.getElementById('device') || sc, k = dev.offsetHeight ? dev.getBoundingClientRect().height / dev.offsetHeight : 1;
+    dev.setAttribute('data-mirdev', ''); const act = d.querySelector('.screen.active, .screen.on'); if (act) act.setAttribute('data-mirscr', '');
+    const st = d.createElement('style');
+    st.textContent = '[data-mirdev]{height:' + (MIR.vh / (k || 1)) + 'px!important}[data-mirscr]{height:auto!important}html,body{height:' + MIR.vh + 'px!important;overflow:hidden!important}';
+    d.head.appendChild(st); if (sc !== dev) sc.style.height = MIR.vh + 'px';
+  }
+  d.documentElement.style.overflow = 'hidden'; d.body.style.overflow = 'hidden';
+  const ct = (ct0 && ct0.scrollHeight > ct0.clientHeight + 5 ? ct0 : null) || findScroller(sc.closest('body')) || ct0;
+  if (ct) { ct.style.overflow = 'hidden'; e.ct = ct; e.kct = ct.clientHeight ? (ct.getBoundingClientRect().height / ct.clientHeight) || 1 : 1; }
+}
+function mirShow(flow, key, st) {
+  const e = mirLoad(flow, key, st); if (!e) return; MIR.want = e;
+  if (e === MIR.cur) return mirApply();
+  if (e.ok) return mirActivate(e);
+  $('#mir-wait').hidden = !MIR.cur;
+  e.ready.then(() => { if (MIR.want === e) mirActivate(e); });
+}
+function mirActivate(e) {
+  MIR.cache.forEach(x => x.fr.classList.toggle('on', x === e)); MIR.cur = e; $('#mir-wait').hidden = true;
+  if (e.ct) e.ct.scrollTop = 0; mirApply(true); MIR.pre = 0; mirPreload(e.flow, e.key);
+}
+function mirApply(jump) {
+  const e = MIR.cur, d = MIR.d, cv = $('#mir-dots'); if (!e || !d || !cv) return;
+  const top = d.key === e.key ? (d.scroll || 0) : 0;
+  if (e.ct) {
+    const to = top / (e.kct || 1), from = e.ct.scrollTop;
+    if (jump || Math.abs(to - from) < 2) e.ct.scrollTop = to;
+    else { const t0 = performance.now(), step = now => { const q = Math.min(1, (now - t0) / 280), z = 1 - Math.pow(1 - q, 3); e.ct.scrollTop = from + (to - from) * z; if (q < 1 && MIR.cur === e) requestAnimationFrame(step); }; requestAnimationFrame(step); }
+  }
+  const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height);
+  (d.key === e.key ? d.taps || [] : []).forEach((p, i) => {
+    const px = (p.xf || 0) * MIR.vw, py = p.ab ? MIR.vh - (p.yb || 0) : p.fixed ? p.y : p.y + e.top - top;
+    if (py < -12 || py > MIR.vh + 12) return;
+    x.beginPath(); x.arc(px, py, 12, 0, 7); x.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; x.fill();
+    x.lineWidth = 2; x.strokeStyle = '#fff'; x.stroke(); x.fillStyle = '#fff'; x.font = '700 11px Montserrat,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(i + 1, px, py + .5);
+  });
+}
+/* próximas telas prováveis: o caminho ideal da missão e o que outros participantes abriram depois desta */
+function mirNext(flow, key) {
+  const cnt = {}, m = FLOWS[flow] && FLOWS[flow].mission, path = (m && m.path) || [], i = path.indexOf(key), base = fileBase(FLOWS[flow].file);
+  if (i >= 0 && path[i + 1]) cnt[path[i + 1]] = 1e6;
+  sessions.forEach(s => { if (!FLOWS[s.flow] || fileBase(FLOWS[s.flow].file) !== base) return; const v = (s.events || []).filter(x => x.type === 'view').map(x => x.key);
+    for (let j = 0; j < v.length - 1; j++) if (v[j] === key && v[j + 1] !== key) cnt[v[j + 1]] = (cnt[v[j + 1]] || 0) + 1; });
+  return Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+}
+function mirPreload(flow, key) {
+  if (MIR.pre >= 2 || !MIR.cur || MIR.cur.key !== key) return;
+  const next = mirNext(flow, key).find(k => !MIR.cache.has(flow + '|' + k)); if (!next) return;
+  MIR.pre++; const e = mirLoad(flow, next, MIR.d ? MIR.d.st : 0); if (e) e.ready.then(() => setTimeout(() => mirPreload(flow, key), 50));
+}
 
 route();
 updateCloudUI();
