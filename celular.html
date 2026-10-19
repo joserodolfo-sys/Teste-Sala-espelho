@@ -203,6 +203,14 @@ td.r,th.r{text-align:right}
 .pdfov b{font-size:16px}.pdfov span{font-size:13px;color:var(--sec)}
 .pdfov i{width:34px;height:34px;border:4px solid #eee;border-top-color:var(--red);border-radius:50%;animation:spin .9s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.psteps{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.psteps li{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #e5e5e5;border-radius:8px;background:#fff;font-size:13px}
+.psteps li.tap{margin-left:18px;background:#fafafa;border-style:dashed}.psteps li.fim{border-color:#0a7a3c;box-shadow:0 0 0 1px #0a7a3c inset;background:#f1faf4}
+.psteps li>i{font-style:normal;font-weight:700;font-size:11px;color:#888;min-width:16px;text-align:right}.psteps .pi{font-size:14px}
+.psteps .pt{flex:1;display:flex;flex-direction:column;min-width:0}.psteps .pt small{color:#888;font-size:11px}
+.psteps .fimb{font-style:normal;font-size:11px;font-weight:700;color:#0a7a3c;background:#e6f6ec;padding:2px 8px;border-radius:99px}
+.psteps .pa{display:flex;gap:4px;align-items:center}.psteps .pa .x{color:#999;font-size:13px;padding:2px 6px}
+.psteps.cmp li{padding:4px 8px;font-size:12px}
 body.phone #top{display:none!important}body.phone .grip{display:none!important}
 .ph-wrap{max-width:420px;margin:0 auto;padding:40px 22px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;text-align:center}
 .ph-wrap h1{margin:0}.ph-logo{align-self:center;background:var(--red);color:#fff;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:6px 12px;border-radius:999px}
@@ -14253,6 +14261,17 @@ function condLabel(c) {
   if (c.type === 'view') return 'Chegar na tela ' + patName(c.key);
   return 'Tocar em “' + c.label + '”' + (c.key ? ' na tela ' + patName(c.key) : '');
 }
+/* caminho ideal com telas (📱) e toques (👆); no editor cada passo pode virar o fim ou ser removido */
+function stepsHTML(steps, o) {
+  o = o || {};
+  return '<ol class="psteps' + (o.compact ? ' cmp' : '') + '">' + steps.map((x, i) => {
+    const end = !!(o.isEnd && o.isEnd(x));
+    const txt = x.t === 'tap' ? `<span class="pi">👆</span><span class="pt">tocou em <b>“${esc(x.label)}”</b><small>${esc(patName(x.key))}</small></span>`
+                              : `<span class="pi">📱</span><span class="pt"><b>${esc(patName(x.key))}</b></span>`;
+    const acts = o.edit ? `<span class="pa">${end ? '' : `<button type="button" class="btn sm ghost" data-fim="${i}">🏁 Usar como fim</button>`}<button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></span>` : '';
+    return `<li class="${x.t === 'tap' ? 'tap' : 'scr'}${end ? ' fim' : ''}"><i>${i + 1}</i>${txt}${end ? '<em class="fimb">fim</em>' : ''}${acts}</li>`;
+  }).join('') + '</ol>';
+}
 function visitedPath(s, upTo) {
   const out = []; (s.events || []).forEach(e => { const k = keyBase(e.key); if (e.type === 'view' && (upTo == null || e.t <= upTo) && out[out.length - 1] !== k) out.push(k); }); return out;
 }
@@ -14368,7 +14387,7 @@ function viewMissaoEd(id) {
   const m = isNew ? { id: 'm' + uid(), flow: fl0 && fl0.id, name: '', prompt: '', start: '', ends: [], path: [], limit: '', questions: [{ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }] }
     : JSON.parse(JSON.stringify(entGet('missions', id) || {}));
   if (!m.id) { location.hash = '#/missoes'; return; }
-  const CAP = { view: null, picking: false, rec: false, recPath: [], listFor: null, step: 1 };
+  const CAP = { view: null, picking: false, rec: false, recSteps: [], listFor: null, step: 1, views: 0 };
   const flows = entLive('flows');
   $('#app').innerHTML = `<div class="form" style="max-width:1200px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Nova missão' : 'Editar missão'}</h1>
       <p class="muted">Siga os passos. A prévia à direita mostra o app como o participante vai ver.</p></div>
@@ -14381,18 +14400,19 @@ function viewMissaoEd(id) {
         <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Em qual app e em qual tela a missão abre para o participante. A prévia muda para esse ponto.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
             <label>Tela de partida</label><select id="ms"></select></div></section>
-        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
-          <div class="sb"><div id="me" class="lst"></div>
-            <div class="how"><b>Como definir:</b> navegue na prévia até onde a tarefa termina, toque em <b>“Escolher na prévia”</b> e clique no botão final (o clique não aciona o app).</div>
-            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="pk-on" type="button">🎯 Escolher na prévia</button><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button></div>
-            <div class="slh" data-for="end"></div>
-            <details class="adv"><summary>Avançado</summary><div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div></details></div></section>
-        <section class="stp opt" data-s="4"><div class="sh"><i>4</i><div><h3>Caminho ideal <span class="tag">opcional</span></h3><p>As telas que alguém que sabe usar o app percorreria. Serve para separar quem foi <b>direto</b> de quem <b>se perdeu</b> antes de concluir.</p></div><span class="ok"></span></div>
+        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. O último passo vira o fim da missão (passo 4), e o caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mpth" class="chips"></div>
-            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Navegue como o participante ideal faria. Cada tela visitada entra na lista abaixo.</p><div id="rec-l" class="chips"></div>
+            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao ponto de partida. Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora.</p><div id="rec-l" class="chips"></div>
               <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="rec-ok" type="button">✓ Concluir gravação</button><button class="btn sm ghost" id="rec-x" type="button">Cancelar</button></div></div>
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
             <div class="slh" data-for="path"></div></div></section>
+        <section class="stp" data-s="4"><div class="sh"><i>4</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
+          <div class="sb"><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
+            <div class="how"><b>Como definir:</b> grave o caminho ideal no passo 3. O último passo (uma <b>tela</b> ou um <b>toque</b>) vira o fim automaticamente. Para trocar, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
+            <details class="adv"><summary>Outras formas de definir o fim</summary>
+              <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="pk-on" type="button">🎯 Escolher na prévia</button><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
+                <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
+              <div class="slh" data-for="end"></div></details></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mq" class="lst"></div>
             <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
@@ -14411,12 +14431,12 @@ function viewMissaoEd(id) {
   const HINTS = {
     1: 'Esta é a prévia do app. Ela abre no ponto de partida que você escolher no passo 2.',
     2: 'Escolha o ponto de partida no passo 2: a prévia abre exatamente onde o participante vai começar.',
-    3: 'Navegue até onde a tarefa termina. Depois toque em “Escolher na prévia” (passo 3) e clique no botão final.',
-    4: 'Para gravar o caminho ideal, toque em “Gravar o caminho na prévia” (passo 4) e navegue como o participante ideal.',
+    3: 'Toque em “Gravar o caminho na prévia” (passo 3) e faça a tarefa como o participante ideal: telas e toques entram no caminho, e o último passo vira o fim.',
+    4: 'O fim vem do último passo do caminho ideal. Para trocar, use “Usar como fim” num passo do caminho, ou “Outras formas de definir o fim”.',
     5: 'A prévia continua disponível para você conferir o fluxo.' };
   const hint = () => {
     if (CAP.picking) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">Modo escolher ativo:</b> clique no botão ou na área onde a missão termina. O clique não aciona o app.';
-    if (CAP.rec) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">● Gravando:</b> navegue como o participante ideal. Conclua a gravação no passo 4.';
+    if (CAP.rec) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">● Gravando:</b> faça a tarefa como o participante ideal (telas e toques). Conclua a gravação no passo 3.';
     $('#cap-hint').textContent = HINTS[CAP.step] || HINTS[1];
   };
   const setStep = n => { CAP.step = n; document.querySelectorAll('.stp').forEach(x => x.classList.toggle('on', +x.dataset.s === n)); hint(); };
@@ -14434,10 +14454,16 @@ function viewMissaoEd(id) {
   const reloadCap = () => { const f = flowOf(), st = $('#ms').value; CAP.view = null; $('#pk-card').hidden = true; setPick(false);
     $('#cv').textContent = st ? 'carregando…' : '—';
     $('#capf').src = st ? furl(f.url, 'start=' + encodeURIComponent(st) + '&rec=1&v=' + Date.now()) : 'about:blank'; draw(); };
+  if (!Array.isArray(m.steps)) m.steps = (m.path || []).map(k => ({ t: 'v', key: k }));       /* missões antigas: só telas */
+  const syncPath = () => { m.path = []; m.steps.forEach(x => { if (x.t === 'v' && m.path[m.path.length - 1] !== x.key) m.path.push(x.key); }); };
+  const stepEnd = x => x.t === 'tap' ? { type: 'tap', label: x.label, key: x.key } : { type: 'view', key: x.key };
+  const isEnd = x => m.ends.some(c => x.t === 'tap' ? (c.type === 'tap' && c.label === x.label && (!c.key || c.key === x.key)) : (c.type === 'view' && c.key === x.key));
   const recDraw = () => {
     $('#rec-box').hidden = !CAP.rec; $('#rec-btns').hidden = CAP.rec;
-    $('#rec-l').innerHTML = CAP.recPath.length ? CAP.recPath.map((k, i) => `<span class="chip"><i>${i + 1}</i>${esc(keyName(k))}</span>`).join('<span class="arr">→</span>') : '<span class="muted">aguardando a primeira tela…</span>';
+    $('#rec-l').innerHTML = CAP.recSteps.length ? stepsHTML(CAP.recSteps) : '<span class="muted">aguardando a primeira tela…</span>';
   };
+  /* toque que só mostrou o aviso de "fora do escopo" (e não mudou a tela) não entra no caminho */
+  const oosShown = () => { let hit = false; const scan = w => { try { const d = w.document; d.querySelectorAll('#hsf-toast, #toast').forEach(el => { if (/fora do escopo/i.test(el.textContent || '') && (el.classList.contains('on') || parseFloat(w.getComputedStyle(el).opacity) > .5)) hit = true; }); d.querySelectorAll('iframe').forEach(f => scan(f.contentWindow)); } catch (e) {} }; const w = capWin(); if (w) scan(w); return hit; };
   const pickCard = ev => {
     const key = keyBase(ev.key), pk = parseKey(key), sc = MANSCR[pk.scr], ord = sc && sc.curFmt === 'ordinal' && pk.cur, hit = ev.hit !== false;
     const scrName = keyName(key), lbl = ev.label || '';
@@ -14458,7 +14484,14 @@ function viewMissaoEd(id) {
   const onMsg = e => {
     const fr = $('#capf'); if (!fr) { window.removeEventListener('message', onMsg); return; } if (e.source !== fr.contentWindow) return;
     const d = e.data; if (!d || !d.hsf || !d.ev) return; const ev = d.ev;
-    if (ev.type === 'view') { CAP.view = ev.key; $('#cv').textContent = keyName(ev.key); const kb = keyBase(ev.key); if (CAP.rec && CAP.recPath[CAP.recPath.length - 1] !== kb) { CAP.recPath.push(kb); recDraw(); } }
+    if (ev.type === 'view') { CAP.view = ev.key; $('#cv').textContent = keyName(ev.key); const kb = keyBase(ev.key); CAP.views = (CAP.views || 0) + 1;
+      const lastS = CAP.recSteps[CAP.recSteps.length - 1];
+      if (CAP.rec && !(lastS && lastS.t === 'v' && lastS.key === kb)) { CAP.recSteps.push({ t: 'v', key: kb }); recDraw(); } }
+    if (ev.type === 'tap' && CAP.rec && !CAP.picking && ev.hit !== false && ev.label && ev.label !== 'Sem ação') {
+      const st = { t: 'tap', label: ev.label, key: keyBase(ev.key || CAP.view || '') }, v0 = CAP.views || 0;
+      CAP.recSteps.push(st); recDraw();
+      setTimeout(() => { if ((CAP.views || 0) === v0 && oosShown()) { const i = CAP.recSteps.indexOf(st); if (i >= 0) { CAP.recSteps.splice(i, 1); recDraw(); } } }, 450);
+    }
     if (ev.type === 'tap' && CAP.picking) pickCard(Object.assign({}, ev, { key: ev.key || CAP.view }));
   };
   window.addEventListener('message', onMsg);
@@ -14466,12 +14499,16 @@ function viewMissaoEd(id) {
     $(host).onclick = e => { const b = e.target.closest('.x'); if (b) onDel(+b.dataset.i); }; };
   const done = n => { const sec = document.querySelector(`.stp[data-s="${n}"]`); return sec; };
   const draw = () => {
-    lst('#me', m.ends, c => '✓ ' + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido.');
-    $('#mpth').innerHTML = m.path.length ? m.path.map((k, i) => `<span class="chip"><i>${i + 1}</i>${esc(patName(k))}<button type="button" class="x" data-i="${i}" aria-label="Remover">✕</button></span>`).join('<span class="arr">→</span>') : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
-    $('#mpth').onclick = e => { const b = e.target.closest('.x'); if (b) { m.path.splice(+b.dataset.i, 1); draw(); } };
+    lst('#me', m.ends, c => (c.type === 'tap' ? '👆 ' : '📱 ') + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido. Grave o caminho ideal no passo 3.');
+    $('#mpth').innerHTML = m.steps.length ? stepsHTML(m.steps, { edit: true, isEnd }) : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
+    $('#mpth').onclick = e => {
+      const x = e.target.closest('.x'), f = e.target.closest('[data-fim]');
+      if (x) { m.steps.splice(+x.dataset.i, 1); syncPath(); draw(); }
+      if (f) { m.ends = [stepEnd(m.steps[+f.dataset.fim])]; endNote('Fim trocado para este passo do caminho.'); draw(); }
+    };
     lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 5' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
     $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
-    const st = { 1: !!($('#mn').value.trim()), 2: !!$('#ms').value, 3: m.ends.length > 0, 4: m.path.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
+    const st = { 1: !!($('#mn').value.trim()), 2: !!$('#ms').value, 3: m.steps.length > 0, 4: m.ends.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
     Object.entries(st).forEach(([n, ok]) => { const sec = done(n); if (sec) sec.classList.toggle('done', ok); });
   };
   /* lista de telas com busca, aberta dentro do passo que pediu */
@@ -14492,18 +14529,26 @@ function viewMissaoEd(id) {
     if (e.target.id === 'sl-x') { SL.remove(); return; }
     const b = e.target.closest('[data-k]'); if (!b) return; const k = b.dataset.k;
     if (CAP.listFor === 'end') { if (!m.ends.some(c => c.type === 'view' && c.key === k)) m.ends.push({ type: 'view', key: k }); SL.remove(); }
-    else { m.path.push(k); b.classList.add('added'); }
+    else { m.steps.push({ t: 'v', key: k }); syncPath(); b.classList.add('added'); }
     draw();
   });
   $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList('path');
   $('#mf').onchange = fillStarts; $('#ms').onchange = () => { reloadCap(); };
-  $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recPath = []; recDraw(); } reloadCap(); };
+  $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } reloadCap(); };
   $('#mn').oninput = draw; $('#ml').oninput = draw;
-  $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(3); setPick(!CAP.picking); };
-  $('#rec-go').onclick = () => { if (!$('#ms').value) { $('#merr').textContent = 'Escolha primeiro onde a missão começa (passo 2).'; return; } setPick(false); CAP.rec = true; CAP.recPath = []; setStep(4); recDraw(); reloadCap(); hint(); };
-  $('#rec-ok').onclick = () => { if (CAP.recPath.length) m.path = CAP.recPath.slice(); CAP.rec = false; recDraw(); hint(); draw(); };
-  $('#rec-x').onclick = () => { CAP.rec = false; CAP.recPath = []; recDraw(); hint(); };
-  $('#cp-clr').onclick = () => { m.path = []; draw(); };
+  $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(4); setPick(!CAP.picking); };
+  $('#rec-go').onclick = () => { if (!$('#ms').value) { $('#merr').textContent = 'Escolha primeiro onde a missão começa (passo 2).'; return; } setPick(false); CAP.rec = true; CAP.recSteps = []; setStep(3); recDraw(); reloadCap(); hint(); };
+  const endNote = t => { const n = $('#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
+  $('#rec-ok').onclick = () => {
+    if (CAP.recSteps.length) {
+      m.steps = CAP.recSteps.slice(); syncPath();
+      m.ends = [stepEnd(m.steps[m.steps.length - 1])];          /* o último passo (tela ou toque) vira o fim */
+      endNote('Definido pelo último passo do caminho ideal. Para trocar, use “Usar como fim” em outro passo.');
+    }
+    CAP.rec = false; recDraw(); hint(); draw();
+  };
+  $('#rec-x').onclick = () => { CAP.rec = false; CAP.recSteps = []; recDraw(); hint(); };
+  $('#cp-clr').onclick = () => { m.steps = []; syncPath(); draw(); };
   $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use @* para “qualquer variação” (ex.: home@*).'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
   $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }); draw(); };
@@ -14511,8 +14556,8 @@ function viewMissaoEd(id) {
   $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = $('#ms').value; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
-    const miss = !m.name ? 1 : !m.start ? 2 : !m.ends.length ? 3 : 0;
-    if (miss) { $('#merr').textContent = ['', 'Passo 1: dê um nome para a missão.', 'Passo 2: escolha onde a missão começa.', 'Passo 3: defina como a missão termina.'][miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+    syncPath(); const miss = !m.name ? 1 : !m.start ? 2 : !m.ends.length ? 4 : 0;
+    if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: escolha onde a missão começa.', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
   };
   recDraw(); setStep(isNew ? 1 : 3); draw(); fillStarts();
@@ -14597,7 +14642,7 @@ function missionStats(flow, ss, rot) {
         return `<p class="qtt">${esc(o.q)} <b>${avgN(o.nums).toFixed(1).replace('.', ',')}</b></p><div class="dist">${d.map((v, i) => `<div><span style="height:${Math.round(v / mx * 60)}px"></span><i>${i + 1}</i><small>${v}</small></div>`).join('')}</div>`; }).join('') || '<p class="muted">Sem notas registradas.</p>'}</div>
       <div><h3>Respostas abertas</h3>${ans.filter(o => o.texts.length).map(o => `<p class="qtt">${esc(o.q)}</p><ul class="ansl">${o.texts.map(t => `<li>“${esc(t.v)}” <span class="muted">— ${esc(t.name)}</span></li>`).join('')}</ul>`).join('') || '<p class="muted">Sem respostas abertas.</p>'}</div></div>
     <h3 style="margin-top:18px">Caminhos percorridos</h3>
-    ${hasPath ? `<p class="muted" style="margin:0 0 6px">Caminho ideal: ${chips(exp)}</p>` : ''}
+    ${hasPath ? ((m.steps || []).some(x => x.t === 'tap') ? `<div class="muted" style="margin:0 0 6px">Caminho ideal (telas e toques):${stepsHTML(m.steps, { compact: true })}</div>` : `<p class="muted" style="margin:0 0 6px">Caminho ideal: ${chips(exp)}</p>`) : ''}
     <table><tbody>${top.map(t => `<tr><td>${chips(t.p)}${isExp(t.p) ? ' <span class="rb ok">ideal</span>' : ''}</td><td class="r" style="white-space:nowrap">${t.n} (${pct(t.n, c.n)}%)</td></tr>`).join('')}</tbody></table>
     ${devs.length ? `<h3 style="margin-top:14px">Onde saíram do caminho ideal</h3><table><tbody>${devs.map(([k, v]) => `<tr><td>${esc(keyName(k))}</td><td class="r">${v} participante(s)</td></tr>`).join('')}</tbody></table>` : ''}`
     : '<p class="muted" style="margin-top:12px">Ainda não há sessões desta missão' + (rot ? ' neste roteiro' : '') + '.</p>'}
