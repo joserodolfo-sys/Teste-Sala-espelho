@@ -4753,10 +4753,11 @@ function viewEspelho(code) {
   catch (e) { $('#esp-qr').textContent = phoneURL(code); }
   $('#esp-cancel').onclick = async () => { await remDel(['conv-' + code, 'live-' + code, 'cmd-' + code]); location.hash = '#/'; };
   const send = async (cmd, msg) => {
-    RM.cmdN++;
-    try { await remPut('cmd-' + code, 'cmd', { n: RM.cmdN, cmd, at: Date.now() }); $('#esp-msg').textContent = msg; }
-    catch (e) { $('#esp-msg').textContent = 'Não foi possível enviar ao iPhone: ' + e.message; }
+    RM.cmdN = Math.max(Date.now(), (RM.cmdN || 0) + 1);      /* número = horário: continua valendo mesmo se esta página for recarregada */
+    try { await remPut('cmd-' + code, 'cmd', { n: RM.cmdN, cmd, at: Date.now() }); $('#esp-msg').textContent = msg; return true; }
+    catch (e) { $('#esp-msg').textContent = 'Não foi possível enviar ao iPhone: ' + e.message; return false; }
   };
+  const lockCmds = (on, msg) => { ['#esp-mark', '#esp-skip', '#esp-end'].forEach(s => { const b = $(s); if (b) b.disabled = on; }); if (msg) $('#esp-msg').textContent = msg; };
   const armB = (b, fn) => {
     if (b.classList.contains('arm')) { b.classList.remove('arm'); b.textContent = b.dataset.label; return fn(); }
     b.classList.add('arm'); b.textContent = 'Clique de novo para confirmar';
@@ -4764,9 +4765,18 @@ function viewEspelho(code) {
   };
   $('#esp-mark').onclick = () => send('mark', 'Marcador registrado no iPhone.');
   $('#esp-skip').onclick = e => armB(e.currentTarget, () => send('skip', 'Missão encerrada pelo moderador.'));
-  $('#esp-end').onclick = e => armB(e.currentTarget, () => send('end', 'Teste encerrado pelo moderador.'));
+  $('#esp-end').onclick = e => armB(e.currentTarget, async () => {
+    if (!(await send('end', 'Encerrando o teste no iPhone…'))) return;
+    lockCmds(true); clearTimeout(RM.endT);
+    RM.endT = setTimeout(() => { if ($('#esp-live') && !$('#esp-live').hidden) lockCmds(false, 'O iPhone não confirmou o encerramento. Confira se o app Sala Espelho continua aberto no teste e tente de novo.'); }, 15000);
+  });
   let live = null, recvAt = 0;
-  const clockT = setInterval(() => { const c = $('#esp-clock'); if (!c) return clearInterval(clockT); if (live && live.status !== 'fim') c.textContent = live.status === 'intro' ? '0:00' : dur((live.elapsed || 0) + (Date.now() - recvAt)); }, 500);
+  const clockT = setInterval(() => {
+    const c = $('#esp-clock'); if (!c) return clearInterval(clockT); if (!live || live.status === 'fim') return;
+    c.textContent = live.status === 'intro' ? '0:00' : dur((live.elapsed || 0) + (Date.now() - recvAt));
+    const quiet = Date.now() - recvAt, b = $('#esp-badge');
+    if (quiet > 15000 && b) { b.textContent = 'Sem sinal do iPhone há ' + Math.round(quiet / 1000) + ' s'; b.className = 'rb no'; }
+  }, 500);
   const loop = async () => {
     if (location.hash.indexOf('#/espelho/' + code) !== 0) return;
     try {
@@ -4795,7 +4805,7 @@ async function renderLive(code, d) {
   if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st);
 }
 async function finishMirror(code, d) {
-  stopMirror(); if (!$('#esp-fim')) return;
+  stopMirror(); clearTimeout(RM.endT); if (!$('#esp-fim')) return;
   $('#esp-wait').hidden = true; $('#esp-live').hidden = true; $('#esp-fim').hidden = false;
   try { CLOUD.pulled = false; await cloudKick(true); } catch (e) {}
   const p = d.pid ? getP(d.pid) : null;
