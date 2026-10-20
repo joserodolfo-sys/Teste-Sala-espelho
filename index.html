@@ -4087,7 +4087,13 @@ async function entPushAll() {
   const kinds = { flows: 'flow', missions: 'mission', scripts: 'script' };
   for (const k of Object.keys(kinds)) for (const o of ENT[k].filter(x => !x.pushed)) {
     try {
-      await sb('/rest/v1/entities?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: o.id, kind: kinds[k], data: Object.assign({}, o, { pushed: undefined }), updated_at: new Date(o.updatedAt || Date.now()).toISOString() }]) });
+      if (o.deleted) {   /* excluída no painel: apaga a linha no banco e confere (a marca de excluída continua só neste navegador) */
+        await sb('/rest/v1/entities?id=eq.' + encodeURIComponent(o.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+        const left = await sb('/rest/v1/entities?select=id&id=eq.' + encodeURIComponent(o.id));
+        if ((left || []).length) throw new Error('o Supabase não apagou');
+      } else {
+        await sb('/rest/v1/entities?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: o.id, kind: kinds[k], data: Object.assign({}, o, { pushed: undefined }), updated_at: new Date(o.updatedAt || Date.now()).toISOString() }]) });
+      }
       o.pushed = true;
     } catch (e) { /* tenta de novo na próxima sincronização */ }
   }
