@@ -3592,7 +3592,7 @@ function viewFim(pid) {
     <div class="form" style="max-width:640px">
       <div class="card" style="text-align:center;padding:28px 20px"><div style="font-size:38px;color:#0a7a3c;line-height:1">✓</div>
         <h1 style="margin-top:8px">Teste concluído</h1>
-        <p class="muted" style="margin-top:4px">${esc(p.name)}, ${esc(p.age)} anos · ${p.sessions.length} fluxo(s) · ${dur(t.total)}</p><p class="muted" data-cloudb style="margin-top:10px"></p></div>
+        <p class="muted" style="margin-top:4px">${esc(p.name)}, ${esc(p.age)} anos · ${p.sessions.length} fluxo(s) · ${dur(t.total)}</p>${FIM_NOTE ? `<p style="margin:10px 0 0;font-size:13px;color:#9a5b00">${esc(FIM_NOTE)}</p>` : ''}<p class="muted" data-cloudb style="margin-top:10px"></p></div>
       <div class="card"><h2>Resumo por fluxo</h2>
         <table><thead><tr><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th></tr></thead><tbody>
         ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr><td>${flowTag(s.flow)}${(s.attempt || 1) > 1 ? ' (tentativa ' + s.attempt + ')' : ''}</td><td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td></tr>`; }).join('')}</tbody></table></div>
@@ -4994,7 +4994,10 @@ async function forceFinish(code, d) {
   $('#esp-fimt').textContent = 'O iPhone não respondeu. Buscando na nuvem o que ele já enviou…';
   try { CLOUD.pulled = false; await cloudKick(true); } catch (e) {}
   const pid = (d && d.pid) || (MIR.d && MIR.d.pid) || ((lsGet('hsf_espelho_' + code, {}).p || {}).pid), p = pid ? getP(pid) : null;   /* último estado recebido, último mostrado ou o próprio convite */
-  if (p) { closeOpenSessions(p.sessions); try { await cloudKick(); } catch (e) {} }
+  if (p) { closeOpenSessions(p.sessions); try { await cloudKick(); } catch (e) {}
+    remDel(['conv-' + code, 'live-' + code]);
+    FIM_NOTE = 'Encerrado pelo notebook: o iPhone não respondeu. Os resultados incluem o que ele enviou até o último sinal; quando o app Sala Espelho for aberto de novo no iPhone, o que faltar é enviado sozinho.';
+    location.hash = '#/fim/' + enc(pid); return; }
   $('#esp-fimt').textContent = p ? `${p.name}: ${p.sessions.length} missão(ões) salvas, com o que o iPhone enviou até o último sinal. Quando o app Sala Espelho for aberto de novo no iPhone, o que faltar é enviado sozinho.`
     : 'O iPhone ainda não tinha enviado a gravação. Quando o app Sala Espelho for aberto de novo no iPhone, ela é enviada sozinha e aparece no painel.';
   const a = $('#esp-an'); if (p) { a.hidden = false; a.href = '#/participante/' + enc(pid); }
@@ -5003,11 +5006,21 @@ async function forceFinish(code, d) {
 async function finishMirror(code, d) {
   stopMirror(); clearTimeout(RM.endT); if (!$('#esp-fim')) return;
   $('#esp-wait').hidden = true; $('#esp-live').hidden = true; $('#esp-fim').hidden = false;
-  try { CLOUD.pulled = false; await cloudKick(true); } catch (e) {}
-  const p = d.pid ? getP(d.pid) : null;
-  $('#esp-fimt').textContent = p ? `${p.name}: ${p.sessions.length} missão(ões) gravada(s) e salvas na nuvem.` : 'Os resultados ainda estão chegando. Atualize o painel em alguns segundos.';
-  const a = $('#esp-an'); if (p) { a.hidden = false; a.href = '#/participante/' + enc(d.pid); }
   remDel(['conv-' + code, 'live-' + code, 'cmd-' + code]);
+  const p = await goFim(d.pid, '');
+  if (!p && $('#esp-fimt')) $('#esp-fimt').textContent = 'Os resultados ainda estão chegando. Atualize o painel em alguns segundos.';
+}
+/* fim do teste pelo iPhone: abre a mesma tela de "Teste concluído" do notebook (resumo + Baixar PDF e JSON) assim que os dados chegam */
+let FIM_NOTE = '';
+async function goFim(pid, note) {
+  for (let i = 0; i < 6; i++) {
+    try { CLOUD.pulled = false; await cloudKick(true); } catch (e) {}
+    const p = pid ? getP(pid) : null;
+    if (p) { FIM_NOTE = note || ''; if (location.hash.indexOf('#/espelho/') === 0) location.hash = '#/fim/' + enc(pid); return p; }
+    const t = $('#esp-fimt'); if (t) t.textContent = 'Buscando os resultados na nuvem…';
+    await new Promise(r => setTimeout(r, 3000)); if (location.hash.indexOf('#/espelho/') !== 0) return null;
+  }
+  return null;
 }
 
 /* ---------- iPhone: entrar no teste ---------- */
