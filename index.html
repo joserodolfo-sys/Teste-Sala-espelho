@@ -211,7 +211,7 @@ td.r,th.r{text-align:right}
 .psteps .fimb{font-style:normal;font-size:11px;font-weight:700;color:#0a7a3c;background:#e6f6ec;padding:2px 8px;border-radius:99px}
 .psteps .pa{display:flex;gap:4px;align-items:center}.psteps .pa .x{color:#999;font-size:13px;padding:2px 6px}
 .psteps.cmp li{padding:4px 8px;font-size:12px}
-body.phone #top{display:none!important}
+body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}body.phone{padding-top:var(--sat)}body.phone #test{top:var(--sat)}#sbband{display:none}body.phone #sbband{display:block;position:fixed;left:0;right:0;top:0;height:var(--sat);z-index:2147483000;background:var(--sbc,#cc0000);transition:background-color .2s;pointer-events:none}
 .ph-wrap{max-width:420px;margin:0 auto;padding:40px 22px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;text-align:center}
 .ph-wrap h1{margin:0}.ph-logo{align-self:center;background:var(--red);color:#fff;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:6px 12px;border-radius:999px}
 .ph-wrap input{font:inherit;font-size:16px;padding:12px;border:1px solid #d3d3d5;border-radius:10px;text-align:center}
@@ -4930,9 +4930,11 @@ function viewEspelho(code) {
   $('#esp-mkt').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); mkSend(); } else if (e.key === 'Escape') mkClose(); };
   $('#esp-skip').onclick = e => armB(e.currentTarget, () => send('skip', 'Missão encerrada pelo moderador.'));
   $('#esp-end').onclick = e => armB(e.currentTarget, async () => {
-    if (!(await send('end', 'Encerrando o teste no iPhone…'))) return;
+    const quiet = live ? Date.now() - recvAt : Infinity;
+    await send('end', 'Encerrando o teste…');                 /* o pedido fica na nuvem: se o iPhone voltar, ele encerra sozinho */
     lockCmds(true); clearTimeout(RM.endT);
-    RM.endT = setTimeout(() => { if ($('#esp-live') && !$('#esp-live').hidden) lockCmds(false, 'O iPhone não confirmou o encerramento. Confira se o app Sala Espelho continua aberto no teste e tente de novo.'); }, 15000);
+    if (quiet > 8000) return forceFinish(code, live);          /* iPhone sem sinal: encerra já pelo notebook */
+    RM.endT = setTimeout(() => { if ($('#esp-live') && !$('#esp-live').hidden) forceFinish(code, live); }, 8000);   /* não respondeu: encerra pelo notebook */
   });
   let live = null, recvAt = 0;
   const clockT = setInterval(() => {
@@ -4940,7 +4942,8 @@ function viewEspelho(code) {
     const nowT = (live.elapsed || 0) + (Date.now() - recvAt); c.textContent = live.status === 'intro' ? '0:00' : dur(nowT);
     const xp = $('#esp-xp'), rd = live.rd || {}; if (xp && live.result === 'concluiu' && rd.explore && rd.at != null) xp.textContent = 'Explorando há ' + dur(Math.max(0, nowT - rd.at)) + '. Encerre quando quiser.';
     const quiet = Date.now() - recvAt, b = $('#esp-badge');
-    if (quiet > 15000 && b) { b.textContent = 'Sem sinal do iPhone há ' + Math.round(quiet / 1000) + ' s'; b.className = 'rb no'; }
+    if (quiet > 15000 && b) { b.textContent = 'Sem sinal do iPhone há ' + Math.round(quiet / 1000) + ' s'; b.className = 'rb no';
+      const mg = $('#esp-msg'); if (mg && !mg.dataset.sinal && !$('#esp-end').disabled) { mg.dataset.sinal = 1; mg.textContent = 'O iPhone está sem sinal. “Encerrar teste agora” encerra pelo notebook mesmo assim.'; } }
   }, 500);
   const loop = async () => {
     if (location.hash.indexOf('#/espelho/' + code) !== 0) return;
@@ -4973,6 +4976,29 @@ async function renderLive(code, d) {
   mirSize(); MIR.d = d;
   if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st);
   renderFinal(d);
+}
+/* encerrar pelo notebook quando o iPhone não responde: fecha a sessão com o que já está na nuvem */
+function closeOpenSessions(list) {
+  let n = 0;
+  list.forEach(s => {
+    if (s.endedAt) return;
+    const last = Math.max(0, ...(s.events || []).map(e => e.t || 0)); s.endedAt = (s.startedAt || Date.now()) + last; s.interrupted = true; n++;
+    const f = FLOWS[s.flow]; if (f && f.mission && !s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: last, auto: false, interrupted: true }); }
+  });
+  if (n) save(); return n;
+}
+async function forceFinish(code, d) {
+  stopMirror(); clearTimeout(RM.endT); if (!$('#esp-fim')) return;
+  $('#esp-wait').hidden = true; $('#esp-live').hidden = true; $('#esp-fim').hidden = false;
+  const h = $('#esp-fim h2'); if (h) h.textContent = 'Teste encerrado pelo notebook';
+  $('#esp-fimt').textContent = 'O iPhone não respondeu. Buscando na nuvem o que ele já enviou…';
+  try { CLOUD.pulled = false; await cloudKick(true); } catch (e) {}
+  const pid = (d && d.pid) || (MIR.d && MIR.d.pid) || ((lsGet('hsf_espelho_' + code, {}).p || {}).pid), p = pid ? getP(pid) : null;   /* último estado recebido, último mostrado ou o próprio convite */
+  if (p) { closeOpenSessions(p.sessions); try { await cloudKick(); } catch (e) {} }
+  $('#esp-fimt').textContent = p ? `${p.name}: ${p.sessions.length} missão(ões) salvas, com o que o iPhone enviou até o último sinal. Quando o app Sala Espelho for aberto de novo no iPhone, o que faltar é enviado sozinho.`
+    : 'O iPhone ainda não tinha enviado a gravação. Quando o app Sala Espelho for aberto de novo no iPhone, ela é enviada sozinha e aparece no painel.';
+  const a = $('#esp-an'); if (p) { a.hidden = false; a.href = '#/participante/' + enc(pid); }
+  remDel(['conv-' + code, 'live-' + code]);                   /* o pedido de encerrar continua na nuvem para o iPhone, se ele voltar */
 }
 async function finishMirror(code, d) {
   stopMirror(); clearTimeout(RM.endT); if (!$('#esp-fim')) return;
@@ -5281,12 +5307,26 @@ function topColorOf(fr) {
   } catch (e) {}
   return null;
 }
-function setThemeColor(c) { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } if (m.content !== c) m.content = c; }
+function setThemeColor(c) { document.documentElement.style.setProperty('--sbc', c);   /* faixa por baixo da barra de status (modo translúcido do iPhone) */
+  let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } if (m.content !== c) m.content = c; }
 function barTint(now) {
   if (!window.HSF_PHONE || !ACTIVE || !ACTIVE.frame) return;
   clearTimeout(barTint.t); barTint.t = setTimeout(() => { const c = topColorOf(ACTIVE.frame); if (c) setThemeColor(c); }, now ? 0 : 450);   /* depois da transição de tela */
 }
-setInterval(() => { const t = document.getElementById('test'); if (window.HSF_PHONE && ACTIVE && t && !t.hidden) barTint(true); }, 1500);
+/* fora do teste, a faixa usa a cor do topo da própria tela do app do iPhone */
+function pageTint() {
+  const band = document.getElementById('sbband'), h = band ? band.getBoundingClientRect().height : 0;
+  let el = document.elementFromPoint(window.innerWidth / 2, h + 2);
+  for (; el && el !== document.documentElement; el = el.parentElement) { if (el.id === 'sbband') continue; const bg = getComputedStyle(el).backgroundColor; if (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(bg)) return setThemeColor(bg); }
+  setThemeColor(getComputedStyle(document.body).backgroundColor || '#ffffff');
+}
+if (window.HSF_PHONE && !document.getElementById('sbband')) { const b = document.createElement('div'); b.id = 'sbband'; document.body.appendChild(b); }
+setInterval(() => { if (!window.HSF_PHONE) return; const t = document.getElementById('test'); if (ACTIVE && t && !t.hidden) barTint(true); else pageTint(); }, 1000);
+
+/* iPhone: durante o teste, a gravação vai para a nuvem a cada 20 s (se o app for fechado, o notebook ainda tem quase tudo) */
+setInterval(() => { if (window.HSF_PHONE && ACTIVE && RM.code) phoneSync(); }, 20000);
+/* iPhone reaberto depois de ser fechado no meio de um teste: fecha aquela sessão e envia o que faltou */
+if (window.HSF_PHONE) setTimeout(() => { if (ACTIVE) return; if (closeOpenSessions(sessions.filter(s => !s.endedAt))) phoneSync(); }, 2500);
 
 route();
 updateCloudUI();
