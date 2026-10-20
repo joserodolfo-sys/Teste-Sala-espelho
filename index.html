@@ -3222,20 +3222,48 @@ async function cloudKick(manual) {
   }
 }
 const tomb = () => Object.assign({ s: [], p: [] }, lsGet('hsf_tomb', {}));
+/* Apaga na nuvem na ordem certa (eventos → sessões → participante), sem depender de CASCADE,
+   e CONFERE no fim se sumiu. Se o Supabase recusar (falta política de DELETE), dá erro em vez de fingir que apagou. */
+async function sbDelRows(table, filter) {
+  await sb('/rest/v1/' + table + '?' + filter, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+}
+async function cloudPurge(kind, id) {
+  const q = a => a.map(x => '"' + x + '"').join(',');
+  let sids;
+  if (kind === 'p') { const r = await sb('/rest/v1/sessions?select=id&participant_id=eq.' + enc(id)); sids = (r || []).map(x => x.id); }
+  else sids = [id];
+  for (let i = 0; i < sids.length; i += 40) {
+    const grp = sids.slice(i, i + 40);
+    await sbDelRows('events', 'session_id=in.(' + q(grp) + ')');
+    await sbDelRows('sessions', 'id=in.(' + q(grp) + ')');
+  }
+  if (kind === 'p') await sbDelRows('participants', 'id=eq.' + enc(id));
+  /* conferência: o que ainda existir no banco é porque o Supabase não deixou apagar */
+  let left = 0;
+  for (let i = 0; i < sids.length; i += 40) {
+    const grp = sids.slice(i, i + 40);
+    const a = await sb('/rest/v1/sessions?select=id&id=in.(' + q(grp) + ')');
+    const b = await sb('/rest/v1/events?select=id&limit=1&session_id=in.(' + q(grp) + ')');
+    left += ((a || []).length) + ((b || []).length);
+  }
+  if (kind === 'p') { const c = await sb('/rest/v1/participants?select=id&id=eq.' + enc(id)); left += (c || []).length; }
+  if (left) throw new Error('o Supabase não apagou (faltam as políticas de DELETE para o usuário logado)');
+}
 async function flushTomb(alertOnFail) {
   if (!AUTH) return;
   const t = tomb(); let failed = null;
   for (const kind of ['p', 's']) {
     for (const id of t[kind].slice()) {
-      try { await sb('/rest/v1/' + (kind === 'p' ? 'participants' : 'sessions') + '?id=eq.' + enc(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }); t[kind] = t[kind].filter(x => x !== id); }
+      try { await cloudPurge(kind, id); t[kind] = t[kind].filter(x => x !== id); }
       catch (e) { failed = e; }
     }
   }
   lsSet('hsf_tomb', t);
-  if (failed && alertOnFail) alert('Excluído neste navegador, mas ainda não na nuvem (' + (failed.message || failed) + '). Tento de novo na próxima sincronização, e ele não volta para a lista.');
+  if (failed && alertOnFail) alert('Excluído neste navegador, mas NÃO na nuvem (' + (failed.message || failed) + '). Fica pendente e tento de novo na próxima sincronização.');
 }
 async function cloudDelete(kind, id) {
   const t = tomb(); (kind === 'p' ? t.p : t.s).push(id); lsSet('hsf_tomb', t);
+  if (!AUTH) { alert('Excluído só neste navegador. Você não está conectado à nuvem (☁ Entrar): o item fica pendente e é apagado do banco assim que você entrar.'); return; }
   await flushTomb(true);
   cloudKick();
 }
