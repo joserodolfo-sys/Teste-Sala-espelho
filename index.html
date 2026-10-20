@@ -4217,7 +4217,7 @@ function visitedPath(s, upTo) {
   const out = []; (s.events || []).forEach(e => { const k = keyBase(e.key); if (e.type === 'view' && (upTo == null || e.t <= upTo) && out[out.length - 1] !== k) out.push(k); }); return out;
 }
 function checkMission(s, ev) {
-  const f = FLOWS[s.flow], m = f && f.mission; if (!m || s.result) return;
+  const f = FLOWS[s.flow], m = f && f.mission; if (!m || s.result || m.free) return;
   const hit = (m.ends || []).some(c => c.type === 'view' ? (ev.type === 'view' && keyMatch(ev.key, c.key)) : (ev.type === 'tap' && ev.label === c.label && keyMatch(ev.key, c.key)));
   if (!hit) return;
   const path = (m.path || []).filter(Boolean), vis = visitedPath(s, ev.t);
@@ -4248,6 +4248,7 @@ function resultBadge(s, long) {
   if (r === 'concluiu') { const ex = exploreOf(s), xs = ex ? (long ? ` · depois explorou: ${ex.taps} toque(s) em ${ex.screens} tela(s)` : ` · +${ex.taps} toque(s) depois`) : '';
     return `<span class="rb ok">✓ Concluiu${t}${d.direto === true ? ' · direto' : d.direto === false ? ' · indireto' : ''}${long && d.auto ? ' (detectado)' : ''}${xs}</span>`; }
   if (r === 'desistiu') return `<span class="rb no">✕ Desistiu${t}</span>`;
+  if (r === 'explorou') return `<span class="rb ok">🧭 Explorou${t}</span>`;
   return '<span class="rb no">Não concluiu</span>';
 }
 
@@ -4262,7 +4263,7 @@ function askQuestions(s, done) {
   const ov = document.createElement('div'); ov.className = 'mov'; tv.appendChild(ov);
   const stepResult = () => {
     ov.innerHTML = `<div class="mc"><div class="mi ${ok ? 'ok' : 'no'}">${ok ? '✓' : '•'}</div>
-      <h2>${ok ? 'Missão concluída!' : 'Missão encerrada'}</h2><p class="mn">${esc(m.name)}</p>
+      <h2>${ok ? 'Missão concluída!' : s.result === 'explorou' ? 'Exploração encerrada' : 'Missão encerrada'}</h2><p class="mn">${esc(m.name)}</p>
       ${d.at != null ? `<p class="mt">Tempo: <b>${dur(d.at)}</b></p>` : ''}
       <button class="btn primary big" id="mov-go">${qs.length ? 'Continuar para a avaliação' : nextLabel}</button></div>`;
     ov.querySelector('#mov-go').onclick = () => qs.length ? stepQs() : close();
@@ -4294,7 +4295,7 @@ function viewMissoes() {
     <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></div>
       ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
         const f = FLOWS['M_' + m.id]; return `<tr><td>M${i + 1}</td><td><b>${esc(m.name)}</b><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
-        <td>${(m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>'}</td>
+        <td>${m.free ? '🧭 Exploração livre' : (m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>'}</td>
         <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>`; }).join('')}</tbody></table>`
       : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Roteiros</h2><a class="btn sm primary" href="#/roteiro/novo">＋ Novo roteiro</a></div>
@@ -4359,14 +4360,14 @@ function viewMissaoEd(id) {
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
             <div class="slh" data-for="path"></div></div></section>
         <section class="stp" data-s="4"><div class="sh"><i>4</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
-          <div class="sb"><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
+          <div class="sb"><div class="mtipo" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Termina numa ação ou tela</b> <span class="muted">— o painel detecta quando o participante conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— sem fim definido: o participante explora e você encerra quando quiser</span></span></label></div><div id="m-endbox" ${m.free ? 'hidden' : ''}><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
             <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Definir a última ação na prévia</b>: passe o mouse (o que é clicável fica com contorno vermelho) e clique. O clique não aciona o app, então vale mesmo para um botão que leva a outra tela. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
             <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Definir a última ação na prévia</button></div>
             <label class="chk" style="margin-top:10px"><input type="checkbox" id="m-ae" ${m.autoEnd ? 'checked' : ''}> Encerrar a missão assim que o participante concluir <span class="muted">(sem isso, o painel marca o momento e continua gravando a exploração até você encerrar)</span></label>
             <details class="adv"><summary>Outras formas de definir o fim</summary>
               <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
-              <div class="slh" data-for="end"></div></details></div></section>
+              <div class="slh" data-for="end"></div></details></div><p class="how" id="m-freenote" ${m.free ? '' : 'hidden'}><b>Exploração livre:</b> o painel não marca “concluiu”. Durante o teste, encerre pela bandeja (<b>Encerrar exploração</b>). Na análise aparecem o tempo de exploração, as telas vistas, o caminho e o mapa de calor.</p></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mq" class="lst"></div>
             <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
@@ -4487,7 +4488,7 @@ function viewMissaoEd(id) {
     };
     lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 5' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
     $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
-    const st = { 1: !!($('#mn').value.trim()), 2: !!START, 3: m.steps.length > 0, 4: m.ends.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
+    const st = { 1: !!($('#mn').value.trim()), 2: !!START, 3: m.steps.length > 0, 4: !!m.free || m.ends.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
     Object.entries(st).forEach(([n, ok]) => { const sec = done(n); if (sec) sec.classList.toggle('done', ok); });
   };
   /* lista de telas com busca, aberta dentro do passo que pediu */
@@ -4564,10 +4565,11 @@ function viewMissaoEd(id) {
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
   $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }); draw(); };
   $('#mq-t').onclick = () => { m.questions.push({ type: 'text', text: '' }); draw(); };
+  document.querySelectorAll('[name="m-tipo"]').forEach(rb => { rb.onchange = () => { if (!rb.checked) return; m.free = rb.value === 'livre'; $('#m-endbox').hidden = m.free; $('#m-freenote').hidden = !m.free; draw(); }; });
   $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = START; m.autoEnd = !!$('#m-ae').checked; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
-    syncPath(); const miss = !m.name ? 1 : !m.start ? 2 : !m.ends.length ? 4 : 0;
+    syncPath(); const miss = !m.name ? 1 : !m.start ? 2 : !m.free && !m.ends.length ? 4 : 0;
     if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: confirme onde a missão começa (“Usar esta tela como início”, na prévia).', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
   };
@@ -4602,7 +4604,8 @@ function viewRoteiroEd(id) {
 let NEW_SCRIPT = null, SCRIPT_CUR = null;
 const pct = (a, n) => n ? Math.round(a / n * 100) : 0;
 const avgN = arr => arr.length ? arr.reduce((x, y) => x + y, 0) / arr.length : null;
-function sessResult(s) { return s.result || (s.endedAt ? 'nao_concluiu' : 'em_andamento'); }
+function sessResult(s) { if (!s.result && s.endedAt) { const f = FLOWS[s.flow]; if (f && f.mission && f.mission.free) return 'explorou'; } return s.result || (s.endedAt ? 'nao_concluiu' : 'em_andamento'); }
+function avgScreens(ss) { const a = ss.map(s => { const d = s.resultData || {}; return new Set(visitedPath(s, d.at != null ? d.at : null)).size; }).filter(n => n); return a.length ? avgN(a).toFixed(1).replace('.', ',') : '–'; }
 /* respostas agrupadas pelo texto da pergunta */
 function answersOf(ss) {
   const by = {};
@@ -4616,10 +4619,10 @@ function resultBar(c, n) {
     <div class="rleg">${c.dir || c.ind ? '<span><i class="b-dir"></i>Direto</span><span><i class="b-ind"></i>Indireto</span>' : ''}${c.ok ? '<span><i class="b-ok"></i>Concluiu</span>' : ''}<span><i class="b-des"></i>Desistiu</span><span><i class="b-nc"></i>Não concluiu</span></div>`;
 }
 function missionCounts(m, ss) {
-  const hasPath = !!(m && (m.path || []).length), c = { n: ss.length, dir: 0, ind: 0, ok: 0, des: 0, nc: 0, times: [] };
+  const hasPath = !!(m && (m.path || []).length), c = { n: ss.length, dir: 0, ind: 0, ok: 0, des: 0, nc: 0, exp: 0, times: [] };
   ss.forEach(s => { const r = sessResult(s), d = s.resultData || {};
     if (r === 'concluiu') { if (hasPath && d.direto === true) c.dir++; else if (hasPath && d.direto === false) c.ind++; else c.ok++; if (d.at != null) c.times.push(d.at); }
-    else if (r === 'desistiu') c.des++; else c.nc++; });
+    else if (r === 'desistiu') c.des++; else if (r === 'explorou') { c.exp++; if (d.at != null) c.times.push(d.at); } else c.nc++; });
   c.suc = c.dir + c.ind + c.ok; return c;
 }
 function scaleAvg(ss) { const a = answersOf(ss).flatMap(o => o.nums); return a.length ? (avgN(a)).toFixed(1).replace('.', ',') : '–'; }
@@ -4638,16 +4641,16 @@ function missionStats(flow, ss, rot) {
   return `<div class="card mst" id="mstat">
     <div class="row" style="align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h2 style="margin:0">Resultado da missão</h2>
       <p class="muted" style="margin:4px 0 0">${esc(m.prompt || 'Sem enunciado')}</p>
-      <p class="muted" style="margin:4px 0 0">Termina: ${(m.ends || []).map(x => esc(condLabel(x))).join(' · ou ') || '—'}</p></div>
+      <p class="muted" style="margin:4px 0 0">Termina: ${m.free ? 'exploração livre (sem fim definido)' : (m.ends || []).map(x => esc(condLabel(x))).join(' · ou ') || '—'}</p></div>
       <div class="row" style="gap:8px">${rots.length ? `<select id="mst-rot"><option value="">Todos os roteiros</option>${rots.map(r => `<option value="${esc(r.id)}" ${r.id === rot ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>` : ''}
         <button class="btn sm" id="mst-pdf" type="button">⬇ PDF desta análise</button></div></div>
     ${c.n ? `<div class="grid kpis" style="margin-top:14px">
-      ${kpi('TAXA DE SUCESSO', pct(c.suc, c.n) + '%', c.suc + ' de ' + c.n + ' concluíram')}
+      ${m.free ? kpi('PARTICIPANTES', c.n) + kpi('TEMPO DE EXPLORAÇÃO', c.times.length ? dur(avgN(c.times)) : '–', 'média, até você encerrar') + kpi('TELAS VISTAS', avgScreens(ss), 'média por participante') + kpi('NOTA MÉDIA', scaleAvg(ss), 'escala de 1 a 5') + '</div>' : `      ${kpi('TAXA DE SUCESSO', pct(c.suc, c.n) + '%', c.suc + ' de ' + c.n + ' concluíram')}
       ${hasPath ? kpi('FORAM DIRETO', pct(c.dir, c.n) + '%', c.dir + ' pelo caminho ideal') : ''}
       ${kpi('TEMPO ATÉ CONCLUIR', c.times.length ? dur(avgN(c.times)) : '–', 'média de quem concluiu')}
       ${kpi('NOTA MÉDIA', scaleAvg(ss), 'escala de 1 a 5')}
       ${kpi('DESISTIRAM', pct(c.des, c.n) + '%', c.des + ' participante(s)')}</div>
-    ${resultBar(c, c.n)}
+    ${resultBar(c, c.n)}`}
     <div class="two" style="margin-top:16px;gap:16px">
       <div><h3>Notas</h3>${ans.filter(o => o.nums.length).map(o => { const d = [1, 2, 3, 4, 5].map(v => o.nums.filter(x => x === v).length), mx = Math.max(1, ...d);
         return `<p class="qtt">${esc(o.q)} <b>${avgN(o.nums).toFixed(1).replace('.', ',')}</b></p><div class="dist">${d.map((v, i) => `<div><span style="height:${Math.round(v / mx * 60)}px"></span><i>${i + 1}</i><small>${v}</small></div>`).join('')}</div>`; }).join('') || '<p class="muted">Sem notas registradas.</p>'}</div>
@@ -4673,11 +4676,11 @@ function viewRoteiroAn(id) {
   const ss = sessions.filter(s => s.script === id && s.flow && s.flow.indexOf('M_') === 0 && !s.archived), last = lastPer(ss);
   const pids = [...new Set(ss.map(pidOf))], P = pids.map(pid => { const s0 = ss.find(s => pidOf(s) === pid); return { pid, name: s0.name, age: s0.age }; });
   const cellOf = (pid, m) => last[pid + '|M_' + m.id];
-  const allOk = P.filter(p => ms.every(m => { const s = cellOf(p.pid, m); return s && sessResult(s) === 'concluiu'; })).length;
+  const allOk = P.filter(p => ms.every(m => { const s = cellOf(p.pid, m); return s && /^(concluiu|explorou)$/.test(sessResult(s)); })).length;
   const totals = P.map(p => ms.reduce((t, m) => { const s = cellOf(p.pid, m); return t + (s && s.endedAt ? s.endedAt - s.startedAt : 0); }, 0)).filter(Boolean);
   const cell = s => { if (!s) return '<td class="mx none">—</td>'; const r2 = sessResult(s), d = s.resultData || {};
-    const t = d.at != null ? dur(d.at) : '', cls = r2 === 'concluiu' ? (d.direto === false ? 'ind' : 'ok') : r2 === 'desistiu' ? 'des' : 'nc';
-    const ic = r2 === 'concluiu' ? (d.direto === true ? '✓ direto' : d.direto === false ? '✓ indireto' : '✓') : r2 === 'desistiu' ? '✕ desistiu' : '– não concluiu';
+    const t = d.at != null ? dur(d.at) : '', cls = r2 === 'explorou' ? 'ok' : r2 === 'concluiu' ? (d.direto === false ? 'ind' : 'ok') : r2 === 'desistiu' ? 'des' : 'nc';
+    const ic = r2 === 'explorou' ? '🧭 explorou' : r2 === 'concluiu' ? (d.direto === true ? '✓ direto' : d.direto === false ? '✓ indireto' : '✓') : r2 === 'desistiu' ? '✕ desistiu' : '– não concluiu';
     return `<td class="mx ${cls}" data-go="#/sessao/${s.id}" title="Abrir sessão"><b>${ic}</b>${t ? `<small>${t}</small>` : ''}</td>`; };
   $('#app').innerHTML = `<a class="crumb" href="#/">← Painel</a>
     <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1>Análise do roteiro · ${esc(r.name)}</h1><p class="muted">${ms.map(m => esc(m.name)).join(' → ')}</p></div>
@@ -4689,7 +4692,7 @@ function viewRoteiroAn(id) {
       <tbody>${P.map(p => `<tr><td><b>${esc(p.name)}</b><br><small class="muted">${esc(p.age)} anos</small></td>${ms.map(m => cell(cellOf(p.pid, m))).join('')}</tr>`).join('')}</tbody></table></div></div>
     <div class="card" style="margin-top:16px"><h2>Missões deste roteiro</h2><table><thead><tr><th>Missão</th><th class="r">Sessões</th><th class="r">Sucesso</th><th class="r">Direto</th><th class="r">Tempo até concluir</th><th class="r">Nota</th><th></th></tr></thead>
       <tbody>${ms.map((m, i) => { const s2 = ss.filter(s => s.flow === 'M_' + m.id), c = missionCounts(m, s2);
-        return `<tr><td>M${i + 1}. ${esc(m.name)}</td><td class="r">${c.n}</td><td class="r">${c.n ? pct(c.suc, c.n) + '%' : '–'}</td><td class="r">${(m.path || []).length && c.n ? pct(c.dir, c.n) + '%' : '–'}</td>
+        return `<tr><td>M${i + 1}. ${esc(m.name)}</td><td class="r">${c.n}</td><td class="r">${m.free ? 'exploração' : c.n ? pct(c.suc, c.n) + '%' : '–'}</td><td class="r">${(m.path || []).length && c.n ? pct(c.dir, c.n) + '%' : '–'}</td>
           <td class="r">${c.times.length ? dur(avgN(c.times)) : '–'}</td><td class="r">${scaleAvg(s2)}</td><td class="r"><a class="btn sm" href="#/geral/M_${enc(m.id)}/${enc(id)}">Ver missão</a></td></tr>`; }).join('')}</tbody></table></div>`
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste roteiro. Cadastre um participante escolhendo este roteiro.</div>'}</div>`;
   $('#rot-pdf').onclick = () => pdfOf($('#rotwrap'), 'hsf-roteiro-' + slugName(r.name), 'Roteiro · ' + r.name);
@@ -4740,7 +4743,7 @@ function missionIntro() {
 }
 function cancelTest() {
   const A = ACTIVE; if (!A) return; const s = A.s, f = FLOWS[s.flow];
-  if (f && f.mission && !s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - A.t0, auto: false, cancel: true }); }
+  if (f && f.mission && !s.result) { s.result = f.mission.free ? 'explorou' : 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - A.t0, auto: false, cancel: true }); }
   save(); endTest();
 }
 
@@ -4858,13 +4861,13 @@ function heatPanel(host, flow, sessionsList, vw, vh, st) {
 function missionTray(s) {
   const f = FLOWS[s.flow], mm = f && f.mission; if (!mm) return '';
   return `<div class="mis"><span class="muted">Missão</span><b>${esc(mm.name)}</b>${mm.prompt ? `<p>${esc(mm.prompt)}</p>` : ''}<div id="mis-st">${resultBadge(s, true)}</div>${mm.limit ? `<p class="muted">Tempo limite: ${esc(mm.limit)} min</p>` : ''}
-    <div class="btns"><button class="btn sm" id="mok" ${s.result ? 'disabled' : ''}>✓ Concluiu</button><button class="btn sm" id="mno" ${s.result ? 'disabled' : ''}>✕ Desistiu</button></div></div>`;
+    ${mm.free ? '<p class="muted" style="margin:6px 0 0">🧭 Exploração livre: sem fim definido. Encerre quando quiser.</p>' : ''}<div class="btns"${mm.free ? ' hidden' : ''}><button class="btn sm" id="mok" ${s.result ? 'disabled' : ''}>✓ Concluiu</button><button class="btn sm" id="mno" ${s.result ? 'disabled' : ''}>✕ Desistiu</button></div></div>`;
 }
-function advLabel(s, last) { const mm = FLOWS[s.flow] && FLOWS[s.flow].mission; return mm ? (last ? 'Encerrar missão e finalizar' : 'Encerrar missão → avaliação') : (last ? 'Finalizar teste' : 'Próximo fluxo →'); }
+function advLabel(s, last) { const mm = FLOWS[s.flow] && FLOWS[s.flow].mission; return mm ? (mm.free ? (last ? 'Encerrar exploração e finalizar' : 'Encerrar exploração → avaliação') : last ? 'Encerrar missão e finalizar' : 'Encerrar missão → avaliação') : (last ? 'Finalizar teste' : 'Próximo fluxo →'); }
 function finishMission(s, cont) {
   const f = FLOWS[s.flow]; if (!f || !f.mission) return cont();
   if (s._closing) return; s._closing = true;
-  if (!s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - ACTIVE.t0, auto: false }); }
+  if (!s.result) { s.result = f.mission.free ? 'explorou' : 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: Date.now() - ACTIVE.t0, auto: false }); }
   save(); askQuestions(s, cont);
 }
 /* ================== Teste no iPhone: convite (QR code ou código), espelho ao vivo e modo celular ==================
@@ -5017,7 +5020,7 @@ function closeOpenSessions(list) {
   list.forEach(s => {
     if (s.endedAt) return;
     const last = Math.max(0, ...(s.events || []).map(e => e.t || 0)); s.endedAt = (s.startedAt || Date.now()) + last; s.interrupted = true; n++;
-    const f = FLOWS[s.flow]; if (f && f.mission && !s.result) { s.result = 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: last, auto: false, interrupted: true }); }
+    const f = FLOWS[s.flow]; if (f && f.mission && !s.result) { s.result = f.mission.free ? 'explorou' : 'nao_concluiu'; s.resultData = Object.assign({}, s.resultData, { at: last, auto: false, interrupted: true }); }
   });
   if (n) save(); return n;
 }
