@@ -269,6 +269,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
 .stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.esp-done{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:10px 12px;border-radius:10px;background:#e8f6ee;border:1px solid #9bd3b2;color:#0a5c2d}.esp-done b{font-size:15px}.esp-done span{font-size:12px;color:#2f6b47}.esp-done.pop{animation:espPop .9s ease 2}@keyframes espPop{0%,100%{transform:none}30%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(10,122,60,.18)}}.esp-log li.done{color:#0a7a3c;font-weight:700}
+@media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
 @keyframes hsfspin{to{transform:rotate(360deg)}}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 /* espelho estável: colunas de largura fixa (a legenda do celular e a tela final não empurram o resto) */
@@ -3432,11 +3433,11 @@ function viewHome() {
     }).join('')}</div>
     <div class="card" style="margin-top:24px">
       <div class="row" style="margin-bottom:6px"><h2 style="margin:0">Histórico</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
-      ${P.length ? `<div class="list"><div class="item head"><span>Participante</span><span>Fluxos feitos</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm danger" id="h-del" type="button" hidden>Excluir selecionados</button><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
+      ${P.length ? `<div class="list hlist"><div class="item head"><span><input type="checkbox" id="h-all" title="Selecionar todos"></span><span>Participante</span><span>Fluxos feitos</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
       ${P.slice().reverse().map(p => { const t = sessTotals(p); const open = p.sessions.some(s => !s.endedAt);
         return `<div class="item" data-go="#/participante/${enc(p.pid)}">
-        <span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
+        <span class="hck"><input type="checkbox" data-hsel="${esc(p.pid)}" title="Selecionar"></span><span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
         <span>${Object.keys(SHOWN(p.sessions)).map(k => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${FLOWS[k].name}">${FLOWS[k].n}${n > 1 ? '×' + n : ''}</span>`; }).join(' ')}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
         <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
         <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div>`
@@ -4044,6 +4045,26 @@ function csv(list) {
 const backupObj = list => ({ app: 'hsf-usabilidade', version: 1, exportedAt: new Date().toISOString(), sessions: list });
 const markBackup = () => { try { localStorage.setItem('hsf_backup', JSON.stringify({ at: Date.now() })); } catch (e) {} refreshBanner(); };
 const today = () => new Date().toISOString().slice(0, 10);
+/* Histórico: seleção e exclusão em lote (apaga também na nuvem) */
+document.addEventListener('click', e => { if (e.target.closest('[data-hsel],#h-all,.hck')) e.stopPropagation(); }, true);
+document.addEventListener('change', e => {
+  const t = e.target; if (!t.matches || !(t.matches('[data-hsel]') || t.id === 'h-all')) return;
+  const all = [...document.querySelectorAll('[data-hsel]')];
+  if (t.id === 'h-all') all.forEach(c => { c.checked = t.checked; });
+  const n = all.filter(c => c.checked).length, b = document.getElementById('h-del'), ha = document.getElementById('h-all');
+  if (b) { b.hidden = !n; b.textContent = 'Excluir selecionados (' + n + ')'; }
+  if (ha) { ha.checked = n > 0 && n === all.length; ha.indeterminate = n > 0 && n < all.length; }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#h-del')) return;
+  const pids = [...document.querySelectorAll('[data-hsel]:checked')].map(c => c.dataset.hsel); if (!pids.length) return;
+  if (!confirm('Excluir ' + pids.length + ' participante(s) e todas as sessões deles? Não dá para desfazer.')) return;
+  sessions = sessions.filter(s => !pids.includes(pidOf(s))); save();
+  const tb = tomb(); pids.forEach(pid => { if (!tb.p.includes(pid)) tb.p.push(pid); }); lsSet('hsf_tomb', tb);
+  if (!AUTH) alert('Excluídos só neste navegador. Você não está conectado à nuvem (☁ Entrar): eles ficam pendentes e são apagados do banco assim que você entrar.');
+  else flushTomb(true).then(() => cloudKick());
+  refreshBanner(); route();
+});
 document.addEventListener('click', e => {
   const dp = e.target.closest('[data-delp]');
   if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); refreshBanner(); if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; } return; }
@@ -5282,7 +5303,7 @@ const MIR = { cache: new Map(), cur: null, want: null, vw: 390, vh: 844, d: null
 function mirReset() { MIR.cache.forEach(e => e.fr.remove()); MIR.cache.clear(); MIR.cur = MIR.want = null; MIR.pre = 0; MIR.nome = ''; finReset(); }
 function mirSize() {
   const w = $('#mir-wrap'), ph = $('#mir-phone'), inn = $('#mir-in'), cv = $('#mir-dots'); if (!w) return;
-  const ow = MIR.vw + 24, oh = MIR.vh + 24, k = Math.min(1, Math.max(.4, (window.innerHeight - 170) / oh));
+  const ow = MIR.vw + 24, oh = MIR.vh + 24, k = Math.min(414, Math.max(180, (window.innerHeight - 170) * .477)) / ow;   /* celular com largura fixa na tela: não muda quando o iPhone informa outra medida de tela */
   w.style.width = ow * k + 'px'; w.style.height = oh * k + 'px'; ph.style.width = ow + 'px'; ph.style.height = oh + 'px'; ph.style.transform = 'scale(' + k + ')';
   inn.style.width = MIR.vw + 'px'; inn.style.height = MIR.vh + 'px';
   const fw = $('#fin-wrap'); if (fw) { const f = .5;   /* miniatura da tela final: metade do tamanho do celular mostrado */
