@@ -268,7 +268,10 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .hint2{margin:4px 0 10px;font-size:13px;color:#555;min-height:36px}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
-.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.esp-done{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:10px 12px;border-radius:10px;background:#e8f6ee;border:1px solid #9bd3b2;color:#0a5c2d}.esp-done b{font-size:15px}.esp-done span{font-size:12px;color:#2f6b47}.esp-done.pop{animation:espPop .9s ease 2}@keyframes espPop{0%,100%{transform:none}30%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(10,122,60,.18)}}.esp-log li.done{color:#0a7a3c;font-weight:700}.hx{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;cursor:pointer}.stbox{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:12px 0 4px;padding:10px 12px;border:1px solid #d9e6dd;border-radius:8px;background:#f3faf5;font-size:13px}.stbox b{font-size:15px}.stbox.pend{background:#fff7e6;border-color:#f1d9a3}.stbox .pend{color:#b45309}.stbox .btn{margin-top:4px}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
+.stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.esp-done{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:10px 12px;border-radius:10px;background:#e8f6ee;border:1px solid #9bd3b2;color:#0a5c2d}.esp-done b{font-size:15px}.esp-done span{font-size:12px;color:#2f6b47}.esp-done.pop{animation:espPop .9s ease 2}@keyframes espPop{0%,100%{transform:none}30%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(10,122,60,.18)}}.esp-log li.done{color:#0a7a3c;font-weight:700}
+/* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
+@media(min-width:961px){.esp-side{grid-template-columns:360px auto}}
+.esp-side>.card{min-width:0;box-sizing:border-box}.esp-log li{overflow-wrap:anywhere;min-width:0}.hx{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;cursor:pointer}.stbox{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:12px 0 4px;padding:10px 12px;border:1px solid #d9e6dd;border-radius:8px;background:#f3faf5;font-size:13px}.stbox b{font-size:15px}.stbox.pend{background:#fff7e6;border-color:#f1d9a3}.stbox .pend{color:#b45309}.stbox .btn{margin-top:4px}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
 .sll button.added{color:#0a7a3c}.sll button.added:after{content:'  ✓ adicionada'}
 .capw.picking{outline:3px solid #cc0000;outline-offset:3px}
 .rmis{margin:4px 0 10px}.rmis .rtask{background:#f7f7f9;border-radius:10px;padding:10px 12px;margin-bottom:8px}.rmis .rtask span{display:block;font-size:10px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:4px}.rmis .rtask p{margin:0;font-size:13px}
@@ -14384,10 +14387,11 @@ function askQuestions(s, done) {
     };
     const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
   };
-  const close = () => { s._finishQs = null; ov.remove(); done(); };
+  const close = () => { s._finishQs = null; delete s._modQs; ov.remove(); done(); };
   /* o moderador pode registrar a avaliação pelo notebook (conversando com o participante): o iPhone aplica e segue */
   s._finishQs = (got, skip) => { if (!ov.isConnected) return; if (skip) s.skippedQs = true; else { s.answers = Object.assign({}, got || {}); s.qs = qs.map(q => q.text); s.answeredBy = 'moderador'; } save(); close(); };
-  stepResult();
+  if (s._modQs) ov.innerHTML = `<div class="mc"><div class="mi no">•</div><h2>Missão encerrada</h2><p class="mn">${esc(m.name)}</p><p class="mt">Aguarde um instante…</p></div>`;   /* encerrada pelo notebook: a avaliação é registrada lá */
+  else stepResult();
 }
 
 /* ================== Páginas: fluxos, missões e roteiros ================== */
@@ -15100,9 +15104,10 @@ function viewEspelho(code) {
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
   if (d.status !== 'avaliando') { box.hidden = true; RM.qsKey = null; return; }
-  const key = d.sid + '|' + d.idx; if (RM.qsKey === key && !box.hidden) return; RM.qsKey = key;
+  const nb = d.qsBy === 'notebook', key = (nb ? 'nb|' : 'ip|') + d.sid + '|' + d.idx; if (RM.qsKey === key && !box.hidden) return; RM.qsKey = key;
+  if (!nb) { box.hidden = false; box.innerHTML = '<h3 style="margin:0 0 4px">Avaliação da missão</h3><p class="muted" style="margin:0">O participante está respondendo a avaliação no iPhone.</p>'; return; }
   const qs = d.qs || [], ans = {}; box.hidden = false;
-  box.innerHTML = `<h3 style="margin:0 0 4px">Avaliação da missão</h3><p class="muted" style="margin:0 0 12px">O iPhone está mostrando a avaliação. Se preferir, registre aqui a nota conversando com o participante; o iPhone fecha a avaliação e segue.</p>` +
+  box.innerHTML = `<h3 style="margin:0 0 4px">Avaliação da missão</h3><p class="muted" style="margin:0 0 12px">Você encerrou a missão pelo notebook: registre aqui a nota conversando com o participante. O iPhone aguarda e segue para a próxima quando você enviar.</p>` +
     (qs.length ? qs.map((q, i) => `<div style="margin:0 0 14px"><p style="margin:0 0 6px;font-weight:600">${esc(q.text)}</p>${q.type === 'scale'
       ? `<div class="row" data-q="${i}" style="gap:6px;justify-content:flex-start">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="btn sm" data-v="${n}" style="min-width:40px">${n}</button>`).join('')}</div><div class="row muted" style="font-size:11px;justify-content:space-between;max-width:236px;margin-top:4px"><span>Muito difícil</span><span>Muito fácil</span></div>`
       : `<textarea data-q="${i}" rows="2" style="width:100%" placeholder="Resposta do participante (opcional)"></textarea>`}</div>`).join('') : '<p class="muted">Esta missão não tem perguntas.</p>') +
@@ -15261,7 +15266,7 @@ function liveState() {
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    status, sid: s.id, qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -15282,7 +15287,7 @@ async function phoneCmd() {
     const i = A.s.events.findIndex(x => (x.t || 0) > t); if (i < 0) A.s.events.push(ev); else A.s.events.splice(i, 0, ev);   /* fica na ordem do tempo */
     save();
   }
-  else if (c.cmd === 'skip') { if (!A.s._closing) finishMission(A.s, () => A.next()); }
+  else if (c.cmd === 'skip') { if (!A.s._closing) { A.s._modQs = true; finishMission(A.s, () => A.next()); } }
   else if (c.cmd === 'end') cancelTest();
   else if (c.cmd === 'answers') { if (A.s._finishQs && (!c.sid || c.sid === A.s.id)) A.s._finishQs(c.answers, c.skip); }
   phonePublish(true);
