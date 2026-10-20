@@ -4283,7 +4283,9 @@ function askQuestions(s, done) {
     };
     const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
   };
-  const close = () => { ov.remove(); done(); };
+  const close = () => { s._finishQs = null; ov.remove(); done(); };
+  /* o moderador pode registrar a avaliação pelo notebook (conversando com o participante): o iPhone aplica e segue */
+  s._finishQs = (got, skip) => { if (!ov.isConnected) return; if (skip) s.skippedQs = true; else { s.answers = Object.assign({}, got || {}); s.qs = qs.map(q => q.text); s.answeredBy = 'moderador'; } save(); close(); };
   stepResult();
 }
 
@@ -4920,6 +4922,7 @@ function viewEspelho(code) {
         <div class="card"><div class="row"><span class="rb run" id="esp-badge">Em teste</span><span class="esp-clock" id="esp-clock">0:00</span></div>
           <p class="muted" id="esp-mi" style="margin:10px 0 2px"></p><h2 id="esp-mn" style="margin:0 0 4px"></h2><p class="muted" id="esp-mp" style="margin:0"></p><div id="esp-res" style="margin-top:8px"></div></div>
         <div class="card"><h3 style="margin:0 0 8px">Últimos toques</h3><ol class="esp-log" id="esp-log"></ol></div>
+        <div class="card" id="esp-qs" hidden></div>
         <div class="card esp-cmd"><button class="btn" id="esp-mark">⚑ Marcar momento</button>
           <div class="esp-mkf" id="esp-mkf" hidden><p class="muted" id="esp-mkw"></p>
             <textarea id="esp-mkt" rows="3" maxlength="280" placeholder="O que aconteceu neste momento? (opcional)"></textarea>
@@ -4992,6 +4995,28 @@ function viewEspelho(code) {
   };
   loop();
 }
+/* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
+function renderQs(code, d) {
+  const box = $('#esp-qs'); if (!box) return;
+  if (d.status !== 'avaliando') { box.hidden = true; RM.qsKey = null; return; }
+  const key = d.sid + '|' + d.idx; if (RM.qsKey === key && !box.hidden) return; RM.qsKey = key;
+  const qs = d.qs || [], ans = {}; box.hidden = false;
+  box.innerHTML = `<h3 style="margin:0 0 4px">Avaliação da missão</h3><p class="muted" style="margin:0 0 12px">O iPhone está mostrando a avaliação. Se preferir, registre aqui a nota conversando com o participante; o iPhone fecha a avaliação e segue.</p>` +
+    (qs.length ? qs.map((q, i) => `<div style="margin:0 0 14px"><p style="margin:0 0 6px;font-weight:600">${esc(q.text)}</p>${q.type === 'scale'
+      ? `<div class="row" data-q="${i}" style="gap:6px;justify-content:flex-start">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="btn sm" data-v="${n}" style="min-width:40px">${n}</button>`).join('')}</div><div class="row muted" style="font-size:11px;justify-content:space-between;max-width:236px;margin-top:4px"><span>Muito difícil</span><span>Muito fácil</span></div>`
+      : `<textarea data-q="${i}" rows="2" style="width:100%" placeholder="Resposta do participante (opcional)"></textarea>`}</div>`).join('') : '<p class="muted">Esta missão não tem perguntas.</p>') +
+    `<p class="err" id="esp-qerr"></p><div class="row" style="gap:8px;justify-content:flex-start"><button class="btn primary" id="esp-qok" type="button">${qs.length ? 'Registrar avaliação' : 'Seguir para a próxima'}</button>${qs.length ? '<button class="btn ghost" id="esp-qskip" type="button">Pular avaliação</button>' : ''}</div><p class="muted" id="esp-qmsg" style="margin:8px 0 0"></p>`;
+  box.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const g = b.parentNode; g.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('primary', x === b)); ans[g.dataset.q] = +b.dataset.v; const er = $('#esp-qerr'); if (er) er.textContent = ''; };
+  const sendA = async skip => {
+    if (!skip) { box.querySelectorAll('textarea[data-q]').forEach(t => { if (t.value.trim()) ans[t.dataset.q] = t.value.trim(); });
+      const miss = qs.findIndex((q, i) => q.type === 'scale' && !ans[i]); if (miss >= 0) { $('#esp-qerr').textContent = 'Escolha uma nota de 1 a 5.'; return; } }
+    RM.cmdN = Math.max(Date.now(), (RM.cmdN || 0) + 1);
+    try { await remPut('cmd-' + code, 'cmd', { n: RM.cmdN, cmd: 'answers', at: Date.now(), sid: d.sid, answers: skip ? {} : ans, skip: !!skip });
+      $('#esp-qmsg').textContent = skip ? 'Avaliação pulada. O iPhone segue para a próxima.' : 'Avaliação enviada ao iPhone.'; box.querySelectorAll('button,textarea').forEach(b => { b.disabled = true; }); }
+    catch (e) { $('#esp-qerr').textContent = 'Não foi possível enviar ao iPhone: ' + e.message; }
+  };
+  $('#esp-qok').onclick = () => sendA(false); const sk = $('#esp-qskip'); if (sk) sk.onclick = () => sendA(true);
+}
 async function renderLive(code, d) {
   if (d.status === 'fim') return finishMirror(code, d);
   if (!$('#esp-live')) return;
@@ -5000,6 +5025,7 @@ async function renderLive(code, d) {
   $('#esp-mi').textContent = 'Missão ' + (d.idx + 1) + ' de ' + d.total + (d.name ? ' · ' + d.name : '');
   $('#esp-mn').textContent = d.mission ? d.mission.name : (FLOWS[d.flow] ? FLOWS[d.flow].name : '');
   $('#esp-mp').textContent = d.mission ? (d.mission.prompt || '') : '';
+  renderQs(code, d);
   const rd = d.rd || {}, done = d.result === 'concluiu';
   $('#esp-res').innerHTML = done ? `<div class="esp-done${MIR.doneSeen === d.idx ? '' : ' pop'}"><b>✓ Concluiu a missão${rd.at != null ? ' em ' + dur(rd.at) : ''}${rd.direto === true ? ' · direto' : rd.direto === false ? ' · indireto' : ''}</b><span id="esp-xp">${rd.explore ? 'Continua explorando. Encerre quando quiser.' : ''}</span></div>`
     : d.result ? `<span class="rb no">${d.result === 'desistiu' ? 'Desistiu' : 'Não concluiu'}</span>` : '';
@@ -5147,7 +5173,7 @@ function liveState() {
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    status, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    status, sid: s.id, qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -5170,6 +5196,7 @@ async function phoneCmd() {
   }
   else if (c.cmd === 'skip') { if (!A.s._closing) finishMission(A.s, () => A.next()); }
   else if (c.cmd === 'end') cancelTest();
+  else if (c.cmd === 'answers') { if (A.s._finishQs && (!c.sid || c.sid === A.s.id)) A.s._finishQs(c.answers, c.skip); }
   phonePublish(true);
 }
 /* no iPhone a nuvem só recebe (não baixa o histórico inteiro) */
