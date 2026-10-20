@@ -211,7 +211,7 @@ td.r,th.r{text-align:right}
 .psteps .fimb{font-style:normal;font-size:11px;font-weight:700;color:#0a7a3c;background:#e6f6ec;padding:2px 8px;border-radius:99px}
 .psteps .pa{display:flex;gap:4px;align-items:center}.psteps .pa .x{color:#999;font-size:13px;padding:2px 6px}
 .psteps.cmp li{padding:4px 8px;font-size:12px}
-body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}body.phone{padding-top:var(--sat)}body.phone #test{top:var(--sat)}#sbband{display:none}body.phone #sbband{display:block;position:fixed;left:0;right:0;top:0;height:var(--sat);z-index:2147483000;background:var(--sbc,#cc0000);transition:background-color .2s;pointer-events:none}
+body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}body.phone{padding-top:var(--sat)}body.phone #test{top:var(--sat)}.ph-sync{margin:10px 0 0;font-size:13px;line-height:1.4}.ph-sync:empty{display:none}.ph-sync.pend{color:#9a5b00}.ph-sync.ok{color:#0a7a3c;font-weight:700}#sbband{display:none}body.phone #sbband{display:block;position:fixed;left:0;right:0;top:0;height:var(--sat);z-index:2147483000;background:var(--sbc,#cc0000);transition:background-color .2s;pointer-events:none}
 .ph-wrap{max-width:420px;margin:0 auto;padding:40px 22px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;text-align:center}
 .ph-wrap h1{margin:0}.ph-logo{align-self:center;background:var(--red);color:#fff;font-weight:700;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:6px 12px;border-radius:999px}
 .ph-wrap input{font:inherit;font-size:16px;padding:12px;border:1px solid #d3d3d5;border-radius:10px;text-align:center}
@@ -5038,7 +5038,8 @@ function viewCelular(code) {
     <div class="ph-or"><span>ou</span></div>
     <input id="ph-code" inputmode="numeric" maxlength="7" placeholder="000 000" autocomplete="off">
     <button class="btn big" id="ph-go">Entrar no teste</button><p class="err" id="ph-err"></p>
-    <p class="muted ph-acc">Conectado como ${esc(AUTH.email || 'conta do painel')} · <a href="#" id="ph-out">sair</a></p></div>`;
+    <p class="muted ph-acc">Conectado como ${esc(AUTH.email || 'conta do painel')} · <a href="#" id="ph-out">sair</a></p><p class="ph-sync" id="ph-sync"></p></div>`;
+  phSyncUI();
   $('#ph-scan').onclick = startScan; $('#ph-stop').onclick = stopScan;
   $('#ph-code').oninput = e => { const d = e.target.value.replace(/\D/g, '').slice(0, 6); e.target.value = fmtCode(d); if (d.length === 6) joinTest(d); };
   $('#ph-go').onclick = () => joinTest($('#ph-code').value);
@@ -5326,7 +5327,19 @@ setInterval(() => { if (!window.HSF_PHONE) return; const t = document.getElement
 /* iPhone: durante o teste, a gravação vai para a nuvem a cada 20 s (se o app for fechado, o notebook ainda tem quase tudo) */
 setInterval(() => { if (window.HSF_PHONE && ACTIVE && RM.code) phoneSync(); }, 20000);
 /* iPhone reaberto depois de ser fechado no meio de um teste: fecha aquela sessão e envia o que faltou */
-if (window.HSF_PHONE) setTimeout(() => { if (ACTIVE) return; if (closeOpenSessions(sessions.filter(s => !s.endedAt))) phoneSync(); }, 2500);
+async function phoneFlush() {
+  if (!window.HSF_PHONE || ACTIVE || !AUTH || RM.syncing) return phSyncUI();
+  if (!pendingSessions().length) return phSyncUI();
+  phSyncUI('enviando'); const ok = await phoneSync(); phSyncUI(ok ? 'ok' : 'erro');
+}
+function phSyncUI(st) {
+  const el = document.getElementById('ph-sync'); if (!el) return; const n = window.HSF_PHONE ? pendingSessions().length : 0;
+  el.className = 'ph-sync' + (n ? ' pend' : st === 'ok' ? ' ok' : '');
+  el.textContent = n ? (st === 'erro' ? `☁ ${n} teste(s) guardado(s) neste iPhone. Sem conexão com a nuvem agora: tento de novo sozinho.` : `☁ Enviando ${n} teste(s) guardado(s) neste iPhone… Mantenha o app aberto.`)
+    : (st === 'ok' ? '✓ Testes guardados enviados para a nuvem.' : '');
+}
+if (window.HSF_PHONE) setTimeout(() => { if (ACTIVE) return; closeOpenSessions(sessions.filter(s => !s.endedAt)); phoneFlush(); }, 2500);
+setInterval(phoneFlush, 15000);
 
 route();
 updateCloudUI();
