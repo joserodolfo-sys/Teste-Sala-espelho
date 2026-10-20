@@ -13609,7 +13609,7 @@ function viewNova() {
   };
   draw();
   NEW_SCRIPT = null;
-  $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k]);
+  $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k] && !FLOWS[k].legacy);
     order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
   { const dflt = entLive('scripts').find(r => r.isDefault); if (dflt) { $('#f-rot').value = dflt.id; $('#f-rot').onchange(); } }
   makeSortable($('#fl'), keys => { order = keys; draw(); });
@@ -14875,7 +14875,7 @@ document.addEventListener('click', e => {
   if (u) { e.preventDefault(); e.stopPropagation(); useAttempt(u.dataset.useatt); route(); return; }
   const r = e.target.closest('[data-redorot]');
   if (r) { e.preventDefault(); e.stopPropagation(); const p = getP(r.dataset.redorot), sc = entGet('scripts', ($('#rd-rot') || {}).value); if (!p || !sc) return;
-    const plan = (sc.missions || []).map(x => 'M_' + x).filter(k => FLOWS[k]); if (!plan.length) return;
+    const plan = (sc.missions || []).map(x => 'M_' + x).filter(k => FLOWS[k] && !FLOWS[k].legacy); if (!plan.length) return;
     if (!confirm('Refazer o roteiro “' + sc.name + '” com ' + p.name + '? As tentativas anteriores dessas missões ficam arquivadas.')) return;
     archivePrev(p.pid, plan); NEW_SCRIPT = sc.id; beginBattery(p, plan); }
 }, true);
