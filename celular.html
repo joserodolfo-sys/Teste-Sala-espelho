@@ -246,7 +246,7 @@ body.phone #top{display:none!important}
 .lst{display:flex;flex-direction:column;gap:6px}.lst .li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;font-size:13px}.lst .li>span{flex:1}.lst .x{border:0;background:none;color:#b00;cursor:pointer;font-size:14px}
 .rb{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}.rb.ok{background:#e6f6ec;color:#0a7a3c}.rb.no{background:#fdecee;color:#b00020}.rb.run{background:#eef2ff;color:#3346a8}
 .tray .mis{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #e5e5e5;border-radius:10px;margin:8px 0}.tray .mis p{margin:0;font-size:13px}
-.grip.ok{background:#0a7a3c!important;color:#fff!important}
+.grip.ok{background:transparent!important;color:#fff!important}.grip.ok i{display:flex;align-items:center;justify-content:center;gap:4px;width:auto;min-width:50px;height:20px;padding:0 10px;margin-top:3px;border-radius:12px;border:1px solid rgba(255,255,255,.8);background:#3cb878;box-shadow:0 2px 8px rgba(20,90,50,.25)}.grip.ok i::before{content:'';width:10px;height:10px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.6 5.3l2.2 2.2L8.4 2.9' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}.grip.ok:hover i{background:#34a96d}
 [hidden]{display:none!important}
 .steps{display:flex;flex-direction:column;gap:12px}
 .stp{background:#fff;border:1px solid #e3e3e3;border-radius:12px;padding:14px 16px;transition:border-color .15s,box-shadow .15s}
@@ -13675,7 +13675,7 @@ window.addEventListener('message', e => {
   const m = e.data; if (!m || !m.hsf) return;
   const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
-  s.events.push(ev); checkMission(s, ev);
+  s.events.push(ev); checkMission(s, ev); if (ev.type === 'view') barTint();
 });
 function endTest() {
   const A = ACTIVE; clearInterval(A.clock); clearInterval(A.auto); clearTimeout(A.chk);
@@ -15365,6 +15365,29 @@ function mirPreload(flow, key) {
   const next = mirNext(flow, key).find(k => !MIR.cache.has(flow + '|' + k)); if (!next) return;
   MIR.pre++; const e = mirLoad(flow, next, MIR.d ? MIR.d.st : 0); if (e) e.ready.then(() => setTimeout(() => mirPreload(flow, key), 50));
 }
+
+/* ---------- iPhone: a cor da barra de status acompanha o cabeçalho da tela exibida (cor de tema da página) ---------- */
+function topColorOf(fr) {
+  try {
+    let win = fr.contentWindow, doc = fr.contentDocument, x = fr.clientWidth / 2, y = 2;
+    for (let i = 0; i < 5 && doc; i++) {
+      let el = doc.elementFromPoint(x, y); if (!el) return null;
+      if (el.tagName === 'IFRAME') {           /* telas dentro de camadas (módulos): desce para dentro delas */
+        const rr = el.getBoundingClientRect(), sx = el.clientWidth ? rr.width / el.clientWidth : 1, sy = el.clientHeight ? rr.height / el.clientHeight : 1;
+        x = (x - rr.left) / sx; y = Math.max(1, (y - rr.top) / sy); win = el.contentWindow; doc = el.contentDocument; continue;
+      }
+      for (; el; el = el.parentElement) { const bg = win.getComputedStyle(el).backgroundColor; if (bg && bg !== 'transparent' && !/rgba\([^)]*,\s*0\)$/.test(bg)) return bg; }
+      return null;
+    }
+  } catch (e) {}
+  return null;
+}
+function setThemeColor(c) { let m = document.querySelector('meta[name="theme-color"]'); if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); } if (m.content !== c) m.content = c; }
+function barTint(now) {
+  if (!window.HSF_PHONE || !ACTIVE || !ACTIVE.frame) return;
+  clearTimeout(barTint.t); barTint.t = setTimeout(() => { const c = topColorOf(ACTIVE.frame); if (c) setThemeColor(c); }, now ? 0 : 450);   /* depois da transição de tela */
+}
+setInterval(() => { const t = document.getElementById('test'); if (window.HSF_PHONE && ACTIVE && t && !t.hidden) barTint(true); }, 1500);
 
 route();
 updateCloudUI();
