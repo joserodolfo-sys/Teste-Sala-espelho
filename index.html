@@ -269,6 +269,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
 .stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.esp-done{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:10px 12px;border-radius:10px;background:#e8f6ee;border:1px solid #9bd3b2;color:#0a5c2d}.esp-done b{font-size:15px}.esp-done span{font-size:12px;color:#2f6b47}.esp-done.pop{animation:espPop .9s ease 2}@keyframes espPop{0%,100%{transform:none}30%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(10,122,60,.18)}}.esp-log li.done{color:#0a7a3c;font-weight:700}
+@keyframes hsfspin{to{transform:rotate(360deg)}}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 @media(min-width:961px){.esp-side{grid-template-columns:360px auto}}
 .esp-side>.card{min-width:0;box-sizing:border-box}.esp-log li{overflow-wrap:anywhere;min-width:0}.hx{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;cursor:pointer}.stbox{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:12px 0 4px;padding:10px 12px;border:1px solid #d9e6dd;border-radius:8px;background:#f3faf5;font-size:13px}.stbox b{font-size:15px}.stbox.pend{background:#fff7e6;border-color:#f1d9a3}.stbox .pend{color:#b45309}.stbox .btn{margin-top:4px}.capu{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:8px 10px;background:#fff7e6;border:1px solid #f1d9a3;border-radius:8px;font-size:13px}.capu[hidden]{display:none}.capu .capn{flex:1;min-width:160px}
@@ -4226,10 +4227,10 @@ function checkMission(s, ev) {
   const path = (m.path || []).filter(Boolean), vis = visitedPath(s, ev.t);
   /* direto: seguiu o caminho esperado na ordem, sem desvios, até o ponto em que concluiu */
   const direto = path.length ? (vis.length <= path.length && vis.every((k, i) => keyMatch(k, path[i]))) : null;
-  s.result = 'concluiu'; s.resultData = Object.assign({}, s.resultData, { at: ev.t, auto: true, how: ev.type === 'view' ? 'tela' : 'toque', direto, explore: !m.autoEnd });
+  s.result = 'concluiu'; s.resultData = Object.assign({}, s.resultData, { at: ev.t, auto: true, how: ev.type === 'view' ? 'tela' : 'toque', direto, explore: true });
   s.events.push({ type: 'marker', t: ev.t, label: '✓ Concluiu (detectado' + (ev.type === 'view' ? ', ao chegar na tela' : ', no toque') + ')', done: true });
   save(); missionUI();
-  if (!m.autoEnd) return;                                   /* padrão: segue gravando a exploração; o moderador encerra pela setinha ou pelo notebook */
+  return;   /* nunca encerra sozinha: o moderador encerra pelo celular ou pelo notebook */                                   /* padrão: segue gravando a exploração; o moderador encerra pela setinha ou pelo notebook */
   const sid = s.id; setTimeout(() => { if (ACTIVE && ACTIVE.s && ACTIVE.s.id === sid && ACTIVE.next) finishMission(ACTIVE.s, ACTIVE.next); }, 900);
 }
 function missionUI() {
@@ -4289,7 +4290,7 @@ function askQuestions(s, done) {
   const close = () => { s._finishQs = null; delete s._modQs; ov.remove(); done(); };
   /* o moderador pode registrar a avaliação pelo notebook (conversando com o participante): o iPhone aplica e segue */
   s._finishQs = (got, skip) => { if (!ov.isConnected) return; if (skip) s.skippedQs = true; else { s.answers = Object.assign({}, got || {}); s.qs = qs.map(q => q.text); s.answeredBy = 'moderador'; } save(); close(); };
-  if (s._modQs) ov.innerHTML = `<div class="mc"><div class="mi no">•</div><h2>Missão encerrada</h2><p class="mn">${esc(m.name)}</p><p class="mt">Aguarde um instante…</p></div>`;   /* encerrada pelo notebook: a avaliação é registrada lá */
+  if (s._modQs) ov.innerHTML = `<div class="mc"><div class="hsf-wait"></div><h2>${last ? 'Finalizando o teste…' : 'Preparando o próximo fluxo…'}</h2></div>`;   /* encerrada pelo notebook: a avaliação é registrada lá */
   else stepResult();
 }
 
@@ -4369,7 +4370,7 @@ function viewMissaoEd(id) {
           <div class="sb"><div class="mtipo" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Termina numa ação ou tela</b> <span class="muted">— o painel detecta quando o participante conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— sem fim definido: o participante explora e você encerra quando quiser</span></span></label></div><div id="m-endbox" ${m.free ? 'hidden' : ''}><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
             <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Definir a última ação na prévia</b>: passe o mouse (o que é clicável fica com contorno vermelho) e clique. O clique não aciona o app, então vale mesmo para um botão que leva a outra tela. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
             <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Definir a última ação na prévia</button></div>
-            <label class="chk" style="margin-top:10px"><input type="checkbox" id="m-ae" ${m.autoEnd ? 'checked' : ''}> Encerrar a missão assim que o participante concluir <span class="muted">(sem isso, o painel marca o momento e continua gravando a exploração até você encerrar)</span></label>
+            <p class="muted" style="margin:10px 0 0">Ao concluir, o painel marca o momento e continua gravando: a análise separa o que aconteceu até a conclusão e depois dela. A missão só termina quando você encerra, pelo celular (setinha no topo) ou pelo notebook; a nota é dada onde você encerrou.</p><input type="checkbox" id="m-ae" hidden>
             <details class="adv"><summary>Outras formas de definir o fim</summary>
               <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
