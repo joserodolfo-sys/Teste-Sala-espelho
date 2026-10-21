@@ -4562,8 +4562,9 @@ function askQuestions(s, done) {
    (cada tela ainda existe? o botão tocado ainda aparece?) e o conteúdo das telas-chave (impressão digital guardada na missão).
    Uma tela que sumiu cai na tela padrão do módulo ou numa página em branco: é isso que o painel detecta. */
 const CHK_LS = 'hsf_chk_v1';
-const CHK = (() => { let o = {}; try { o = JSON.parse(localStorage.getItem(CHK_LS)) || {}; } catch (e) {} o.res = o.res || {}; o.sig = o.sig || {}; return o; })();
-const chkSave = () => { try { localStorage.setItem(CHK_LS, JSON.stringify({ res: CHK.res, sig: CHK.sig, at: CHK.at })); } catch (e) {} };
+const CHK_VER = 2;   /* muda quando a forma de conferir muda: os resultados antigos são descartados e refeitos sozinhos */
+const CHK = (() => { let o = {}; try { o = JSON.parse(localStorage.getItem(CHK_LS)) || {}; } catch (e) {} if (o.v !== CHK_VER) { o = {}; } o.v = CHK_VER; o.res = o.res || {}; o.sig = o.sig || {}; return o; })();
+const chkSave = () => { try { localStorage.setItem(CHK_LS, JSON.stringify({ v: CHK_VER, res: CHK.res, sig: CHK.sig, at: CHK.at })); } catch (e) {} };
 let CHK_RUN = null, CHK_STALE = false, CHK_LAST_AUTO = 0; const CHK_OPEN = new Set();
 const chkHash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 const chkNorm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -4589,7 +4590,10 @@ function chkLabels(d) {   /* textos e rótulos do que é tocável e está visív
   return set;
 }
 /* o rótulo gravado no toque é cortado em 40 caracteres: compara pelo começo do texto */
-function chkHasLabel(set, label) { const L = chkNorm(label).replace(/\s+/g, ''); for (const t of set) if (t.replace(/\s+/g, '').startsWith(L)) return true; return false; }
+function chkHasLabel(set, label) {
+  const sp = x => x.replace(/\s+/g, ''), L = sp(chkNorm(label)), L2 = sp(chkNorm(label).replace(/\s*\([^)]*\)\s*$/, ''));   /* sem o sufixo “(sem destino)”, “(cálculo)”… */
+  for (const t of set) { const T = sp(t); if (T.startsWith(L) || (L2.length >= 6 && (T.startsWith(L2) || (T.length >= 6 && L2.startsWith(T))))) return true; } return false;
+}
 function chkHook(doc) {   /* o próprio app informa qual tela está mostrando (gancho HSF_KEY ou HSF_HA.keyOf), quando existe */
   try { for (const d of chkDocs(doc)) { const w = d.defaultView; if (!w) continue; if (typeof w.HSF_KEY === 'function') return w.HSF_KEY(); if (w.HSF_HA && typeof w.HSF_HA.keyOf === 'function') return w.HSF_HA.keyOf(); } } catch (e) {}
   return null;
@@ -4612,14 +4616,17 @@ function chkRender(flowId, key, needHook) {
 }
 const chkFallbackKey = key => { const b = String(key).split('#')[0], i = b.indexOf('@'); return i < 0 ? null : b.slice(0, i) + '@__nao_existe__'; };
 /* a tela existe? (declarada no manifesto, ou renderiza algo diferente da tela padrão do módulo) */
-async function chkKeyState(flowId, man, key) {
-  const vals = Object.values(man.startKeys || {}), base = String(key).split('#')[0], known = vals.includes(key) || vals.includes(base);
+async function chkKeyState(flowId, man, key, base) {
+  /* folha (bottomsheet): o painel não consegue redesenhá-la sozinha (abre em branco); confere a tela que fica por baixo */
+  if (String(key).startsWith('sheet~')) { const u = await chkKeyState(flowId, man, String(key).slice(6), base); return u.st === 'bad' ? { st: 'bad', msg: 'a tela por baixo da folha ' + u.msg } : { st: 'ok', sheet: true, r: null }; }
+  const vals = Object.values(man.startKeys || {}), b0 = String(key).split('#')[0], known = vals.includes(key) || vals.includes(b0);
   const r = await chkRender(flowId, key, !known); if (!r) return { st: 'bad', msg: 'não consegui carregar o app' };
   if (r.hook != null) { const sx = k => String(k).split('#')[0]; if (sx(r.hook) === sx(key)) return { st: 'ok', r }; return { st: 'bad', msg: 'não existe mais (o app abre “' + keyName(r.hook) + '”)', r }; }
   if (known) return { st: 'ok', r };
-  const fbk = chkFallbackKey(key); if (!fbk) return { st: 'warn', msg: 'não consegui confirmar que a tela existe', r };
+  const fbk = chkFallbackKey(key); if (!fbk) return { st: 'ok', r, inconclusivo: true };
+  /* em branco: só é problema se a tela já teve conteúdo na conferência anterior */
+  if (!r.tam) return base && base[key] && base[key].t ? { st: 'bad', msg: 'abre em branco (antes tinha conteúdo)', r } : { st: 'ok', r, inconclusivo: true };
   const fb = await chkRender(flowId, fbk);
-  if (!r.tam) return { st: 'bad', msg: 'abre em branco (a tela não existe mais)', r };
   if (fb && fb.h === r.h) return { st: 'bad', msg: 'não existe mais (abre a tela padrão do módulo)', r };
   return { st: 'ok', r };
 }
@@ -4641,7 +4648,7 @@ function chkDiff(a, b) {
 }
 async function chkMission(m, sigs) {
   const items = [], add = (part, st, msg, more) => items.push(Object.assign({ part, st, msg }, more || {}));
-  const fl = entGet('flows', m.flow) || entLive('flows')[0], flowId = 'M_' + m.id, newFp = {}, base = m.fp || {};
+  const fl = entGet('flows', m.flow) || entLive('flows')[0], flowId = 'M_' + m.id, newFp = {}, base = m.fp || {}, newLb = {}, baseLb = m.lb || {};
   if (!fl || !FLOWS[flowId]) add('Início', 'bad', 'o app (fluxo) desta missão não existe mais');
   else {
     const man = await loadManifest(fl.url, true);
@@ -4657,24 +4664,24 @@ async function chkMission(m, sigs) {
         const conc = k => k && String(k).indexOf('*') < 0;
         const steps = Array.isArray(m.steps) && m.steps.length ? m.steps : (m.path || []).map(k => ({ t: 'v', key: k }));
         const ends = m.ends || [], keys = [...new Set(steps.map(x => x.key).concat(ends.map(c => c.key)).filter(conc))], state = {};
-        await Promise.all(keys.map(async k => { state[k] = await chkKeyState(flowId, man, k); }));
-        const vals = Object.values(man.startKeys || {}), lbl = (s, label) => !!(label && s && s.r && s.r.tam && !chkHasLabel(s.r.labels, label));
-        const ruim = [], aviso = [], fim = [], fimAv = [];
+        await Promise.all(keys.map(async k => { state[k] = await chkKeyState(flowId, man, k, base); }));
+        const vals = Object.values(man.startKeys || {}), lbl = (s, k, label, tag) => { if (!label || !s || !s.r || !s.r.tam) return null; const lk = tag + '|' + k + '|' + chkNorm(label), achou = chkHasLabel(s.r.labels, label); newLb[lk] = achou ? 1 : 0; return baseLb[lk] === 1 && !achou ? lk : null; };   /* o rótulo é montado na hora do toque: nem sempre existe no redesenho. Só avisa se ele aparecia antes */
+        const ruim = [], aviso = [], fim = [], fimAv = [], lbP = [], lbF = [];
         steps.forEach((x, i) => { if (!conc(x.key)) return; const s = state[x.key], nome = keyName(x.key), pfx = 'passo ' + (i + 1) + ' · ';
           if (s.st === 'bad') ruim.push(pfx + nome + ': ' + s.msg); else if (s.st === 'warn') aviso.push(pfx + nome + ': ' + s.msg);
-          else if (x.t === 'tap' && lbl(s, x.label)) aviso.push(pfx + 'o botão “' + x.label + '” não aparece na tela ' + nome); });
+          else if (x.t === 'tap') { const lk = lbl(s, x.key, x.label, 'p'); if (lk) { aviso.push(pfx + 'o botão “' + x.label + '” deixou de aparecer na tela ' + nome + ' (aparecia na última conferência)'); lbP.push(lk); } } });
         ends.forEach(c => { const nome = c.key ? keyName(c.key) : 'qualquer tela';
           if (c.key && !conc(c.key)) { if (!vals.some(k => keyMatch(k, c.key))) fimAv.push('nenhuma tela do app combina com “' + nome + '”'); return; }
           if (c.key) { const s = state[c.key]; if (s.st === 'bad') fim.push(nome + ': ' + s.msg); else if (s.st === 'warn') fimAv.push(nome + ': ' + s.msg);
-            else if (c.type === 'tap' && lbl(s, c.label)) fimAv.push('o botão “' + c.label + '” não aparece na tela ' + nome); } });
+            else if (c.type === 'tap') { const lk = lbl(s, c.key, c.label, 'f'); if (lk) { fimAv.push('o botão “' + c.label + '” deixou de aparecer na tela ' + nome + ' (aparecia na última conferência)'); lbF.push(lk); } } } });
         const n = steps.length, ntap = steps.filter(x => x.t === 'tap').length;
         if (!steps.length) add('Caminho ideal', 'warn', 'a missão não tem caminho ideal gravado');
-        else if (ruim.length) add('Caminho ideal', 'bad', ruim.length + ' tela(s) do caminho com problema', { lines: ruim.concat(aviso) });
-        else if (aviso.length) add('Caminho ideal', 'warn', aviso.length + ' ponto(s) para conferir', { lines: aviso });
+        else if (ruim.length) add('Caminho ideal', 'bad', ruim.length + ' tela(s) do caminho com problema', { lines: ruim.concat(aviso), lbChanged: lbP });
+        else if (aviso.length) add('Caminho ideal', 'warn', aviso.length + ' ponto(s) para conferir', { lines: aviso, lbChanged: lbP });
         else add('Caminho ideal', 'ok', (n - ntap) + ' tela(s) e ' + ntap + ' toque(s) conferidos');
         if (!ends.length) add('Tela final', 'bad', 'a missão não tem condição de fim');
-        else if (fim.length) add('Tela final', 'bad', 'o fim não pode mais ser alcançado', { lines: fim.concat(fimAv) });
-        else if (fimAv.length) add('Tela final', 'warn', 'confira o fim da missão', { lines: fimAv });
+        else if (fim.length) add('Tela final', 'bad', 'o fim não pode mais ser alcançado', { lines: fim.concat(fimAv), lbChanged: lbF });
+        else if (fimAv.length) add('Tela final', 'warn', 'confira o fim da missão', { lines: fimAv, lbChanged: lbF });
         else add('Tela final', 'ok', ends.map(c => condLabel(c)).join(' · '));
         const mud = [];
         keys.forEach(k => { const s = state[k]; if (s && s.st === 'ok' && s.r && s.r.tam) { newFp[k] = { h: s.r.h, s: s.r.s, t: s.r.t }; if (base[k] && base[k].h !== s.r.h) mud.push({ key: k, antes: base[k].t || base[k].s, agora: s.r.t }); } });
@@ -4683,10 +4690,10 @@ async function chkMission(m, sigs) {
     }
   }
   const rank = { ok: 0, warn: 1, bad: 2 }, st = items.reduce((a, x) => rank[x.st] > rank[a] ? x.st : a, 'ok');
-  const res = CHK.res[m.id] = { st, at: Date.now(), items, newFp, mAt: -1, appSig: fl ? (sigs || {})[baseUrl(fl.url)] || '' : '' };
+  const res = CHK.res[m.id] = { st, at: Date.now(), items, newFp, newLb, mAt: -1, appSig: fl ? (sigs || {})[baseUrl(fl.url)] || '' : '' };
   /* primeira conferência: guarda a impressão digital das telas que existem, como base para as próximas */
-  const novos = Object.keys(newFp).filter(k => !base[k]);
-  if (novos.length) { const cur = entGet('missions', m.id); if (cur) { const mm = JSON.parse(JSON.stringify(cur)); mm.fp = Object.assign({}, mm.fp || {}); novos.forEach(k => { mm.fp[k] = newFp[k]; }); entSave('missions', mm); } }
+  const novos = Object.keys(newFp).filter(k => !base[k]), novosLb = Object.keys(newLb).filter(k => baseLb[k] === undefined);
+  if (novos.length || novosLb.length) { const cur = entGet('missions', m.id); if (cur) { const mm = JSON.parse(JSON.stringify(cur)); mm.fp = Object.assign({}, mm.fp || {}); mm.lb = Object.assign({}, mm.lb || {}); novos.forEach(k => { mm.fp[k] = newFp[k]; }); novosLb.forEach(k => { mm.lb[k] = newLb[k]; }); entSave('missions', mm); } }
   const now = entGet('missions', m.id); res.mAt = now ? now.updatedAt : -1; chkSave(); return res;
 }
 async function chkNeeded() {
@@ -4711,10 +4718,9 @@ function chkAutoSoon() {   /* ao abrir o Painel ou as Missões: se o app mudou d
     if (await chkNeeded()) { CHK_STALE = true; chkUI(); chkAll(); } }, 2500);
 }
 function chkAccept(id) {
-  const r = CHK.res[id], cur = entGet('missions', id); if (!r || !cur) return; const mm = JSON.parse(JSON.stringify(cur)); mm.fp = mm.fp || {};
-  r.items.forEach(x => (x.fpChanged || []).forEach(k => { if (r.newFp[k]) mm.fp[k] = r.newFp[k]; }));
-  entSave('missions', mm); r.items = r.items.filter(x => !x.fpChanged);
-  const rank = { ok: 0, warn: 1, bad: 2 }; r.st = r.items.reduce((a, x) => rank[x.st] > rank[a] ? x.st : a, 'ok'); r.mAt = entGet('missions', id).updatedAt; chkSave();
+  const r = CHK.res[id], cur = entGet('missions', id); if (!r || !cur) return; const mm = JSON.parse(JSON.stringify(cur)); mm.fp = mm.fp || {}; mm.lb = mm.lb || {};
+  r.items.forEach(x => { (x.fpChanged || []).forEach(k => { if (r.newFp[k]) mm.fp[k] = r.newFp[k]; }); (x.lbChanged || []).forEach(k => { if (r.newLb && r.newLb[k] !== undefined) mm.lb[k] = r.newLb[k]; }); });
+  entSave('missions', mm);
 }
 const chkFresh = m => { const r = CHK.res[m.id]; return r && (r.mAt === m.updatedAt || r.mAt === -1) ? r : null; };
 function chkPill(m) {
@@ -4726,7 +4732,7 @@ function chkPill(m) {
 function chkDetail(m) {
   const r = chkFresh(m); if (!r) return '<p class="muted" style="margin:0">Ainda não conferida (ou editada depois da última conferência).</p>'; const ic = { ok: '✓', warn: '⚠', bad: '✖' };
   return `<div class="chkd">${r.items.map(x => `<div class="ci ${x.st}"><b>${ic[x.st]} ${esc(x.part)}</b> · ${esc(x.msg)}${(x.lines || []).length ? `<ul>${x.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}</div>`).join('')}
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-chkone="${esc(m.id)}" type="button">Conferir de novo</button>${r.items.some(x => x.fpChanged) ? `<button class="btn sm" data-chkacc="${esc(m.id)}" type="button" title="Guarda o conteúdo atual como o correto">Aceitar as mudanças</button>` : ''}<span class="muted">conferida em ${dt(r.at)}</span></div></div>`;
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-chkone="${esc(m.id)}" type="button">Conferir de novo</button>${r.items.some(x => x.fpChanged || (x.lbChanged || []).length) ? `<button class="btn sm" data-chkacc="${esc(m.id)}" type="button" title="Guarda o conteúdo atual como o correto">Aceitar as mudanças</button>` : ''}<span class="muted">conferida em ${dt(r.at)}</span></div></div>`;
 }
 function chkBannerHTML() {
   const hint = (bg, bd, fg, h) => `<div class="hint" style="background:${bg};border-color:${bd};color:${fg}">${h}</div>`;
@@ -4776,7 +4782,7 @@ function viewMissoes() {
     const cd = e.target.closest('[data-chkd]'); if (cd) { const id = cd.dataset.chkd; if (CHK_OPEN.has(id)) CHK_OPEN.delete(id); else CHK_OPEN.add(id); viewMissoes(); }
     if (e.target.closest('#chk-all') || e.target.closest('[data-chkgo]')) chkAll();
     const co = e.target.closest('[data-chkone]'); if (co) { CHK_OPEN.add(co.dataset.chkone); chkAll(co.dataset.chkone); }
-    const ca = e.target.closest('[data-chkacc]'); if (ca) { chkAccept(ca.dataset.chkacc); chkUI(); viewMissoes(); }
+    const ca = e.target.closest('[data-chkacc]'); if (ca) { chkAccept(ca.dataset.chkacc); CHK_OPEN.add(ca.dataset.chkacc); chkAll(ca.dataset.chkacc); }
   };
   if (fl.some(f => !MAN[baseUrl(f.url)] && !MANFAIL[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)] || MANFAIL[baseUrl(f.url)])) viewMissoes(); });
 }
