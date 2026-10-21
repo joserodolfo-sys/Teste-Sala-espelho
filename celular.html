@@ -247,6 +247,8 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .capi{display:flex;flex-direction:column;gap:10px;margin-top:12px}.capi>div{display:flex;flex-direction:column;gap:4px;padding:8px;border:1px solid #eee;border-radius:8px}.capi b{font-size:13px}
 .lst{display:flex;flex-direction:column;gap:6px}.lst .li{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e5e5e5;border-radius:8px;background:#fafafa;font-size:13px}.lst .li>span{flex:1}.lst .x{border:0;background:none;color:#b00;cursor:pointer;font-size:14px}
 .rb{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}.rb.ok{background:#e6f6ec;color:#0a7a3c}.rb.no{background:#fdecee;color:#b00020}.rb.run{background:#eef2ff;color:#3346a8}
+.rb.wr{background:#fff4d6;color:#8a5a00}
+.chkd{padding:8px 4px 10px}.chkd .ci{margin:3px 0;font-size:13px}.chkd .ci.bad{color:#7a0016}.chkd .ci.warn{color:#8a5a00}.chkd .ci.ok{color:#0a7a3c}.chkd .ci ul{margin:3px 0 4px 18px;color:#444}.chkr td{background:#fafafa;border-top:0}
 .tray .mis{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #e5e5e5;border-radius:10px;margin:8px 0}.tray .mis p{margin:0;font-size:13px}
 .grip.ok{background:transparent!important;color:#fff!important}.grip.ok i{display:flex;align-items:center;justify-content:center;gap:4px;width:auto;min-width:50px;height:20px;padding:0 10px;margin-top:3px;border-radius:12px;border:1px solid rgba(255,255,255,.8);background:#3cb878;box-shadow:0 2px 8px rgba(20,90,50,.25)}.grip.ok i::before{content:'';width:10px;height:10px;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.6 5.3l2.2 2.2L8.4 2.9' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}.grip.ok:hover i{background:#34a96d}
 [hidden]{display:none!important}
@@ -13535,7 +13537,7 @@ function viewHome() {
   $('#app').innerHTML = `
     <div class="row"><div><h1>Participantes</h1><p class="muted">Os dados ficam salvos neste navegador. Baixe um backup (JSON) de vez em quando.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova">+ Novo participante</a></div></div>
-    <div id="chk"></div>
+    <div id="chk"></div><div id="cchk"></div>
     <p class="muted" data-cloudb style="margin:6px 0 0"></p>
     <div class="grid kpis">
       ${kpi('PARTICIPANTES', P.length)}${kpi('SESSÕES', sessions.length, 'um fluxo = uma sessão')}
@@ -13562,7 +13564,7 @@ function viewHome() {
         <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div>`
       : `<div class="empty">Nenhum participante ainda.<br>Clique em <b>Novo participante</b> para começar um teste.</div>`}
     </div>`;
-  checkFlows(); updateCloudUI(); cloudKick();
+  checkFlows(); chkUI(); chkAutoSoon(); updateCloudUI(); cloudKick();
 }
 
 /* ================== Visualizar fluxos (sem iniciar teste) ================== */
@@ -13618,7 +13620,7 @@ function viewNova() {
           <div><label>Idade *</label><input type="number" id="f-age" min="1" max="120" inputmode="numeric"></div></div>
         <div><label>Roteiro</label><select id="f-rot"><option value="">Escolher missões manualmente</option>${entLive('scripts').map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.isDefault ? ' (padrão)' : ''}</option>`).join('')}</select></div>
         <div><div class="row" style="margin-bottom:6px"><label style="margin:0">Missões e ordem do teste</label><button class="btn sm" id="shuf" type="button">⤮ Sortear ordem</button></div>
-          <div class="pick" id="fl"></div>
+          <div class="pick" id="fl"></div><div id="f-chk"></div>
           <p class="muted" style="margin-top:6px">A ordem fica registrada no relatório, porque os fluxos compartilham telas e o primeiro influencia os seguintes.</p></div>
         <div><label>Observações (opcional)</label><textarea id="f-obs" placeholder="Perfil, experiência com consórcio, contexto…"></textarea></div>
         <p class="err" id="f-err"></p>
@@ -13627,6 +13629,7 @@ function viewNova() {
     </div>`;
   const draw = () => {
     const act = order.filter(k => on[k]);
+    { const w = $('#f-chk'); if (w) w.innerHTML = chkWarnHTML(act); }
     $('#fl').innerHTML = order.map((k, i) => { const f = FLOWS[k];
       return `<div class="fo ${on[k] ? '' : 'off'}" data-k="${k}"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''} aria-label="Incluir fluxo ${f.n}"><div><b>${f.n}. ${f.name}</b><span class="s">${f.sub}</span></div>
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Subir">▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''} aria-label="Descer">▼</button></div>`; }).join('');
@@ -14489,15 +14492,15 @@ const vLabel = (scr, sel) => tokLabel(sel) || (selDecl(scr, sel) ? MANSCR[scr].s
 const stOrd = st => st === 'normal' ? 0 : st === 'calc' ? 1 : st.indexOf('v~') === 0 ? 2 : 3;
 
 /* ---------- manifesto do app (lido do início do arquivo, sem baixar o app inteiro) ---------- */
-const MAN = {}, MANSCR = {};
+const MAN = {}, MANSCR = {}, MANFAIL = {};   /* MANFAIL: endereços cuja leitura do manifesto falhou (para não ficar "lendo…" para sempre) */
 const baseUrl = u => String(u || '').split('?')[0];
 async function loadManifest(url, force) {
   const u = baseUrl(url); if (!u) return null; if (MAN[u] && !force) return MAN[u];
   let txt = '';
-  try { const r = await fetch(u + '?m=' + Date.now(), { headers: { Range: 'bytes=0-65535' }, cache: 'no-store' }); txt = await r.text(); } catch (e) { return null; }
-  const i = txt.indexOf('id="hsf-manifest">'); if (i < 0) return null;
-  let m = null; try { m = JSON.parse(txt.slice(i + 18, txt.indexOf('<\/script>', i))); } catch (e) { return null; }
-  MAN[u] = m; applyManifest(m); return m;
+  try { const r = await fetch(u + '?m=' + Date.now(), { headers: { Range: 'bytes=0-65535' }, cache: 'no-store' }); txt = await r.text(); } catch (e) { MANFAIL[u] = 1; return null; }
+  const i = txt.indexOf('id="hsf-manifest">'); if (i < 0) { MANFAIL[u] = 1; return null; }
+  let m = null; try { m = JSON.parse(txt.slice(i + 18, txt.indexOf('<\/script>', i))); } catch (e) { MANFAIL[u] = 1; return null; }
+  delete MANFAIL[u]; MAN[u] = m; applyManifest(m); return m;
 }
 function applyManifest(m) {
   (m.screens || []).forEach(sc => {
@@ -14655,15 +14658,206 @@ function askQuestions(s, done) {
 }
 
 /* ================== Páginas: fluxos, missões e roteiros ================== */
+/* ================== Conferência das missões: o app mudou e algo quebrou? ==================
+   Compara cada missão com o app publicado: início (o ponto de partida existe e abre a tela esperada), caminho ideal e tela final
+   (cada tela ainda existe? o botão tocado ainda aparece?) e o conteúdo das telas-chave (impressão digital guardada na missão).
+   Uma tela que sumiu cai na tela padrão do módulo ou numa página em branco: é isso que o painel detecta. */
+const CHK_LS = 'hsf_chk_v1';
+const CHK = (() => { let o = {}; try { o = JSON.parse(localStorage.getItem(CHK_LS)) || {}; } catch (e) {} o.res = o.res || {}; o.sig = o.sig || {}; return o; })();
+const chkSave = () => { try { localStorage.setItem(CHK_LS, JSON.stringify({ res: CHK.res, sig: CHK.sig, at: CHK.at })); } catch (e) {} };
+let CHK_RUN = null, CHK_STALE = false, CHK_LAST_AUTO = 0; const CHK_OPEN = new Set();
+const chkHash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const chkNorm = s => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+function chkPool(n) { let run = 0; const q = []; const next = () => { if (run >= n || !q.length) return; run++; const t = q.shift(); t.fn().then(t.ok, t.no).then(() => { run--; next(); }); }; return fn => new Promise((ok, no) => { q.push({ fn, ok, no }); next(); }); }
+const CHK_REND = chkPool(4), CHK_PROBE = chkPool(2), CHK_CACHE = new Map();
+/* assinatura do arquivo do app no site (muda quando você sobe uma versão nova) */
+async function chkSig(url) { const u = baseUrl(url); if (!u) return ''; try { const r = await fetch(u, { method: 'HEAD', cache: 'no-store' }); if (!r.ok) return ''; return [r.headers.get('etag'), r.headers.get('last-modified'), r.headers.get('content-length')].join('|'); } catch (e) { return ''; } }
+function chkDocs(d, out, depth) {   /* o documento e os quadros visíveis dentro dele (módulos embutidos) */
+  out = out || []; depth = depth || 0; out.push(d);
+  if (depth < 3) d.querySelectorAll('iframe').forEach(f => { try { const r = f.getBoundingClientRect(); if (r.width > 0 && r.height > 0 && deepVisible(f) && f.contentDocument && f.contentDocument.body) chkDocs(f.contentDocument, out, depth + 1); } catch (e) {} });
+  return out;
+}
+function chkVisible(d) {
+  const t = [];
+  chkDocs(d).forEach(doc => { const tw = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT); let n;
+    while ((n = tw.nextNode())) { const s = n.textContent.replace(/\s+/g, ' ').trim(); if (!s) continue; const p = n.parentElement;
+      if (!p || /^(SCRIPT|STYLE|NOSCRIPT)$/.test(p.tagName) || !deepVisible(p)) continue; const r = p.getBoundingClientRect(); if (r.width <= 0 || r.height <= 0) continue; t.push(s); } });
+  return t.join(' ').slice(0, 4000);
+}
+function chkLabels(d) {   /* textos e rótulos do que é tocável e está visível (inclui camadas por cima da tela ativa) */
+  const set = new Set();
+  chkDocs(d).forEach(doc => doc.querySelectorAll('[data-label],button,a,[data-act],[data-nav],[data-go],.hotspot,.btn').forEach(el => { if (!deepVisible(el)) return; const dl = el.getAttribute('data-label'); if (dl) set.add(chkNorm(dl)); const tx = chkNorm(el.textContent); if (tx && tx.length < 90) set.add(tx); }));
+  return set;
+}
+/* o rótulo gravado no toque é cortado em 40 caracteres: compara pelo começo do texto */
+function chkHasLabel(set, label) { const L = chkNorm(label).replace(/\s+/g, ''); for (const t of set) if (t.replace(/\s+/g, '').startsWith(L)) return true; return false; }
+function chkHook(doc) {   /* o próprio app informa qual tela está mostrando (gancho HSF_KEY ou HSF_HA.keyOf), quando existe */
+  try { for (const d of chkDocs(doc)) { const w = d.defaultView; if (!w) continue; if (typeof w.HSF_KEY === 'function') return w.HSF_KEY(); if (w.HSF_HA && typeof w.HSF_HA.keyOf === 'function') return w.HSF_HA.keyOf(); } } catch (e) {}
+  return null;
+}
+function chkRender(flowId, key, needHook) {
+  const f = FLOWS[flowId]; if (!f) return Promise.resolve(null);
+  const ck = baseUrl(f.file) + '|' + (f.logged ? 1 : 0) + '|' + key; if (CHK_CACHE.has(ck)) return CHK_CACHE.get(ck);
+  const pr = CHK_REND(() => new Promise(async res => {
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-9000px;top:0;width:393px;height:1400px;border:0'; fr.setAttribute('aria-hidden', 'true'); document.body.append(fr);
+    try { await setStaticFrame(fr, flowId, key, 0, 852); } catch (e) {}
+    let n = 0, last = '', est = 0; const t = setInterval(() => {
+      let tx = '', hook = null, multi = false; try { const d = fr.contentDocument; if (d && d.body) { tx = chkVisible(d); hook = chkHook(d); multi = d.querySelectorAll('.screen').length >= 10; } } catch (e) {}
+      if (tx && tx === last) est++; else est = 0; last = tx; n++;
+      /* espera pelo menos 5 s (módulos embutidos aparecem depois); em telas fora do manifesto, espera também o app informar a tela */
+      const pronto = est >= 6 && n >= 20 && (!needHook || hook != null || !multi);
+      if (pronto || n > (needHook ? 84 : 56) || (!tx && n > 26 && !needHook)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), labels, hook }); }
+    }, 250);
+  }));
+  CHK_CACHE.set(ck, pr); return pr;
+}
+const chkFallbackKey = key => { const b = String(key).split('#')[0], i = b.indexOf('@'); return i < 0 ? null : b.slice(0, i) + '@__nao_existe__'; };
+/* a tela existe? (declarada no manifesto, ou renderiza algo diferente da tela padrão do módulo) */
+async function chkKeyState(flowId, man, key) {
+  const vals = Object.values(man.startKeys || {}), base = String(key).split('#')[0], known = vals.includes(key) || vals.includes(base);
+  const r = await chkRender(flowId, key, !known); if (!r) return { st: 'bad', msg: 'não consegui carregar o app' };
+  if (r.hook != null) { const sx = k => String(k).split('#')[0]; if (sx(r.hook) === sx(key)) return { st: 'ok', r }; return { st: 'bad', msg: 'não existe mais (o app abre “' + keyName(r.hook) + '”)', r }; }
+  if (known) return { st: 'ok', r };
+  const fbk = chkFallbackKey(key); if (!fbk) return { st: 'warn', msg: 'não consegui confirmar que a tela existe', r };
+  const fb = await chkRender(flowId, fbk);
+  if (!r.tam) return { st: 'bad', msg: 'abre em branco (a tela não existe mais)', r };
+  if (fb && fb.h === r.h) return { st: 'bad', msg: 'não existe mais (abre a tela padrão do módulo)', r };
+  return { st: 'ok', r };
+}
+function chkProbeStart(fl, startId) {
+  return CHK_PROBE(() => new Promise(res => {
+    const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-9000px;top:0;width:393px;height:852px;border:0'; fr.setAttribute('aria-hidden', 'true');
+    let done = false, tm = 0; const fin = k => { if (done) return; done = true; window.removeEventListener('message', on); clearTimeout(tm); fr.remove(); res(k); };
+    const on = e => { const d = e.data; if (e.source === fr.contentWindow && d && d.hsf && d.ev && d.ev.type === 'view') fin(d.ev.key); };
+    window.addEventListener('message', on); tm = setTimeout(() => fin(null), 12000);
+    fr.src = furl(fl.url, 'start=' + encodeURIComponent(startId) + '&rec=1&v=' + Date.now()); document.body.append(fr);
+  }));
+}
+/* mostra o trecho onde o texto da tela mudou */
+function chkDiff(a, b) {
+  a = a || ''; b = b || ''; let i = 0; const L = Math.min(a.length, b.length); while (i < L && a[i] === b[i]) i++;
+  if (i >= L && a.length === b.length) return 'mudou em outra parte da tela (mais abaixo)';
+  const cut = (t, j) => (j > 30 ? '…' : '') + t.slice(Math.max(0, j - 30), j + 50).trim() + (t.length > j + 50 ? '…' : '');
+  return 'antes: “' + cut(a, i) + '” · agora: “' + cut(b, i) + '”';
+}
+async function chkMission(m, sigs) {
+  const items = [], add = (part, st, msg, more) => items.push(Object.assign({ part, st, msg }, more || {}));
+  const fl = entGet('flows', m.flow) || entLive('flows')[0], flowId = 'M_' + m.id, newFp = {}, base = m.fp || {};
+  if (!fl || !FLOWS[flowId]) add('Início', 'bad', 'o app (fluxo) desta missão não existe mais');
+  else {
+    const man = await loadManifest(fl.url, true);
+    if (!man) add('Início', 'bad', 'não consegui ler o manifesto do app (arquivo ausente ou sem manifesto)');
+    else {
+      const st0 = m.start ? startOf(fl, m.start) : null;
+      if (!st0) add('Início', 'bad', 'o ponto de partida “' + (m.start || 'não definido') + '” não existe mais neste app');
+      else { const want = (man.startKeys || {})[m.start], got = await chkProbeStart(fl, m.start);
+        if (got == null) add('Início', 'warn', 'o início existe, mas não consegui confirmar a tela que ele abre (tempo esgotado)');
+        else if (want && got !== want) add('Início', 'warn', 'abre em “' + keyName(got) + '”, e não em “' + keyName(want) + '”');
+        else add('Início', 'ok', 'abre em “' + st0.label + '”'); }
+      if (!m.free) {
+        const conc = k => k && String(k).indexOf('*') < 0;
+        const steps = Array.isArray(m.steps) && m.steps.length ? m.steps : (m.path || []).map(k => ({ t: 'v', key: k }));
+        const ends = m.ends || [], keys = [...new Set(steps.map(x => x.key).concat(ends.map(c => c.key)).filter(conc))], state = {};
+        await Promise.all(keys.map(async k => { state[k] = await chkKeyState(flowId, man, k); }));
+        const vals = Object.values(man.startKeys || {}), lbl = (s, label) => !!(label && s && s.r && s.r.tam && !chkHasLabel(s.r.labels, label));
+        const ruim = [], aviso = [], fim = [], fimAv = [];
+        steps.forEach((x, i) => { if (!conc(x.key)) return; const s = state[x.key], nome = keyName(x.key), pfx = 'passo ' + (i + 1) + ' · ';
+          if (s.st === 'bad') ruim.push(pfx + nome + ': ' + s.msg); else if (s.st === 'warn') aviso.push(pfx + nome + ': ' + s.msg);
+          else if (x.t === 'tap' && lbl(s, x.label)) aviso.push(pfx + 'o botão “' + x.label + '” não aparece na tela ' + nome); });
+        ends.forEach(c => { const nome = c.key ? keyName(c.key) : 'qualquer tela';
+          if (c.key && !conc(c.key)) { if (!vals.some(k => keyMatch(k, c.key))) fimAv.push('nenhuma tela do app combina com “' + nome + '”'); return; }
+          if (c.key) { const s = state[c.key]; if (s.st === 'bad') fim.push(nome + ': ' + s.msg); else if (s.st === 'warn') fimAv.push(nome + ': ' + s.msg);
+            else if (c.type === 'tap' && lbl(s, c.label)) fimAv.push('o botão “' + c.label + '” não aparece na tela ' + nome); } });
+        const n = steps.length, ntap = steps.filter(x => x.t === 'tap').length;
+        if (!steps.length) add('Caminho ideal', 'warn', 'a missão não tem caminho ideal gravado');
+        else if (ruim.length) add('Caminho ideal', 'bad', ruim.length + ' tela(s) do caminho com problema', { lines: ruim.concat(aviso) });
+        else if (aviso.length) add('Caminho ideal', 'warn', aviso.length + ' ponto(s) para conferir', { lines: aviso });
+        else add('Caminho ideal', 'ok', (n - ntap) + ' tela(s) e ' + ntap + ' toque(s) conferidos');
+        if (!ends.length) add('Tela final', 'bad', 'a missão não tem condição de fim');
+        else if (fim.length) add('Tela final', 'bad', 'o fim não pode mais ser alcançado', { lines: fim.concat(fimAv) });
+        else if (fimAv.length) add('Tela final', 'warn', 'confira o fim da missão', { lines: fimAv });
+        else add('Tela final', 'ok', ends.map(c => condLabel(c)).join(' · '));
+        const mud = [];
+        keys.forEach(k => { const s = state[k]; if (s && s.st === 'ok' && s.r && s.r.tam) { newFp[k] = { h: s.r.h, s: s.r.s, t: s.r.t }; if (base[k] && base[k].h !== s.r.h) mud.push({ key: k, antes: base[k].t || base[k].s, agora: s.r.t }); } });
+        if (mud.length) add('Conteúdo', 'warn', mud.length + ' tela(s) mudaram de conteúdo desde a última conferência', { fpChanged: mud.map(x => x.key), lines: mud.map(x => keyName(x.key) + ' — ' + chkDiff(x.antes, x.agora)) });
+      }
+    }
+  }
+  const rank = { ok: 0, warn: 1, bad: 2 }, st = items.reduce((a, x) => rank[x.st] > rank[a] ? x.st : a, 'ok');
+  const res = CHK.res[m.id] = { st, at: Date.now(), items, newFp, mAt: -1, appSig: fl ? (sigs || {})[baseUrl(fl.url)] || '' : '' };
+  /* primeira conferência: guarda a impressão digital das telas que existem, como base para as próximas */
+  const novos = Object.keys(newFp).filter(k => !base[k]);
+  if (novos.length) { const cur = entGet('missions', m.id); if (cur) { const mm = JSON.parse(JSON.stringify(cur)); mm.fp = Object.assign({}, mm.fp || {}); novos.forEach(k => { mm.fp[k] = newFp[k]; }); entSave('missions', mm); } }
+  const now = entGet('missions', m.id); res.mAt = now ? now.updatedAt : -1; chkSave(); return res;
+}
+async function chkNeeded() {
+  let need = !CHK.at;
+  for (const fl of entLive('flows')) { const u = baseUrl(fl.url); if (!MAN[u]) continue; const s = await chkSig(fl.url); if (s && CHK.sig[u] !== s) need = true; }
+  return need;
+}
+async function chkAll(only) {
+  if (CHK_RUN) return; const ms = (only ? [entGet('missions', only)] : entLive('missions')).filter(Boolean); if (!ms.length) return;
+  CHK_RUN = { done: 0, total: ms.length }; chkUI();
+  const sigs = {}; for (const fl of entLive('flows')) { const u = baseUrl(fl.url); if (!(u in sigs)) sigs[u] = await chkSig(fl.url); }
+  const fila = ms.slice();
+  await Promise.all([1, 2, 3].map(async () => { while (fila.length) { const m = fila.shift();
+    try { await chkMission(entGet('missions', m.id) || m, sigs); } catch (e) { CHK.res[m.id] = { st: 'warn', at: Date.now(), items: [{ part: 'Conferência', st: 'warn', msg: 'não consegui concluir a conferência desta missão (' + ((e && e.message) || e) + ')' }], newFp: {}, mAt: -1 }; chkSave(); }
+    CHK_RUN.done++; chkUI(); } }));
+  if (!only) { Object.assign(CHK.sig, sigs); CHK.at = Date.now(); CHK_STALE = false; } chkSave(); CHK_RUN = null; chkUI();
+}
+function chkAutoSoon() {   /* ao abrir o Painel ou as Missões: se o app mudou desde a última conferência, confere sozinho */
+  if (Date.now() - CHK_LAST_AUTO < 120000) return; CHK_LAST_AUTO = Date.now();
+  setTimeout(async () => { if (CHK_RUN || ACTIVE || /^#\/(teste|espelho|fim)/.test(location.hash) || !entLive('missions').length) return;
+    await Promise.all(entLive('flows').map(f => loadManifest(f.url)));
+    if (await chkNeeded()) { CHK_STALE = true; chkUI(); chkAll(); } }, 2500);
+}
+function chkAccept(id) {
+  const r = CHK.res[id], cur = entGet('missions', id); if (!r || !cur) return; const mm = JSON.parse(JSON.stringify(cur)); mm.fp = mm.fp || {};
+  r.items.forEach(x => (x.fpChanged || []).forEach(k => { if (r.newFp[k]) mm.fp[k] = r.newFp[k]; }));
+  entSave('missions', mm); r.items = r.items.filter(x => !x.fpChanged);
+  const rank = { ok: 0, warn: 1, bad: 2 }; r.st = r.items.reduce((a, x) => rank[x.st] > rank[a] ? x.st : a, 'ok'); r.mAt = entGet('missions', id).updatedAt; chkSave();
+}
+const chkFresh = m => { const r = CHK.res[m.id]; return r && (r.mAt === m.updatedAt || r.mAt === -1) ? r : null; };
+function chkPill(m) {
+  if (CHK_RUN && !chkFresh(m)) return '<span class="rb run">conferindo…</span>';
+  const r = chkFresh(m); if (!r) return '<span class="rb" style="background:#eee;color:#666">' + (CHK.res[m.id] ? 'editada · conferir' : 'não conferida') + '</span>';
+  const cls = r.st === 'ok' ? 'ok' : r.st === 'warn' ? 'wr' : 'no', txt = r.st === 'ok' ? '✓ ok' : r.st === 'warn' ? '⚠ atenção' : '✖ quebrou';
+  return `<button type="button" class="rb ${cls}" data-chkd="${esc(m.id)}" title="Conferida em ${dt(r.at)}. Clique para ver os detalhes" style="border:0;cursor:pointer">${txt}</button>`;
+}
+function chkDetail(m) {
+  const r = chkFresh(m); if (!r) return '<p class="muted" style="margin:0">Ainda não conferida (ou editada depois da última conferência).</p>'; const ic = { ok: '✓', warn: '⚠', bad: '✖' };
+  return `<div class="chkd">${r.items.map(x => `<div class="ci ${x.st}"><b>${ic[x.st]} ${esc(x.part)}</b> · ${esc(x.msg)}${(x.lines || []).length ? `<ul>${x.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}</div>`).join('')}
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-chkone="${esc(m.id)}" type="button">Conferir de novo</button>${r.items.some(x => x.fpChanged) ? `<button class="btn sm" data-chkacc="${esc(m.id)}" type="button" title="Guarda o conteúdo atual como o correto">Aceitar as mudanças</button>` : ''}<span class="muted">conferida em ${dt(r.at)}</span></div></div>`;
+}
+function chkBannerHTML() {
+  const hint = (bg, bd, fg, h) => `<div class="hint" style="background:${bg};border-color:${bd};color:${fg}">${h}</div>`;
+  if (CHK_RUN) return hint('#eef2ff', '#c7d0f5', '#2b3a8c', `<b>Conferindo as missões…</b> ${CHK_RUN.done} de ${CHK_RUN.total}${CHK_STALE ? ' · o app foi atualizado desde a última conferência' : ''}`);
+  const ms = entLive('missions'); if (!ms.length) return '';
+  if (CHK_STALE) return hint('#fff4d6', '#f0d98a', '#6b4a00', '<b>O app foi atualizado</b> desde a última conferência. <button class="btn sm" data-chkgo type="button" style="margin-left:6px">Conferir agora</button>');
+  const rs = ms.map((m, i) => ({ n: 'M' + (i + 1), r: chkFresh(m) })).filter(x => x.r), bad = rs.filter(x => x.r.st === 'bad'), warn = rs.filter(x => x.r.st === 'warn');
+  if (bad.length) return hint('#fdecee', '#f4b7be', '#7a0016', `<b>${bad.length} missão(ões) com problema:</b> ${bad.map(x => x.n).join(', ')} · <a href="#/missoes">ver detalhes</a>`);
+  if (warn.length) return hint('#fff4d6', '#f0d98a', '#6b4a00', `<b>${warn.length} missão(ões) para conferir:</b> ${warn.map(x => x.n).join(', ')} · <a href="#/missoes">ver detalhes</a>`);
+  if (rs.length && rs.length === ms.length && CHK.at) return `<p class="muted" style="margin:6px 0">✓ Missões conferidas em ${dt(CHK.at)} · tudo certo</p>`;
+  return '';
+}
+function chkUI() { const el = $('#cchk'); if (el) el.innerHTML = chkBannerHTML(); if (location.hash.indexOf('#/missoes') === 0 && $('#chk-all')) viewMissoes(); }
+function chkWarnHTML(keys) {   /* ao cadastrar o participante: só avisa, não impede o teste */
+  const li = []; keys.forEach(k => { const f = FLOWS[k]; if (!f || !f.mission) return; const r = chkFresh(f.mission); if (!r || r.st === 'ok') return; const x = r.items.find(i => i.st === r.st);
+    li.push(`<li><b>${esc(f.n)}. ${esc(f.name)}</b>: ${r.st === 'bad' ? '✖' : '⚠'} ${esc(x ? x.part + ' — ' + x.msg : '')}</li>`); });
+  return li.length ? `<div class="hint" style="background:#fff4d6;border-color:#f0d98a;color:#6b4a00;margin-top:8px"><b>Atenção:</b> a conferência encontrou pontos nestas missões:<ul style="margin:4px 0 4px 18px">${li.join('')}</ul>Veja os detalhes em <a href="#/missoes">Missões</a>. Você pode iniciar o teste mesmo assim.</div>` : '';
+}
 function viewMissoes() {
+  chkAutoSoon();
   const fl = entLive('flows'), ms = entLive('missions'), sc = entLive('scripts');
   $('#app').innerHTML = `<div class="form" style="max-width:980px">
     <div><a class="crumb" href="#/">← Painel</a><h1>Missões</h1><p class="muted">Defina onde cada tarefa começa e o que conta como concluída. O painel detecta o fim sozinho durante o teste.</p></div>
-    <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></div>
-      ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
+    <div id="cchk">${chkBannerHTML()}</div>
+    <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><span style="display:flex;gap:8px"><button class="btn sm" id="chk-all" type="button" title="Confere se o início, o caminho ideal e a tela final de cada missão ainda funcionam no app publicado"${CHK_RUN ? ' disabled' : ''}>Conferir missões</button><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></span></div>
+      ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th>Conferência</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
         const f = FLOWS['M_' + m.id]; return `<tr><td>M${i + 1}</td><td><b>${esc(m.name)}</b><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
         <td>${m.free ? '🧭 Exploração livre' : (m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>'}</td>
-        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>`; }).join('')}</tbody></table>`
+        <td>${chkPill(m)}</td>
+        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>${CHK_OPEN.has(m.id) ? `<tr class="chkr"><td></td><td colspan="5">${chkDetail(m)}</td></tr>` : ''}`; }).join('')}</tbody></table>`
       : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Roteiros</h2><a class="btn sm primary" href="#/roteiro/novo">＋ Novo roteiro</a></div>
       <p class="muted">Um roteiro é a sequência de missões de um teste. O roteiro marcado como <b>★ padrão</b> já vem selecionado ao cadastrar um participante.</p>
@@ -14672,17 +14866,31 @@ function viewMissoes() {
     <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
       <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
       <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b><br><span class="muted">${esc(f.url)}</span></td>
-        <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a></td></tr>`; }).join('')}</tbody></table></div>
+        <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : MANFAIL[baseUrl(f.url)] ? '<span class="rb no" title="Não encontrei o manifesto neste endereço (ou o site não permite a leitura)">sem manifesto</span>' : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a> <button class="btn sm ghost" data-delf="${esc(f.id)}" type="button">Excluir</button></td></tr>`; }).join('')}</tbody></table></div>
   </div>`;
   $('#app').onclick = e => {
     const d = e.target.closest('[data-delm]'), du = e.target.closest('[data-dupm]'), ds = e.target.closest('[data-dels]');
     if (d && confirm('Excluir esta missão? As sessões já gravadas continuam no histórico.')) { entDelete('missions', d.dataset.delm); viewMissoes(); }
     if (du) { const o = JSON.parse(JSON.stringify(entGet('missions', du.dataset.dupm))); o.id = 'm' + uid(); o.name += ' (cópia)'; entSave('missions', o); viewMissoes(); }
     if (ds && confirm('Excluir este roteiro?')) { entDelete('scripts', ds.dataset.dels); viewMissoes(); }
+    const df = e.target.closest('[data-delf]'); if (df && deleteFlow(df.dataset.delf)) viewMissoes();
+    const cd = e.target.closest('[data-chkd]'); if (cd) { const id = cd.dataset.chkd; if (CHK_OPEN.has(id)) CHK_OPEN.delete(id); else CHK_OPEN.add(id); viewMissoes(); }
+    if (e.target.closest('#chk-all') || e.target.closest('[data-chkgo]')) chkAll();
+    const co = e.target.closest('[data-chkone]'); if (co) { CHK_OPEN.add(co.dataset.chkone); chkAll(co.dataset.chkone); }
+    const ca = e.target.closest('[data-chkacc]'); if (ca) { chkAccept(ca.dataset.chkacc); chkUI(); viewMissoes(); }
   };
-  if (fl.some(f => !MAN[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)])) viewMissoes(); });
+  if (fl.some(f => !MAN[baseUrl(f.url)] && !MANFAIL[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)] || MANFAIL[baseUrl(f.url)])) viewMissoes(); });
 }
 
+/* excluir um fluxo (app) e o manifesto dele: só se nenhuma missão usar */
+function deleteFlow(id) {
+  const f = entGet('flows', id); if (!f) return false;
+  const used = entLive('missions').filter(m => m.flow === id);
+  if (used.length) { alert('Não dá para excluir o fluxo "' + f.name + '": ' + used.length + ' missão(ões) usam ele (' + used.slice(0, 4).map(m => m.name || 'sem nome').join(', ') + (used.length > 4 ? '…' : '') + ').\n\nExclua essas missões, ou troque o fluxo delas, antes.'); return false; }
+  if (entLive('flows').length <= 1) { alert('Mantenha pelo menos um fluxo cadastrado.'); return false; }
+  if (!confirm('Excluir o fluxo "' + f.name + '" (' + f.url + ')?\n\nO manifesto dele deixa de ser lido. As sessões já gravadas continuam no histórico.')) return false;
+  entDelete('flows', id); delete MAN[baseUrl(f.url)]; delete MANFAIL[baseUrl(f.url)]; return true;
+}
 function viewFluxoEd(id) {
   const isNew = id === 'novo', f = isNew ? { id: 'f' + uid(), name: '', url: '' } : JSON.parse(JSON.stringify(entGet('flows', id) || {}));
   $('#app').innerHTML = `<div class="form" style="max-width:640px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Novo fluxo' : 'Editar fluxo'}</h1></div>
@@ -14690,10 +14898,11 @@ function viewFluxoEd(id) {
       <div><label>Nome</label><input type="text" id="fx-n" value="${esc(f.name)}"></div>
       <div><label>Endereço do app</label><input type="text" id="fx-u" value="${esc(f.url)}" placeholder="app.html ou https://…"><p class="muted" style="margin-top:6px">Pode ser um arquivo na mesma pasta (ex.: app.html) ou um endereço completo do mesmo site.</p></div>
       <div id="fx-m" class="muted"></div><p class="err" id="fx-e"></p>
-      <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button></div></div></div>`;
+      <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button>${isNew ? '' : '<button class="btn ghost" id="fx-d" type="button" style="margin-left:auto">Excluir fluxo</button>'}</div></div></div>`;
   const test = async () => { $('#fx-m').textContent = 'Lendo…'; const m = await loadManifest($('#fx-u').value.trim(), true);
     $('#fx-m').innerHTML = m ? `<span class="rb ok">✓ ${esc(m.name)}</span> · ${m.starts.length} pontos de partida · ${m.screens.length} tipos de tela` : '<span class="err">Não encontrei o manifesto neste endereço.</span>'; return m; };
   $('#fx-t').onclick = test;
+  if ($('#fx-d')) $('#fx-d').onclick = () => { if (deleteFlow(f.id)) location.hash = '#/missoes'; };
   $('#fx-s').onclick = async () => { f.name = $('#fx-n').value.trim(); f.url = $('#fx-u').value.trim();
     if (!f.name || !f.url) { $('#fx-e').textContent = 'Preencha nome e endereço.'; return; }
     entSave('flows', f); await test(); location.hash = '#/missoes'; };
