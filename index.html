@@ -3856,8 +3856,8 @@ const vadjFile = flow => { const f = FLOWS[flow]; return f ? String(f.file || ''
 const vadjIsNovo = flow => /app-novo/.test(vadjFile(flow));
 const vadjFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vadj:' + vadjFile(flow))); return isFinite(v) ? v : (vadjIsNovo(flow) ? 0 : 5); };
 let VADJ = 0, VADJ_FLOW = null, VAB = 0;
-/* ajuste da faixa de baixo (px): desloca só os toques gravados pela distância até a base (botões presos ao rodapé); padrão App novo +34, App atual 0 */
-const vabFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vab:' + vadjFile(flow))); return isFinite(v) ? v : (vadjIsNovo(flow) ? 34 : 0); };
+/* ajuste da faixa de baixo (px): desloca só os toques gravados pela distância até a base (botões presos ao rodapé); padrão App novo +38, App atual 0 */
+const vabFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vab:' + vadjFile(flow))); return isFinite(v) ? v : (vadjIsNovo(flow) ? 38 : 0); };
 const setVab = v => { VAB = Math.max(-80, Math.min(80, +v || 0)); try { localStorage.setItem('hsf_vab:' + vadjFile(VADJ_FLOW), String(VAB)); } catch (e) {} };
 const vabCtl = id => `<label class="vadj" title="Desloca só os toques da faixa presa à base da tela (rodapé com botões). Cada app guarda o seu valor." style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap">Faixa de baixo <input type="range" id="${id}" min="-60" max="60" step="1" value="${VAB}" style="width:90px;accent-color:#cc0000"> <b data-vab-v>${VAB > 0 ? '+' : ''}${VAB} px</b></label>`;
 const useVadj = flow => { VADJ_FLOW = flow; VADJ = vadjFor(flow); VAB = vabFor(flow); };
