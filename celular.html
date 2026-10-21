@@ -13285,7 +13285,7 @@ async function pushPending() {
   for (const s of pend) {
     const sig = sigOf(s);
     await sb('/rest/v1/sessions?on_conflict=id', { method: 'POST', headers: MERGE, body: JSON.stringify([{ id: s.id, participant_id: pidOf(s), flow: s.flow, seq: s.seq ?? null, attempt: s.attempt ?? null,
-      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null, archived: s.archived, skippedQs: s.skippedQs || undefined }) }]) });
+      started_at: new Date(s.startedAt).toISOString(), ended_at: s.endedAt ? new Date(s.endedAt).toISOString() : null, vw: s.vw || null, vh: s.vh || null, st: s.st ?? null, notes_post: s.notesPost || '', plan: s.plan || null, mission_id: s.flow && s.flow.indexOf('M_') === 0 ? s.flow.slice(2) : null, result: s.result || null, result_data: Object.assign({}, s.resultData || {}, { answers: s.answers || null, qs: s.qs || null, script: s.script || null, archived: s.archived, skippedQs: s.skippedQs || undefined, ins: s.ins || undefined, fw: s.fw || undefined, fh: s.fh || undefined }) }]) });   /* margens e tamanho real do iPhone vão junto para a nuvem */
     await sb('/rest/v1/events?session_id=eq.' + enc(s.id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
     const rows = (s.events || []).map(e => { const { t, type, key, ...rest } = e; return { session_id: s.id, t: Math.round(t || 0), type, key: key || null, data: Object.keys(rest).length ? rest : null }; });
     for (let i = 0; i < rows.length; i += 500) await sb('/rest/v1/events', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows.slice(i, i + 500)) });
@@ -13309,7 +13309,7 @@ async function pullRemote() {
       const p = pm[r.participant_id] || {};
       const events = evs.filter(e => e.session_id === r.id).map(e => Object.assign({ type: e.type, t: e.t }, e.key ? { key: e.key } : {}, e.data || {}));
       const s = { id: r.id, pid: r.participant_id, name: p.name || 'Participante', age: p.age, obs: p.obs || '', flow: r.flow, seq: r.seq, attempt: r.attempt || 1, plan: r.plan || null,
-        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, archived: (r.result_data && 'archived' in r.result_data) ? !!r.result_data.archived : undefined, skippedQs: !!(r.result_data && r.result_data.skippedQs), events };
+        startedAt: Date.parse(r.started_at), endedAt: r.ended_at ? Date.parse(r.ended_at) : null, vw: r.vw || undefined, vh: r.vh || undefined, st: r.st ?? undefined, notesPost: r.notes_post || '', result: r.result || undefined, resultData: r.result_data || undefined, answers: (r.result_data && r.result_data.answers) || undefined, qs: (r.result_data && r.result_data.qs) || undefined, script: (r.result_data && r.result_data.script) || null, archived: (r.result_data && 'archived' in r.result_data) ? !!r.result_data.archived : undefined, skippedQs: !!(r.result_data && r.result_data.skippedQs), ins: (r.result_data && r.result_data.ins) || undefined, fw: (r.result_data && r.result_data.fw) || undefined, fh: (r.result_data && r.result_data.fh) || undefined, events };
       s.syncedSig = sigOf(s); sessions.push(s); n++;
     });
   }
@@ -13746,6 +13746,7 @@ window.addEventListener('message', e => {
   const m = e.data; if (!m || !m.hsf) return;
   const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
+  if (ev.type === 'view' && document.body.classList.contains('phone') && ACTIVE.frame && ACTIVE.frame.clientWidth) { s.fw = ACTIVE.frame.clientWidth; s.fh = ACTIVE.frame.clientHeight; }   /* tamanho real do app no iPhone, medido a cada tela */
   if (ev.type === 'view') { const fr = ACTIVE.frame, upd = () => { const ins = frameInsets(fr); if (ins && (ins.t || ins.b || !s.ins)) s.ins = ins; }; upd(); setTimeout(upd, 400); }   /* mede a cada tela (e de novo depois que ela termina de montar) */
   s.events.push(ev); checkMission(s, ev); if (ev.type === 'view') barTint();
 });
@@ -14046,7 +14047,7 @@ function viewSessao(id) {
         <h2 style="margin-top:18px">Anotações pós-teste</h2><textarea class="notes" id="notes" placeholder="Dificuldades, falas do participante, insights…">${esc(s.notesPost || '')}</textarea></div>
     </div>`;
   if (!(s.events || []).some(e => e.type === 'view')) $('#heat').insertAdjacentHTML('beforebegin', '<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016;margin:0 0 14px">Nenhum toque foi gravado nesta sessão. Isso acontece quando os arquivos <b>fluxo-*.html</b> publicados no site são a versão antiga. Reenvie os 3 ao GitHub e faça um novo teste.</div>');
-  if (s.vw) { STATIC_INS = s.ins || null; heatPanel($('#heat'), s.flow, [s], s.vw, s.vh, s.st); }
+  if (s.vw) { STATIC_INS = s.ins || null; heatPanel($('#heat'), s.flow, [s], s.fw || s.vw, s.fh || s.vh, s.st); }
   else $('#heat').innerHTML = '<p class="muted">Sem dados de tela para gerar o mapa.</p>';
   $('#notes').oninput = e => { s.notesPost = e.target.value; save(); };
   document.querySelectorAll('[data-mk]').forEach(i => i.onchange = () => { const m = s.events.find(e => e.type === 'marker' && e.t === +i.dataset.mk); if (m) { m.label = i.value; save(); } });
@@ -14059,7 +14060,7 @@ function viewGeral(flow, rot) {
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
   const tabs = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
-  const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.vw))) : 390;
+  const withVw = ss.filter(s => s.vw), vw = withVw.length ? Math.round(avg(withVw.map(s => s.fw || s.vw))) : 390;
   $('#app').innerHTML = `
     <a class="crumb" href="#/">← Painel</a>
     <div><h1>Análise geral · ${f.name}</h1><p class="muted">${f.sub} · ${ss.length} sessão(ões)</p></div>
@@ -14077,8 +14078,8 @@ function viewGeral(flow, rot) {
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
   bindMissionStats(flow);
   STATIC_INS = ((ss.find(x => x.ins && (x.ins.t || x.ins.b)) || {}).ins) || null;
-  if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
-  if (ss.length && $('#mseq')) seqRender($('#mseq'), flow, ss.filter(s => s.vw), vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
+  if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].fh || withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
+  if (ss.length && $('#mseq')) seqRender($('#mseq'), flow, ss.filter(s => s.vw), vw, withVw[0] ? withVw[0].fh || withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
 }
 
 /* ================== Caminho de cliques ================== */
@@ -15274,7 +15275,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21c';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21d';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15310,7 +15311,7 @@ async function renderLive(code, d) {
     if (!w && $('#esp-res')) { w = document.createElement('p'); w.id = 'esp-ver'; w.className = 'err'; w.style.margin = '8px 0 0'; $('#esp-res').after(w); }
     if (w) { w.hidden = !old; w.textContent = old ? '⚠ O iPhone está com uma versão anterior do app de teste. Feche o Sala Espelho por completo no iPhone (deslize para cima) e abra de novo.' : ''; } }
   { let g = $('#esp-diag'); if (!g && $('#esp-res')) { g = document.createElement('p'); g.id = 'esp-diag'; g.className = 'muted'; g.style.cssText = 'margin:6px 0 0;font-size:11px'; $('#esp-res').after(g); }
-    if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px'; }
+    if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + (d.rvw && (d.rvw !== d.vw || d.rvh !== d.vh) ? ' (a 1ª tela informou ' + d.rvw + '×' + d.rvh + ')' : '') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px'; }
   renderQs(code, d);
   const rd = d.rd || {}, done = d.result === 'concluiu';
   $('#esp-res').innerHTML = done ? `<div class="esp-done${MIR.doneSeen === d.idx ? '' : ' pop'}"><b>✓ Concluiu a missão${rd.at != null ? ' em ' + dur(rd.at) : ''}${rd.direto === true ? ' · direto' : rd.direto === false ? ' · indireto' : ''}</b><span id="esp-xp">${rd.explore ? 'Continua explorando. Encerre quando quiser.' : ''}</span></div>`
@@ -15464,7 +15465,7 @@ function liveState() {
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, ins: s.ins || null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, ins: s.ins || null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
