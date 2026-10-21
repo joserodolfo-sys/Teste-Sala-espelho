@@ -269,6 +269,22 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .cap{position:sticky;top:12px}
 .capi{margin-top:10px;font-size:13px}
 .stl{margin:8px 0 0;font-size:13px}.stl b{font-weight:700}.stl .pend{color:#b45309;font-weight:700}.esp-done{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding:10px 12px;border-radius:10px;background:#e8f6ee;border:1px solid #9bd3b2;color:#0a5c2d}.esp-done b{font-size:15px}.esp-done span{font-size:12px;color:#2f6b47}.esp-done.pop{animation:espPop .9s ease 2}@keyframes espPop{0%,100%{transform:none}30%{transform:scale(1.03);box-shadow:0 0 0 6px rgba(10,122,60,.18)}}.esp-log li.done{color:#0a7a3c;font-weight:700}
+/* mapa de calor: celular menor (P · M · G) e sequência das telas */
+.hvhost .hv{zoom:var(--hz,.55)}
+@media(min-width:901px){.heatwrap{grid-template-columns:auto minmax(0,1fr)}}
+.seqs{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 12px;align-items:flex-start}.seqs.wrap{flex-wrap:wrap;overflow:visible;row-gap:12px}
+.sq{flex:none;display:flex;flex-direction:column;gap:4px}
+.sq .sqh{font-size:11px;font-weight:700;color:var(--ink);line-height:1.25;min-height:28px}.sq .sqh i{font-style:normal;color:var(--mut);margin-right:4px}
+.sq .sqt{position:relative;overflow:hidden;border-radius:10px;background:#f2f2f4;box-shadow:0 2px 8px rgba(0,0,0,.14)}.sq[data-sqi] .sqt{cursor:zoom-in}
+.sq .sqt img{position:absolute;left:0;width:100%}
+.sq.dev .sqt{box-shadow:0 0 0 3px #e40521,0 2px 8px rgba(0,0,0,.14)}
+.sq .sqf{font-size:11px;color:var(--mut)}
+.sq .bdg{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;margin:2px 4px 0 0}.bdg.back{background:#fff4e5;color:#9a5b00}.bdg.done{background:#e6f6ec;color:#0a7a3c}
+.sqa{flex:none;align-self:center;color:#b5b6ba;font-size:16px;margin-top:-24px}
+.sqx{flex:none;align-self:stretch;width:2px;background:repeating-linear-gradient(#b5b6ba 0 6px,transparent 6px 12px);margin:0 18px 0 6px;position:relative}.sqx span{position:absolute;top:0;left:6px;white-space:nowrap;font-size:10px;color:var(--mut);writing-mode:vertical-rl}
+.sqg{margin:0 0 14px}.sqg>p{margin:0 0 6px;font-size:12px}
+.sqm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px}.sqm .in{background:#fff;border-radius:14px;padding:16px;display:flex;gap:18px;flex-wrap:wrap}
+
 @media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
 @keyframes hsfspin{to{transform:rotate(360deg)}}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
@@ -3731,9 +3747,9 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
   const defState = (scr, cur) => best(statesOf(scr, cur).map(x => ({ v: x, n: cnt(match(scr, cur || null, x)) }))).v;
   let scr = best(scrs.map(x => ({ v: x, n: cnt(match(x)) }))).v, cur = defCur(scr), state = defState(scr, cur), mode = 'heat', H;
   host.innerHTML = `<div id="hrows"></div>
-    <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button></div>
-      <span class="muted" id="hleg"></span></div>
-    <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div>`;
+    <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button>${sessionsList.length === 1 ? '<button data-m="seq">Sequência</button>' : ''}</div>
+      <span class="muted" id="hleg"></span><div class="seg" id="hzw" title="Tamanho do celular" style="margin-left:auto">${['P', 'M', 'G'].map(z => `<button data-hz="${z}" class="${curHZ() === z ? 'on' : ''}">${z}</button>`).join('')}</div></div>
+    <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div><div id="hseq" hidden></div>`;
   const cur_keys = () => match(scr, cur || null, state);
   const legend = n => $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${n} toque(s) nesta visão`;
   const rows = () => {
@@ -3774,10 +3790,104 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
       return draw();
     }
     const m = e.target.closest('[data-m]');
-    if (m) { mode = m.dataset.m; document.querySelectorAll('#hm button').forEach(x => x.classList.toggle('on', x === m)); legend(H.pts.length); H.mode = mode; drawHeat(H); }
+    const hz = e.target.closest('[data-hz]'); if (hz) { setHZ(hz.dataset.hz); return; }
+    if (m) { mode = m.dataset.m; HEAT_TAB = mode; document.querySelectorAll('#hm button').forEach(x => x.classList.toggle('on', x === m));
+      const sq = mode === 'seq'; $('#hrows').hidden = sq; host.querySelector('.heatwrap').hidden = sq; $('#hseq').hidden = !sq; $('#hzw').hidden = sq;
+      if (sq) { $('#hleg').textContent = ''; if (!host._seq) { host._seq = true; seqRender($('#hseq'), flow, sessionsList, vw, vh, st); } return; }
+      legend(H.pts.length); H.mode = mode; drawHeat(H); }
   };
   draw();
+  if (HEAT_TAB === 'seq' && sessionsList.length === 1) { const b = host.querySelector('[data-m="seq"]'); if (b) b.click(); }
 }
+let HEAT_TAB = 'heat';
+/* ================== Sequência das telas (lado a lado, com os toques) ================== */
+/* Uma imagem por tela (guardada) + os toques desenhados por cima. Sessão: a ordem exata das passagens (repetições separadas).
+   Vários participantes: um grupo por caminho igual, o caminho ideal no topo e a 1ª tela fora dele com borda vermelha. */
+const SEQ_CACHE = new Map(); let SEQ_REG = [], SEQ_PDF_JOBS = [];
+const HZ_VALS = { P: .42, M: .55, G: .72 };   /* celular da análise menor nos três tamanhos */
+function setHZ(z) { if (!HZ_VALS[z]) z = 'M'; try { localStorage.setItem('hsf_hz', z); } catch (e) {} document.documentElement.style.setProperty('--hz', HZ_VALS[z]); document.querySelectorAll('[data-hz]').forEach(b => b.classList.toggle('on', b.dataset.hz === z)); }
+const curHZ = () => { try { return localStorage.getItem('hsf_hz') || 'M'; } catch (e) { return 'M'; } };
+setHZ(curHZ());
+async function seqBase(flow, key, st, vw, vh) {
+  const ck = [flow, key, st ? 1 : 0, vw].join('|'); if (SEQ_CACHE.has(ck)) return SEQ_CACHE.get(ck);
+  const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:' + vw + 'px'; document.body.append(host);
+  let out = null;
+  try {
+    const H = mountHeat(host, { flow, key, pts: [], vw, vh, st, mode: 'dots' }); await H.ready;
+    const fr = host.querySelector('iframe'), d = fr.contentDocument; if (d.fonts && d.fonts.ready) await d.fonts.ready;
+    const hh = H.height || 800, scr = d.querySelector('#screen');
+    const cap = await html2canvas(d.body, { scale: 1, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira; o #screen é só a marca do tamanho */
+    out = { cap, vw, hh, top: H.top, viewH: H.viewH, sheet: H.sheet };
+  } catch (e) { out = null; }
+  host.remove(); SEQ_CACHE.set(ck, out); return out;
+}
+function seqCompose(b, pts, numbered) {
+  const c = document.createElement('canvas'); c.width = b.vw; c.height = b.hh; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(b.cap, 0, 0);
+  let focus = null;
+  pts.forEach(p => {
+    const px = p.xf * b.vw, py = p.ab ? b.viewH - p.yb : p.fixed ? (b.sheet ? p.y + (b.viewH - (p._vh || b.viewH)) : p.y) : p.y + b.top;
+    x.beginPath(); x.arc(px, py, 22, 0, 7); x.fillStyle = p.hit ? 'rgba(31,32,36,.9)' : 'rgba(228,5,33,.92)'; x.fill(); x.lineWidth = 4; x.strokeStyle = '#fff'; x.stroke();
+    if (numbered && p.n) { x.fillStyle = '#fff'; x.font = '700 20px Montserrat,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(p.n, px, py + .5); }
+    if (p.hit || focus == null) focus = py;
+  });
+  return { url: c.toDataURL('image/jpeg', .85), focus: focus || 0, hh: b.hh };
+}
+function seqSteps(s, vh, noAfter) {
+  const a = analyze(s), taps = (s.events || []).filter(e => e.type === 'tap').sort((p, q) => p.t - q.t);
+  const cut = s.result === 'concluiu' && s.resultData && s.resultData.at != null ? s.resultData.at : null, seen = {};
+  return a.steps.map(p => {
+    const tp = taps.filter(t => t.t >= p.t0 && t.t < p.t1 && t.key === p.key && (!noAfter || cut == null || t.t <= cut)).map(t => Object.assign({}, t, { n: taps.indexOf(t) + 1, _vh: s.vh || vh }));
+    const back = !!seen[p.key]; seen[p.key] = 1;
+    return { key: p.key, ms: noAfter && cut != null && cut >= p.t0 && cut < p.t1 ? cut - p.t0 : p.ms, taps: tp, back, done: cut != null && cut >= p.t0 && cut < p.t1, after: cut != null && p.t0 > cut };
+  });
+}
+async function seqRender(host, flow, ss, vw, vh, st, opt) {
+  if (!host) return; opt = opt || {}; host._seqArgs = [flow, ss, vw, vh, st];
+  const f = FLOWS[flow], m = f && f.mission, one = ss.length === 1, W = opt.pdf ? 70 : 150, boxH = Math.round(W * (vh / vw));
+  host.innerHTML = '<p class="muted" style="margin:0">Carregando as telas da sequência…</p>';
+  /* linhas: uma sessão, ou um grupo por caminho igual (até a conclusão) */
+  let rows = [];
+  if (one) { const s0 = sessions.find(x => x.id === ss[0].id) || ss[0]; rows.push({ label: '', steps: seqSteps(s0, vh, !HEAT_EXPLORE).filter(x => HEAT_EXPLORE || !x.after), numbered: true }); }   /* tempos certos: calcula com a sessão inteira */
+  else {
+    const gs = {};
+    ss.forEach(s => { const stp = seqSteps(s, vh, true).filter(x => !x.after), sig = stp.map(x => x.key).join('>'); const g = gs[sig] || (gs[sig] = { sig, list: [], steps: stp.map(x => Object.assign({}, x, { taps: [] })) });
+      g.list.push(s); stp.forEach((x, i) => { g.steps[i].taps = g.steps[i].taps.concat(x.taps); g.steps[i].ms = (g.steps[i]._ms = (g.steps[i]._ms || 0) + x.ms) / g.list.length; }); });
+    const path = m && !m.free ? (m.path || []).filter(Boolean) : [];
+    const ord = Object.values(gs).sort((a, b) => b.list.length - a.list.length).slice(0, 8);
+    if (path.length) rows.push({ label: '<b>Caminho ideal</b>', steps: path.map(k => ({ key: k, ms: null, taps: [] })), ideal: true });
+    ord.forEach(g => {
+      let dv = -1; if (path.length) { dv = g.steps.findIndex((x, i) => !path[i] || !keyMatch(keyBase(x.key), path[i])); }
+      const same = path.length && dv < 0 && g.steps.length === path.length;
+      rows.push({ label: `<b>${g.list.length} participante(s)</b> · ${g.list.map(s => esc(s.name)).join(', ')}${same ? ' · <span class="rb ok">igual ao ideal</span>' : ''}`, steps: g.steps, dev: dv, numbered: false });
+    });
+    if (!ord.length) { host.innerHTML = '<p class="muted">Sem caminhos registrados.</p>'; return; }
+  }
+  const keys = [...new Set(rows.flatMap(r => r.steps.map(x => x.key)))], bases = {};
+  for (let i = 0; i < keys.length; i++) { if (!opt.pdf) host.firstChild && (host.firstChild.textContent = `Carregando as telas da sequência… ${i + 1}/${keys.length}`); bases[keys[i]] = await seqBase(flow, keys[i], st, vw, vh); }
+  if (!opt.pdf) SEQ_REG = [];
+  const card = (x, i, r) => {
+    const b = bases[x.key], ttl = esc(keyName(x.key)); let img = '';
+    if (b) { const c = seqCompose(b, x.taps, r.numbered), sc = W / b.vw, off = Math.max(0, Math.min(c.hh * sc - boxH, c.focus * sc - boxH / 2));
+      img = `<img src="${c.url}" alt="" style="top:${-Math.round(off)}px">`; if (!opt.pdf) SEQ_REG.push({ url: c.url, title: ttl, taps: x.taps, numbered: r.numbered }); }
+    const bd = (x.back ? '<span class="bdg back">voltou</span>' : '') + (x.done ? '<span class="bdg done">✓ concluiu aqui</span>' : '');
+    return `<div class="sq${r.dev === i ? ' dev' : ''}" style="width:${W}px"${b && !opt.pdf ? ` data-sqi="${SEQ_REG.length - 1}"` : ''}><div class="sqh"><i>${i + 1}</i>${ttl}</div>
+      <div class="sqt" style="height:${boxH}px">${img || '<span class="muted" style="font-size:11px;padding:6px;display:block">Tela indisponível</span>'}</div>
+      <div class="sqf">${r.ideal ? 'passo ' + (i + 1) + ' do ideal' : (x.ms != null ? dur(x.ms) + ' · ' : '') + x.taps.length + ' toque(s)'}${r.dev === i ? ' · <b style="color:#e40521">saiu do ideal</b>' : ''}</div>${bd ? '<div>' + bd + '</div>' : ''}</div>`;
+  };
+  host.innerHTML = (one ? '' : '<p class="muted" style="margin:0 0 10px;font-size:12px">Um grupo por caminho igual (até a conclusão), do mais comum para o menos comum. Pontos = toques do grupo; vermelho = fora do alvo.</p>') +
+    rows.map(r => `<div class="sqg">${r.label ? `<p>${r.label}</p>` : ''}<div class="seqs${opt.pdf ? ' wrap' : ''}">${r.steps.map((x, i) => (x.after && !r.steps[i - 1 < 0 ? 0 : i - 1].after && i > 0 ? '<div class="sqx"><span>depois de concluir</span></div>' : (i ? '<span class="sqa">→</span>' : '')) + card(x, i, r)).join('')}</div></div>`).join('') +
+    (one && !opt.pdf ? '<p class="muted" style="margin:6px 0 0;font-size:12px">Número = ordem do toque no teste · preto = tocou em algo com ação · vermelho = fora do alvo. Clique numa tela para ampliar.</p>' : '');
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-sqi]'); if (!c) return; const r = SEQ_REG[+c.dataset.sqi]; if (!r) return;
+  const ov = document.createElement('div'); ov.className = 'sqm';
+  ov.innerHTML = `<div class="in"><div><img src="${r.url}" alt="" style="width:360px;display:block;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.2)"></div><div style="min-width:220px"><h3 style="margin:0 0 8px">${r.title}</h3>
+    ${r.taps.length ? `<ol style="margin:0;padding-left:18px;font-size:13px;line-height:1.6">${r.taps.map(t => `<li${r.numbered && t.n ? ` value="${t.n}"` : ''}>${esc(t.label || 'Toque')}${t.hit ? '' : ' <span style="color:#e40521">(fora do alvo)</span>'}</li>`).join('')}</ol>` : '<p class="muted">Sem toques nesta tela.</p>'}
+    <button class="btn" type="button" style="margin-top:14px">Fechar</button></div></div>`;
+  ov.onclick = ev => { if (ev.target === ov || ev.target.closest('button')) ov.remove(); }; document.body.append(ov);
+});
+
 
 /* ================== Análise da sessão ================== */
 function viewSessao(id) {
@@ -3844,6 +3954,7 @@ function viewGeral(flow, rot) {
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
   bindMissionStats(flow);
   if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
+  if (ss.length && $('#mseq')) seqRender($('#mseq'), flow, ss.filter(s => s.vw), vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
 }
 
 /* ================== Caminho de cliques ================== */
@@ -3878,7 +3989,7 @@ function reportGroups(s) {
 function reportBody(p, anon) {
   p = Object.assign({}, p, { sessions: p.sessions.filter(s => !s.archived) });
   const who = anon ? p.code : p.name, t = sessTotals(p), now = new Date().toLocaleString('pt-BR');
-  const jobs = []; let jid = 0;
+  const jobs = []; let jid = 0; SEQ_PDF_JOBS = [];
   const dotsBlock = (s, g) => { const id = 'th' + (jid++), taps = (s.events || []).filter(e => e.type === 'tap').sort((a, b) => a.t - b.t);
     const g2 = Object.assign({}, g, { pts: g.pts.map(x => Object.assign({}, x, { n: taps.indexOf(taps.find(e => e.t === x.t && e.x === x.x && e.y === x.y)) + 1 || undefined })) });
     jobs.push({ id, s, g: g2, mode: 'dots' }); return `<figure class="hf"><div class="thumb" id="${id}"></div><figcaption><b>${esc(g.title)}</b><br>toques ${g2.pts.map(x => x.n).filter(Boolean).join(', ')} · número = ordem na tabela de cliques</figcaption></figure>`; };
@@ -3897,6 +4008,7 @@ function reportBody(p, anon) {
       <table><thead><tr><th>#</th><th>Tela</th><th class="r">Início</th><th class="r">Tempo</th><th class="r">Toques</th><th class="r">Fora</th><th class="r">Rolagem</th></tr></thead><tbody>
       ${a.steps.map((st, n) => `<tr><td>${n + 1}</td><td>${esc(keyName(st.key))}</td><td class="r">${dur(st.t0)}</td><td class="r">${(st.ms / 1000).toFixed(1)}s</td><td class="r">${st.taps}</td><td class="r">${st.miss}</td><td class="r">${st.depth != null ? pc(st.depth * 100) : '–'}</td></tr>`).join('')}</tbody></table>
       <h3>Caminho de cliques · ordem dos toques${cp.n ? ' (' + cp.n + ')' : ''}</h3>${cp.html}
+      ${s.vw ? (() => { const id = 'sqp' + (jid++); SEQ_PDF_JOBS.push({ id, s }); return `<h3>Sequência das telas</h3><div id="${id}"></div>`; })() : ''}
       <div class="${groups.length ? 'hsec' : ''}"><h3>Mapas de calor</h3>
       ${groups.length ? `<div class="hgrid">${groups.map(g => heatBlock(s, g)).join('')}</div>` : '<p class="muted">Nenhum toque registrado neste fluxo.</p>'}
       ${groups.length ? `</div><div class="hsec"><h3>Toques em ordem</h3><p class="muted" style="font-size:11px;margin:-4px 0 8px">Cada toque numerado na ordem em que aconteceu. Preto = tocou em algo com ação; vermelho = fora do alvo.</p><div class="hgrid">${groups.map(g => dotsBlock(s, g)).join('')}</div>` : ''}
@@ -3975,7 +4087,7 @@ async function heatImage(j) {
   try {
     const fr = host.querySelector('iframe'), d = fr.contentDocument; if (d.fonts && d.fonts.ready) await d.fonts.ready;
     const hh = H.height || 800, scr = d.querySelector('#screen');
-    const cap = await html2canvas(scr, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: vw, height: hh, windowWidth: vw, windowHeight: hh });
+    const cap = await html2canvas(d.body, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira (o #screen é só a marca do tamanho e saía em branco) */
     const out = document.createElement('canvas'); out.width = cap.width; out.height = cap.height; const x = out.getContext('2d');
     x.fillStyle = '#fff'; x.fillRect(0, 0, out.width, out.height); x.drawImage(cap, 0, 0); x.drawImage(H.cv, 0, 0, out.width, out.height);
     const sc = Math.min(330 / vw, 860 / hh), im = new Image(); im.src = out.toDataURL('image/jpeg', .9);
@@ -4006,6 +4118,7 @@ async function downloadPdf(pid, anon) {
     const R = reportBody(p, anon);
     stage = document.createElement('div'); stage.className = 'pdfstage'; stage.innerHTML = R.html; document.body.append(stage);
     let k = 0; for (const j of R.jobs) { ov.set(`Gerando mapas de calor… ${++k}/${R.jobs.length}`); await heatImage(j); }
+    let q = 0; for (const j of SEQ_PDF_JOBS) { ov.set(`Gerando sequências… ${++q}/${SEQ_PDF_JOBS.length}`); await seqRender(document.getElementById(j.id), j.s.flow, [j.s], j.s.vw || 390, j.s.vh || 780, j.s.st, { pdf: true }); }
     ov.set('Organizando as páginas…');
     const meas = document.createElement('div'); meas.className = 'rpage'; stage.append(meas);
     const USABLE = 1031, pages = [];
@@ -4407,6 +4520,7 @@ function viewMissaoEd(id) {
       </div>
       <div class="card cap"><h2 style="margin:0">Prévia do app</h2><p class="hint2" id="cap-hint"></p>
         <div class="capu" id="cap-use-w" hidden><span class="capn">Tela exibida: <b id="cap-use-nm"></b></span><button class="btn sm primary" id="cap-use" type="button">Usar esta tela como início</button><span class="muted" id="cap-use-n"></span></div>
+        <div class="capu" id="cap-ini" hidden><span class="capn">Início da missão: <b id="cap-ini-nm"></b></span><button class="btn sm ghost" id="cap-ini-alt" type="button">Alterar</button></div>
         <div class="capw" id="capw"><iframe id="capf" title="Prévia do app"></iframe></div>
         <div id="pk-card" class="pkc" hidden></div>
         <div class="capi"><span class="muted">Tela atual:</span> <b id="cv">—</b></div>
@@ -4450,6 +4564,10 @@ function viewMissaoEd(id) {
   /* botão "Usar esta tela como início": só quando a tela exibida é outra, e não durante a gravação do caminho nem a escolha do fim */
   const updUse = () => {
     const w = $('#cap-use-w'); if (!w) return;
+    /* o botão de início só aparece no passo 2 (ou sem início confirmado); nos outros passos, só a faixa informativa */
+    const ini = $('#cap-ini'), onStart = CAP.step === 2 || !START;
+    if (ini) { ini.hidden = onStart || CAP.rec || CAP.picking; if (!ini.hidden) $('#cap-ini-nm').textContent = nameOfStart(START); }
+    if (!onStart) { w.hidden = true; return; }
     const kb = keyBase(CAP.view || '').replace(/^sheet~/, ''), sk = keyBase(((manOf().startKeys || {})[START]) || '');
     if (!kb || CAP.rec || CAP.picking || (START && kb === sk)) { w.hidden = true; return; }
     const sid = startForKey(kb);
@@ -4547,6 +4665,7 @@ function viewMissaoEd(id) {
   $('#ms').onchange = () => { const v = $('#ms').value; const e = (manOf().epics || []).find(x => x.id === v); if (!e) return; PREV = e.start; reloadCap(); $('#ms').value = ''; };
   $('#ms-lb').onclick = e => { if (e.target.closest('#ms-see')) { PREV = START; reloadCap(); } };
   $('#cap-use').onclick = () => { const sid = $('#cap-use').dataset.sid; if (!sid) return; START = sid; PREV = sid; drawStart(); updUse(); draw(); };
+  $('#cap-ini-alt').onclick = e => { e.stopPropagation(); setStep(2); const s2 = document.querySelector('.stp[data-s="2"]'); if (s2) s2.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   $('#cap-re').onclick = () => { if (CAP.rec) { CAP.recSteps = []; recDraw(); } if (START) PREV = START; drawStart(); reloadCap(); };
   $('#mn').oninput = draw; $('#ml').oninput = draw;
   $('#pk-on').onclick = () => { $('#pk-card').hidden = true; if (CAP.rec) { CAP.rec = false; recDraw(); } setStep(4); setPick(!CAP.picking); };
@@ -4694,13 +4813,15 @@ function missionStats(flow, ss, rot) {
     <h3 style="margin-top:18px">Caminhos percorridos</h3>
     ${hasPath ? ((m.steps || []).some(x => x.t === 'tap') ? `<div class="muted" style="margin:0 0 6px">Caminho ideal (telas e toques):${stepsHTML(m.steps, { compact: true })}</div>` : `<p class="muted" style="margin:0 0 6px">Caminho ideal: ${chips(exp)}</p>`) : ''}
     <table><tbody>${top.map(t => `<tr><td>${chips(t.p)}${isExp(t.p) ? ' <span class="rb ok">ideal</span>' : ''}</td><td class="r" style="white-space:nowrap">${t.n} (${pct(t.n, c.n)}%)</td></tr>`).join('')}</tbody></table>
+    <h3 style="margin-top:14px">Sequência dos caminhos</h3><div id="mseq"></div>
     ${devs.length ? `<h3 style="margin-top:14px">Onde saíram do caminho ideal</h3><table><tbody>${devs.map(([k, v]) => `<tr><td>${esc(keyName(k))}</td><td class="r">${v} participante(s)</td></tr>`).join('')}</tbody></table>` : ''}`
     : '<p class="muted" style="margin-top:12px">Ainda não há sessões desta missão' + (rot ? ' neste roteiro' : '') + '.</p>'}
   </div>`;
 }
 function bindMissionStats(flow) {
   const sel = $('#mst-rot'); if (sel) sel.onchange = () => { location.hash = '#/geral/' + flow + (sel.value ? '/' + enc(sel.value) : ''); };
-  const b = $('#mst-pdf'); if (b) b.onclick = () => pdfOf($('#mstat'), 'hsf-missao-' + slugName(FLOWS[flow].name));
+  const b = $('#mst-pdf'); if (b) b.onclick = async () => { const h = $('#mseq'), a = h && h._seqArgs;   /* no PDF a sequência entra menor e em várias linhas */
+    if (a) await seqRender(h, a[0], a[1], a[2], a[3], a[4], { pdf: true }); await pdfOf($('#mstat'), 'hsf-missao-' + slugName(FLOWS[flow].name)); if (a) seqRender(h, a[0], a[1], a[2], a[3], a[4]); };
 }
 const slugName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'analise';
 
