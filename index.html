@@ -3624,6 +3624,16 @@ function viewTeste(pid) {
 /* margens de segurança reais do aparelho (barra do relógio e barrinha de início), medidas dentro do app durante o teste:
    o painel aplica as mesmas ao redesenhar as telas (espelho, mapa de calor e sequência), para os toques caírem no lugar certo */
 function frameInsets(fr) {
+  /* lê a margem que a própria tela usa (--safe-top / --safe-bottom); se não houver, mede a área segura do iOS */
+  const px = v => { const m = String(v || '').trim().match(/^(-?[\d.]+)px$/); return m ? +m[1] : null; };
+  const one = w => { try { const d = w.document, cs = w.getComputedStyle(d.documentElement); let t = px(cs.getPropertyValue('--safe-top')), b = px(cs.getPropertyValue('--safe-bottom'));
+    if (t == null || b == null) { const p = d.createElement('div'); p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+      (d.body || d.documentElement).appendChild(p); const c2 = w.getComputedStyle(p); if (t == null) t = parseFloat(c2.paddingTop) || 0; if (b == null) b = parseFloat(c2.paddingBottom) || 0; p.remove(); }
+    return { t: Math.round(t || 0), b: Math.round(b || 0) }; } catch (e) { return null; } };
+  const walk = (w, o, depth) => { const q = one(w); if (q) { o.t = Math.max(o.t, q.t); o.b = Math.max(o.b, q.b); } if (depth < 2) for (let i = 0; i < w.frames.length; i++) { try { walk(w.frames[i], o, depth + 1); } catch (e) {} } };
+  try { const o = { t: 0, b: 0 }; walk(fr.contentWindow, o, 0); return o; } catch (e) { return null; }
+}
+function frameInsetsOld(fr) {
   const one = w => { try { const d = w.document, p = d.createElement('div'); p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
     (d.body || d.documentElement).appendChild(p); const cs = w.getComputedStyle(p), o = { t: Math.round(parseFloat(cs.paddingTop) || 0), b: Math.round(parseFloat(cs.paddingBottom) || 0) }; p.remove(); return o; } catch (e) { return null; } };
   try { const w = fr.contentWindow, o = one(w) || { t: 0, b: 0 }; for (let i = 0; i < w.frames.length; i++) { const q = one(w.frames[i]); if (q) { o.t = Math.max(o.t, q.t); o.b = Math.max(o.b, q.b); } } return o; } catch (e) { return null; }
@@ -3635,7 +3645,7 @@ window.addEventListener('message', e => {
   const m = e.data; if (!m || !m.hsf) return;
   const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
-  if (ev.type === 'view' && (!s.ins || !(s.ins.t || s.ins.b))) { const ins = frameInsets(ACTIVE.frame); if (ins) s.ins = ins; }
+  if (ev.type === 'view') { const fr = ACTIVE.frame, upd = () => { const ins = frameInsets(fr); if (ins && (ins.t || ins.b || !s.ins)) s.ins = ins; }; upd(); setTimeout(upd, 400); }   /* mede a cada tela (e de novo depois que ela termina de montar) */
   s.events.push(ev); checkMission(s, ev); if (ev.type === 'view') barTint();
 });
 function endTest() {
@@ -5163,7 +5173,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21b';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21c';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -5198,6 +5208,8 @@ async function renderLive(code, d) {
   { let w = $('#esp-ver'); const old = d.ver !== HSF_LIVE_VER;
     if (!w && $('#esp-res')) { w = document.createElement('p'); w.id = 'esp-ver'; w.className = 'err'; w.style.margin = '8px 0 0'; $('#esp-res').after(w); }
     if (w) { w.hidden = !old; w.textContent = old ? '⚠ O iPhone está com uma versão anterior do app de teste. Feche o Sala Espelho por completo no iPhone (deslize para cima) e abra de novo.' : ''; } }
+  { let g = $('#esp-diag'); if (!g && $('#esp-res')) { g = document.createElement('p'); g.id = 'esp-diag'; g.className = 'muted'; g.style.cssText = 'margin:6px 0 0;font-size:11px'; $('#esp-res').after(g); }
+    if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px'; }
   renderQs(code, d);
   const rd = d.rd || {}, done = d.result === 'concluiu';
   $('#esp-res').innerHTML = done ? `<div class="esp-done${MIR.doneSeen === d.idx ? '' : ' pop'}"><b>✓ Concluiu a missão${rd.at != null ? ' em ' + dur(rd.at) : ''}${rd.direto === true ? ' · direto' : rd.direto === false ? ' · indireto' : ''}</b><span id="esp-xp">${rd.explore ? 'Continua explorando. Encerre quando quiser.' : ''}</span></div>`
