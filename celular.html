@@ -13696,7 +13696,8 @@ const BACK_TRAP = { on: false };
 function trapBack() { BACK_TRAP.on = true; try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {} }   /* armada a cada teste */
 /* o gesto de voltar do iPhone vira o "voltar" do protótipo: aciona a seta de voltar da tela atual; se não houver, é ignorado */
 const PROTO_BACK_SEL = '[data-back],[data-home-back],[aria-label="Voltar"],[data-label="Voltar"],.sm-back,.sm-back2,.hb-back,.back,.cg-arrow,.d1-arrow,.fq-ar,.qt-back,.pg-back,.lh .bk,.ph .bk';
-function protoVisible(el) { try { const w = el.ownerDocument.defaultView, r = el.getBoundingClientRect(), cs = w.getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity !== 0 && r.bottom > 0 && r.top < w.innerHeight; } catch (e) { return false; } }
+function deepVisible(el) { try { const w = el.ownerDocument.defaultView; for (let n = el; n && n.nodeType === 1; n = n.parentElement) { const cs = w.getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) return false; } return true; } catch (e) { return false; } }   /* telas escondidas só com opacidade 0 não contam */
+function protoVisible(el) { try { const w = el.ownerDocument.defaultView, r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < w.innerHeight && deepVisible(el); } catch (e) { return false; } }
 function protoBack() {
   const A = ACTIVE; if (!A || !A.frame) return false; const docs = [];
   const walk = (w, d) => { try { const fe = w.frameElement; if (fe && d > 0 && !protoVisible(fe)) return; docs.push(w.document); for (let i = 0; i < w.frames.length && d < 3; i++) walk(w.frames[i], d + 1); } catch (e) {} };
@@ -13788,9 +13789,11 @@ function frameK(win) { let k = 1, w = win; try { while (w && ACTIVE && ACTIVE.fr
 function toFrame(win, x, y) { const A = ACTIVE; if (!A || !A.frame) return null; let w = win;
   try { while (w && w !== A.frame.contentWindow) { const fe = w.frameElement; if (!fe) return null; const r = fe.getBoundingClientRect(), sc = fe.offsetWidth ? r.width / fe.offsetWidth : 1; x = r.left + x * sc; y = r.top + y * sc; w = w.parent; } } catch (e) { return null; }
   return w === A.frame.contentWindow ? { x, y } : null; }
+/* ampliação do próprio elemento (ex.: o App novo amplia o desenho de 360 de largura para a tela do iPhone): rolagem em px do desenho × ampliação = px reais */
+function elScale(el) { try { const r = el.getBoundingClientRect(); return el.offsetWidth ? r.width / el.offsetWidth : 1; } catch (e) { return 1; } }
 function scrollBox(el) { for (let n = el; n && n.nodeType === 1; n = n.parentElement) { const cs = n.ownerDocument.defaultView.getComputedStyle(n); if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 1) return n; } return null; }
 window.__hsfNoteUp = e => { if (!ACTIVE) return; const w = e.target && e.target.ownerDocument && e.target.ownerDocument.defaultView; const p = w && toFrame(w, e.clientX, e.clientY); if (!p) return;
-  const sb = scrollBox(e.target), k = frameK(w); LASTUP = { t: Date.now(), x: p.x, y: p.y, cy: p.y + (sb ? sb.scrollTop * k : 0), sc: sb ? 1 : 0 }; };
+  const sb = scrollBox(e.target), k = frameK(w); LASTUP = { t: Date.now(), x: p.x, y: p.y, cy: p.y + (sb ? sb.scrollTop * elScale(sb) * k : 0), sc: sb ? 1 : 0 }; };
 const anTxt = el => (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40);
 function anchorsNow() {
   const A = ACTIVE; if (!A || !A.frame) return null; const wins = [];
@@ -13801,7 +13804,7 @@ function anchorsNow() {
     if (!protoVisible(el)) return; const t = anTxt(el); if (!t || t.length < 3 || seen.has(t)) return;
     const r = el.getBoundingClientRect(); if (r.height > 140 || r.right <= 0 || r.left >= w.innerWidth) return;   /* fora da tela na horizontal (outros slides): não serve */
     const p = toFrame(w, r.left + r.width / 2, r.top + r.height / 2); if (!p) return;
-    const sb = scrollBox(el); seen.add(t); out.push({ t, y: Math.round(p.y), cy: Math.round(p.y + (sb ? sb.scrollTop * k : 0)), s: sb ? 1 : 0 }); });
+    const sb = scrollBox(el); seen.add(t); out.push({ t, y: Math.round(p.y), cy: Math.round(p.y + (sb ? sb.scrollTop * elScale(sb) * k : 0)), s: sb ? 1 : 0 }); });
   out.sort((a, b) => a.y - b.y); if (out.length <= 16) return out;
   return Array.from({ length: 16 }, (_, i) => out[Math.round(i * (out.length - 1) / 15)]);   /* espalhadas de cima a baixo */
 }
@@ -15369,7 +15372,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21k';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21l';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15610,7 +15613,7 @@ const APPHTML = {};
 const fileBase = f => new URL(String(f).split('?')[0], location.href).href;
 function appHTML(file) {
   const u = fileBase(file);
-  if (!APPHTML[u]) APPHTML[u] = fetch(u, { cache: 'force-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).catch(e => { delete APPHTML[u]; throw e; });
+  if (!APPHTML[u]) APPHTML[u] = fetch(u, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); }).catch(e => { delete APPHTML[u]; throw e; });
   return APPHTML[u];
 }
 function staticDoc(html, file, qs) {
@@ -15733,12 +15736,12 @@ function mirAlign(e, anch) {
   if (e._alId === id) return e._al; e._alId = id; e._al = null;
   try {
     const doc = e.fr.contentDocument, w = doc.defaultView, ct = e.ct, used = new Set(), L = [];
-    const cand = [].slice.call(doc.querySelectorAll('button,a,[data-label],h1,h2,h3,.btn,p'));
-    const vis = el => { const r = el.getBoundingClientRect(), cs = w.getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+    const scopeEl = doc.querySelector('.screen.active') || doc.body, cand = [].slice.call(scopeEl.querySelectorAll('button,a,[data-label],h1,h2,h3,.btn,p'));   /* só a tela em uso (os módulos têm dezenas de telas na mesma página) */
+    const vis = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && deepVisible(el); };
     anch.forEach(a => { const el = cand.find(c => !used.has(c) && (c.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) === a.t && vis(c)); if (!el) return; used.add(el);
       const r = el.getBoundingClientRect(), inCt = ct && ct.contains(el), vy = r.top + r.height / 2;
       /* rolável no iPhone: compara na posição do conteúdo; senão, na posição visível da tela */
-      if (a.s) L.push({ s: 1, p: a.cy, d: vy + (inCt ? ct.scrollTop : 0) - a.cy }); else L.push({ s: 0, p: a.y, d: vy - a.y }); });
+      if (a.s) L.push({ s: 1, p: a.cy, d: vy + (inCt ? ct.scrollTop * elScale(ct) : 0) - a.cy }); else L.push({ s: 0, p: a.y, d: vy - a.y }); });
     if (!L.length) return null;
     const med = L.map(x => x.d).sort((a, b) => a - b)[Math.floor(L.length / 2)];   /* descarta referência trocada (texto repetido em outro lugar) */
     const good = L.filter(x => Math.abs(x.d - med) < 180); e._al = good.length ? good : null;   /* só descarta erro grosseiro: topo e base podem ter correções bem diferentes */
@@ -15761,7 +15764,7 @@ function mirApply(jump) {
   (d.key === e.key ? d.taps || [] : []).forEach((p, i) => {
     let px = (p.xf || 0) * MIR.vw, py = vfix(p.ab ? MIR.vh - (p.yb || 0) + VAB : p.fixed ? p.y : p.y + e.top - top, MIR.vh);   /* inclui os toques da faixa presa à base */
     const al = p.fy != null && d.key === e.key ? mirAlign(e, d.anch) : null;   /* alinhamento automático: posição real do dedo + correção da tela */
-    if (al) { const s = !!p.fsc, base = s ? p.fcy : p.fy, dl = alDelta(al, base, s); if (dl != null) { py = s ? base + dl - (e.ct ? e.ct.scrollTop : 0) : base + dl; MIR.alOn = al; } }
+    if (al) { const s = !!p.fsc, base = s ? p.fcy : p.fy, dl = alDelta(al, base, s); if (dl != null) { py = s ? base + dl - (e.ct ? e.ct.scrollTop * elScale(e.ct) : 0) : base + dl; MIR.alOn = al; } }
     if (py < -12 || py > MIR.vh + 12) return;
     x.globalAlpha = p.old ? .5 : 1;                                        /* visitas anteriores a esta tela: cinza e mais claros */
     if (p.pulse) { const q = Math.min(1, (performance.now() - (MIR.pulseT0 || 0)) / 400); pulsing = q < 1;   /* anel que pisca no toque com ação */
