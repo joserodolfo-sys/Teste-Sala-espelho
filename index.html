@@ -3590,11 +3590,16 @@ function unshiftDoc(doc, tag) {
   for (let i = 0; i < w.frames.length; i++) { try { unshiftDoc(w.frames[i].document, tag === 'iPhone' ? 'app' : 'módulo'); } catch (e) {} }
 }
 setInterval(() => { if (ACTIVE && document.body.classList.contains('phone')) unshiftDoc(document, 'iPhone'); }, 250);
+/* gesto de voltar do iOS (arrastar da borda esquerda) durante o teste: a página fica onde está */
+const BACK_TRAP = { on: false };
+function trapBack() { BACK_TRAP.on = true; try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {} }   /* armada a cada teste */
+window.addEventListener('popstate', () => { if (ACTIVE && BACK_TRAP.on) { try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {} } else BACK_TRAP.on = false; });
 function viewTeste(pid) {
   if (!ACTIVE || ACTIVE.pid !== pid) { location.hash = '#/'; return; }
   const A = ACTIVE, el = $('#test');
   $('#app').innerHTML = '';
   el.hidden = false;
+  trapBack();
   el.innerHTML = `<div class="tv"><iframe id="tf" src="${furl(FLOWS[A.s.flow].file, 'rec=1' + nomeQ(A.s) + '&v=' + Date.now())}" title="Protótipo"></iframe>
     <button class="grip" id="grip" aria-label="Opções do moderador"><i>${GRIP_SVG}</i></button>
     <div class="scrim" id="scrim"></div><div class="tray" id="tray"></div></div>`;
@@ -3618,7 +3623,7 @@ function viewTeste(pid) {
   const nextFlow = () => {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
-    A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1' + nomeQ(s) + '&v=' + Date.now());
+    A.s = s; A.t0 = Date.now(); { const u = furl(FLOWS[s.flow].file, 'rec=1' + nomeQ(s) + '&v=' + Date.now()); try { A.frame.contentWindow.location.replace(new URL(u, location.href).href); } catch (e) { A.frame.src = u; } }   /* substitui o app no quadro, sem criar entrada no histórico (o gesto de voltar do iOS não volta de missão) */
     renderTray(); toggle(false); startCheck(); missionUI(); missionIntro(); resetScroll(); setTimeout(resetScroll, 300);
   };
   A.next = () => (A.idx === A.plan.length - 1 ? endTest() : nextFlow()); A.toggle = toggle;
@@ -5221,7 +5226,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21g';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21h';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
