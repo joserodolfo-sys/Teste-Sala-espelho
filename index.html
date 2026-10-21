@@ -5152,7 +5152,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-20d';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21a';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -5198,8 +5198,17 @@ async function renderLive(code, d) {
   $('#esp-log').innerHTML = (d.log || []).slice().reverse().map(x => `<li${x.d ? ' class="done"' : ''}><span class="muted">${dur(x.t || 0)}</span> ${esc(x.l)}</li>`).join('') || '<li class="muted">Nenhum toque ainda.</li>';
   if (d.vw && d.vh && (MIR.vw !== d.vw || MIR.vh !== d.vh)) { mirReset(); MIR.vw = d.vw; MIR.vh = d.vh; }
   if (d.name && !MIR.nome) MIR.nome = primeiroNome(d.name);
-  mirSize(); MIR.d = d;
-  if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st);
+  mirSize();
+  const fl = d.flash;
+  if (fl && fl.t !== MIR.flashT && d.key && FLOWS[d.flow] && MIR.cur) {   /* toque com ação: mostra o toque na tela anterior por 0,4 s e só então troca */
+    MIR.flashT = fl.t; clearTimeout(MIR.flashTm); MIR.pend = d; MIR.pulseT0 = performance.now();
+    const before = MIR.lastKey && grp0(MIR.lastKey) === grp0(fl.key) ? (MIR.lastTaps || []).filter(p => p.n !== fl.n) : [];
+    MIR.d = Object.assign({}, d, { key: fl.key, scroll: fl.scroll || 0, taps: before.concat([Object.assign({}, fl, { pulse: 1 })]) });
+    mirShow(d.flow, fl.key, d.st);
+    MIR.flashTm = setTimeout(() => { MIR.flashTm = null; const nd = MIR.pend; MIR.pend = null; if (!nd) return; MIR.d = nd; if (nd.key && FLOWS[nd.flow]) mirShow(nd.flow, nd.key, nd.st); }, 400);
+  } else if (MIR.flashTm) MIR.pend = d;                                    /* chegou outro estado durante a piscada: entra no fim dela */
+  else { MIR.d = d; if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st); }
+  MIR.lastKey = d.key; MIR.lastTaps = d.taps || [];
   renderFinal(d);
 }
 /* encerrar pelo notebook quando o iPhone não responde: fecha a sessão com o que já está na nuvem */
@@ -5330,12 +5339,19 @@ function liveState() {
   const s = A.s, f = FLOWS[s.flow], m = f && f.mission, ev = s.events || [];
   let lv = -1; for (let i = ev.length - 1; i >= 0; i--) if (ev[i].type === 'view') { lv = i; break; }
   const key = lv >= 0 ? ev[lv].key : null, since = ev.slice(lv + 1);
-  const taps = since.filter(e => e.type === 'tap' && e.key === key).slice(-25).map(e => ({ x: e.x, y: e.y, xf: e.xf, fixed: e.fixed, ab: e.ab, yb: e.yb, hit: e.hit }));
+  /* toques da tela atual na missão inteira (abas, slides e folhas contam como a mesma tela); os de visitas anteriores vão apagados */
+  const grp = k => keyBase(k || '').replace(/^sheet~/, ''), g0 = grp(key), allT = ev.filter(e => e.type === 'tap'), nOf = new Map(), cntG = {}; allT.forEach(e => { const g = grp(e.key); cntG[g] = (cntG[g] || 0) + 1; nOf.set(e, cntG[g]); });   /* numeração por tela: recomeça em 1 em cada tela */
+  let vs = lv; if (lv >= 0) for (let i = lv - 1; i >= 0; i--) { if (ev[i].type !== 'view') continue; if (grp(ev[i].key) !== g0) break; vs = i; }
+  const visitT = vs >= 0 ? ev[vs].t : 0, tp = e => ({ x: e.x, y: e.y, xf: e.xf, fixed: e.fixed, ab: e.ab, yb: e.yb, hit: e.hit, n: nOf.get(e) });
+  const taps = allT.filter(e => grp(e.key) === g0).slice(-40).map(e => Object.assign(tp(e), e.t < visitT ? { old: 1 } : {}));
+  /* o toque com ação que trocou de tela: o notebook mostra a tela anterior com ele piscando por um instante */
+  let flash = null; if (lv >= 0) for (let i = lv - 1; i >= 0; i--) { const e = ev[i]; if (e.type === 'view') break;
+    if (e.type === 'tap') { if (grp(e.key) !== g0 && ev[lv].t - e.t < 1500) { const sc0 = ev.filter(x => x.type === 'scroll' && x.key === e.key && x.t <= e.t).pop(); flash = Object.assign(tp(e), { key: e.key, t: e.t, scroll: sc0 ? sc0.top || 0 : 0 }); } break; } }
   const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -5501,6 +5517,7 @@ function mirActivate(e) {
   MIR.cache.forEach(x => x.fr.classList.toggle('on', x === e)); MIR.cur = e; $('#mir-wait').hidden = true;
   if (e.ct) e.ct.scrollTop = 0; mirApply(true); MIR.pre = 0; mirPreload(e.flow, e.key);
 }
+const grp0 = k => keyBase(k || '').replace(/^sheet~/, '');
 function mirApply(jump) {
   const e = MIR.cur, d = MIR.d, cv = $('#mir-dots'); if (!e || !d || !cv) return;
   const top = d.key === e.key ? (d.scroll || 0) : 0;
@@ -5510,12 +5527,18 @@ function mirApply(jump) {
     else { const t0 = performance.now(), step = now => { const q = Math.min(1, (now - t0) / 280), z = 1 - Math.pow(1 - q, 3); e.ct.scrollTop = from + (to - from) * z; if (q < 1 && MIR.cur === e) requestAnimationFrame(step); }; requestAnimationFrame(step); }
   }
   const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height);
+  let pulsing = false;
   (d.key === e.key ? d.taps || [] : []).forEach((p, i) => {
     const px = (p.xf || 0) * MIR.vw, py = p.ab ? MIR.vh - (p.yb || 0) : p.fixed ? p.y : p.y + e.top - top;
     if (py < -12 || py > MIR.vh + 12) return;
-    x.beginPath(); x.arc(px, py, 12, 0, 7); x.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; x.fill();
-    x.lineWidth = 2; x.strokeStyle = '#fff'; x.stroke(); x.fillStyle = '#fff'; x.font = '700 11px Montserrat,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(i + 1, px, py + .5);
+    x.globalAlpha = p.old ? .5 : 1;                                        /* visitas anteriores a esta tela: cinza e mais claros */
+    if (p.pulse) { const q = Math.min(1, (performance.now() - (MIR.pulseT0 || 0)) / 400); pulsing = q < 1;   /* anel que pisca no toque com ação */
+      x.beginPath(); x.arc(px, py, 14 + 16 * q, 0, 7); x.strokeStyle = 'rgba(228,5,33,' + (0.9 * (1 - q) + .1) + ')'; x.lineWidth = 4; x.stroke(); }
+    x.beginPath(); x.arc(px, py, 12, 0, 7); x.fillStyle = p.old ? 'rgba(138,139,140,.95)' : p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; x.fill();
+    x.lineWidth = 2; x.strokeStyle = '#fff'; x.stroke(); x.fillStyle = '#fff'; x.font = '700 11px Montserrat,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(p.n || i + 1, px, py + .5);
+    x.globalAlpha = 1;
   });
+  if (pulsing && !MIR.pulseRaf) MIR.pulseRaf = requestAnimationFrame(() => { MIR.pulseRaf = null; mirApply(); });
 }
 /* próximas telas prováveis: o caminho ideal da missão e o que outros participantes abriram depois desta */
 function mirNext(flow, key) {
