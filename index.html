@@ -3593,7 +3593,24 @@ setInterval(() => { if (ACTIVE && document.body.classList.contains('phone')) uns
 /* gesto de voltar do iOS (arrastar da borda esquerda) durante o teste: a página fica onde está */
 const BACK_TRAP = { on: false };
 function trapBack() { BACK_TRAP.on = true; try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {} }   /* armada a cada teste */
-window.addEventListener('popstate', () => { if (ACTIVE && BACK_TRAP.on) { try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {} } else BACK_TRAP.on = false; });
+/* o gesto de voltar do iPhone vira o "voltar" do protótipo: aciona a seta de voltar da tela atual; se não houver, é ignorado */
+const PROTO_BACK_SEL = '[data-back],[data-home-back],[aria-label="Voltar"],[data-label="Voltar"],.sm-back,.sm-back2,.hb-back,.back,.cg-arrow,.d1-arrow,.fq-ar,.qt-back,.pg-back,.lh .bk,.ph .bk';
+function protoVisible(el) { try { const w = el.ownerDocument.defaultView, r = el.getBoundingClientRect(), cs = w.getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity !== 0 && r.bottom > 0 && r.top < w.innerHeight; } catch (e) { return false; } }
+function protoBack() {
+  const A = ACTIVE; if (!A || !A.frame) return false; const docs = [];
+  const walk = (w, d) => { try { const fe = w.frameElement; if (fe && d > 0 && !protoVisible(fe)) return; docs.push(w.document); for (let i = 0; i < w.frames.length && d < 3; i++) walk(w.frames[i], d + 1); } catch (e) {} };
+  walk(A.frame.contentWindow, 0);
+  for (let i = docs.length - 1; i >= 0; i--) {   /* do módulo mais de cima para o app */
+    const d = docs[i], scope = d.querySelector('.screen.active') || d.body; if (!scope) continue;
+    const el = [].slice.call(scope.querySelectorAll(PROTO_BACK_SEL)).find(protoVisible); if (el) { el.click(); return true; }
+  }
+  return false;
+}
+window.addEventListener('popstate', () => {
+  if (ACTIVE && BACK_TRAP.on) { try { history.pushState({ hsfTeste: 1 }, '', location.href); } catch (e) {}
+    if (protoBack() && ACTIVE.s) { ACTIVE.s.events.push({ type: 'marker', t: Date.now() - ACTIVE.t0, label: '↩ Voltou com o gesto do iPhone' }); save(); } }
+  else BACK_TRAP.on = false;
+});
 function viewTeste(pid) {
   if (!ACTIVE || ACTIVE.pid !== pid) { location.hash = '#/'; return; }
   const A = ACTIVE, el = $('#test');
@@ -5226,7 +5243,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21h';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21i';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
