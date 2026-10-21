@@ -3570,6 +3570,14 @@ function trayHTML() {
     <button class="btn sm ghost" id="stop" data-label="Encerrar teste agora">Encerrar teste agora (sem avaliação)</button>
     <p class="muted" id="mk-n"></p>`;
 }
+/* iOS: depois que o teclado fecha (ex.: a pergunta aberta da avaliação), a página pode ficar deslocada para cima,
+   escondendo o cabeçalho do app e a setinha do moderador. Volta tudo ao topo. */
+function resetScroll() {
+  try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+    const t = document.getElementById('test'); if (t) { t.scrollTop = 0; const tv = t.querySelector('.tv'); if (tv) tv.scrollTop = 0; } } catch (e) {}
+}
+document.addEventListener('focusout', e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { setTimeout(resetScroll, 80); setTimeout(resetScroll, 400); } }, true);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (window.visualViewport.height >= window.innerHeight - 2) setTimeout(resetScroll, 80); });   /* teclado fechou */
 function viewTeste(pid) {
   if (!ACTIVE || ACTIVE.pid !== pid) { location.hash = '#/'; return; }
   const A = ACTIVE, el = $('#test');
@@ -3599,7 +3607,7 @@ function viewTeste(pid) {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
     A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1' + nomeQ(s) + '&v=' + Date.now());
-    renderTray(); toggle(false); startCheck(); missionUI(); missionIntro();
+    renderTray(); toggle(false); startCheck(); missionUI(); missionIntro(); resetScroll(); setTimeout(resetScroll, 300);
   };
   A.next = () => (A.idx === A.plan.length - 1 ? endTest() : nextFlow()); A.toggle = toggle;
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
@@ -4456,7 +4464,7 @@ function askQuestions(s, done) {
     };
     const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
   };
-  const close = () => { s._finishQs = null; delete s._modQs; ov.remove(); done(); };
+  const close = () => { s._finishQs = null; delete s._modQs; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); ov.remove(); resetScroll(); done(); };
   /* o moderador pode registrar a avaliação pelo notebook (conversando com o participante): o iPhone aplica e segue */
   s._finishQs = (got, skip) => { if (!ov.isConnected) return; if (skip) s.skippedQs = true; else { s.answers = Object.assign({}, got || {}); s.qs = qs.map(q => q.text); s.answeredBy = 'moderador'; } save(); close(); };
   if (s._modQs) ov.innerHTML = `<div class="mc"><div class="hsf-wait"></div><h2>${last ? 'Finalizando o teste…' : 'Preparando o próximo fluxo…'}</h2></div>`;   /* encerrada pelo notebook: a avaliação é registrada lá */
@@ -5184,7 +5192,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21d';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21e';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;

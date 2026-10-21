@@ -13671,6 +13671,14 @@ function trayHTML() {
     <button class="btn sm ghost" id="stop" data-label="Encerrar teste agora">Encerrar teste agora (sem avaliação)</button>
     <p class="muted" id="mk-n"></p>`;
 }
+/* iOS: depois que o teclado fecha (ex.: a pergunta aberta da avaliação), a página pode ficar deslocada para cima,
+   escondendo o cabeçalho do app e a setinha do moderador. Volta tudo ao topo. */
+function resetScroll() {
+  try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+    const t = document.getElementById('test'); if (t) { t.scrollTop = 0; const tv = t.querySelector('.tv'); if (tv) tv.scrollTop = 0; } } catch (e) {}
+}
+document.addEventListener('focusout', e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { setTimeout(resetScroll, 80); setTimeout(resetScroll, 400); } }, true);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (window.visualViewport.height >= window.innerHeight - 2) setTimeout(resetScroll, 80); });   /* teclado fechou */
 function viewTeste(pid) {
   if (!ACTIVE || ACTIVE.pid !== pid) { location.hash = '#/'; return; }
   const A = ACTIVE, el = $('#test');
@@ -13700,7 +13708,7 @@ function viewTeste(pid) {
     A.s.endedAt = Date.now(); save(); cloudKick();
     A.idx++; const s = newSession(A.p, A.plan[A.idx], A.plan, A.s.seq + 1); sessions.push(s); save();
     A.s = s; A.t0 = Date.now(); A.frame.src = furl(FLOWS[s.flow].file, 'rec=1' + nomeQ(s) + '&v=' + Date.now());
-    renderTray(); toggle(false); startCheck(); missionUI(); missionIntro();
+    renderTray(); toggle(false); startCheck(); missionUI(); missionIntro(); resetScroll(); setTimeout(resetScroll, 300);
   };
   A.next = () => (A.idx === A.plan.length - 1 ? endTest() : nextFlow()); A.toggle = toggle;
   $('#grip').onclick = () => toggle(!tray.classList.contains('on'));
@@ -13812,7 +13820,7 @@ function palette() {
 }
 function drawHeat(H) {
   const cv = H.cv, W = cv.width, Hh = cv.height, ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, Hh);
-  const P = H.pts.map(p => ({ x: p.xf * W, y: p.ab ? H.viewH - p.yb : p.fixed ? (H.sheet ? p.y + (H.viewH - (p._vh || H.viewH)) : p.y) : p.y + H.top, hit: p.hit, n: p.n }));
+  const P = H.pts.map(p => ({ x: p.xf * W, y: p.ab ? H.viewH - p.yb : p.fixed ? (H.sheet ? vfix(p.y, H.viewH) + (H.viewH - (p._vh || H.viewH)) : vfix(p.y, H.viewH)) : vfix(p.y, H.viewH) + H.top, hit: p.hit, n: p.n }));
   if (H.mode === 'dots') {
     P.forEach((p, i) => {
       ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, 7); ctx.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; ctx.fill();
@@ -13872,7 +13880,7 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
   let scr = best(scrs.map(x => ({ v: x, n: cnt(match(x)) }))).v, cur = defCur(scr), state = defState(scr, cur), mode = 'heat', H;
   host.innerHTML = `<div id="hrows"></div>
     <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button>${sessionsList.length === 1 ? '<button data-m="seq">Sequência</button>' : ''}</div>
-      <span class="muted" id="hleg"></span><div class="seg" id="hzw" title="Tamanho do celular" style="margin-left:auto">${['P', 'M', 'G'].map(z => `<button data-hz="${z}" class="${curHZ() === z ? 'on' : ''}">${z}</button>`).join('')}</div></div>
+      <span class="muted" id="hleg"></span>${vadjCtl('hvadj')}<div class="seg" id="hzw" title="Tamanho do celular" style="margin-left:12px">${['P', 'M', 'G'].map(z => `<button data-hz="${z}" class="${curHZ() === z ? 'on' : ''}">${z}</button>`).join('')}</div></div>
     <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div><div id="hseq" hidden></div>`;
   const cur_keys = () => match(scr, cur || null, state);
   const legend = n => $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${n} toque(s) nesta visão`;
@@ -13928,7 +13936,13 @@ let HEAT_TAB = 'heat';
 /* Uma imagem por tela (guardada) + os toques desenhados por cima. Sessão: a ordem exata das passagens (repetições separadas).
    Vários participantes: um grupo por caminho igual, o caminho ideal no topo e a 1ª tela fora dele com borda vermelha. */
 const SEQ_CACHE = new Map(); let SEQ_REG = [], SEQ_PDF_JOBS = [];
-const HZ_VALS = { P: .42, M: .55, G: .72 };   /* celular da análise menor nos três tamanhos */
+const HZ_VALS = { P: .42, M: .55, G: .72 };
+/* ajuste vertical dos toques (calibragem): empurra o toque para baixo proporcionalmente à altura na tela — 0 no topo, máximo na base.
+   Só muda a exibição (espelho, mapa de calor e sequência); o que foi gravado não é alterado. */
+let VADJ = (() => { const v = parseFloat(localStorage.getItem('hsf_vadj')); return isFinite(v) ? v : 4.5; })();
+const vfix = (y, vh) => y + (VADJ / 100) * Math.max(0, Math.min(y, vh || y));
+const setVadj = v => { VADJ = Math.max(0, Math.min(15, +v || 0)); try { localStorage.setItem('hsf_vadj', String(VADJ)); } catch (e) {} };
+const vadjCtl = id => `<label class="vadj" title="Corrige o desvio vertical dos toques do iPhone na exibição (o gravado não muda)" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);white-space:nowrap">Ajuste vertical <input type="range" id="${id}" min="0" max="10" step="0.5" value="${VADJ}" style="width:90px;accent-color:#cc0000"> <b data-vadj-v>${String(VADJ).replace('.', ',')}%</b></label>`;   /* celular da análise menor nos três tamanhos */
 function setHZ(z) { if (!HZ_VALS[z]) z = 'M'; try { localStorage.setItem('hsf_hz', z); } catch (e) {} document.documentElement.style.setProperty('--hz', HZ_VALS[z]); document.querySelectorAll('[data-hz]').forEach(b => b.classList.toggle('on', b.dataset.hz === z)); }
 const curHZ = () => { try { return localStorage.getItem('hsf_hz') || 'M'; } catch (e) { return 'M'; } };
 setHZ(curHZ());
@@ -13950,7 +13964,7 @@ function seqCompose(b, pts, numbered) {
   x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(b.cap, 0, 0);
   let focus = null;
   pts.forEach(p => {
-    const px = p.xf * b.vw, py = p.ab ? b.viewH - p.yb : p.fixed ? (b.sheet ? p.y + (b.viewH - (p._vh || b.viewH)) : p.y) : p.y + b.top;
+    const px = p.xf * b.vw, py = p.ab ? b.viewH - p.yb : p.fixed ? (b.sheet ? vfix(p.y, b.viewH) + (b.viewH - (p._vh || b.viewH)) : vfix(p.y, b.viewH)) : vfix(p.y, b.viewH) + b.top;
     x.beginPath(); x.arc(px, py, 22, 0, 7); x.fillStyle = p.hit ? 'rgba(31,32,36,.9)' : 'rgba(228,5,33,.92)'; x.fill(); x.lineWidth = 4; x.strokeStyle = '#fff'; x.stroke();
     if (numbered && p.n) { x.fillStyle = '#fff'; x.font = '700 20px Montserrat,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(p.n, px, py + .5); }
     if (p.hit || focus == null) focus = py;
@@ -14285,6 +14299,10 @@ const markBackup = () => { try { localStorage.setItem('hsf_backup', JSON.stringi
 const today = () => new Date().toISOString().slice(0, 10);
 /* Histórico: seleção e exclusão em lote (apaga também na nuvem) */
 document.addEventListener('click', e => { if (e.target.closest('[data-hsel],#h-all,.hck')) e.stopPropagation(); }, true);
+/* ajuste vertical: no espelho redesenha na hora; no mapa de calor, ao soltar */
+document.addEventListener('input', e => { const t = e.target; if (!t || (t.id !== 'esp-vadj' && t.id !== 'hvadj')) return; setVadj(t.value);
+  const b = t.parentNode.querySelector('[data-vadj-v]'); if (b) b.textContent = String(VADJ).replace('.', ',') + '%'; if (t.id === 'esp-vadj' && typeof mirApply === 'function') mirApply(); });
+document.addEventListener('change', e => { const t = e.target; if (t && t.id === 'hvadj') route(); });
 document.addEventListener('change', e => {
   const t = e.target; if (!t.matches || !(t.matches('[data-hsel]') || t.id === 'h-all')) return;
   const all = [...document.querySelectorAll('[data-hsel]')];
@@ -14547,7 +14565,7 @@ function askQuestions(s, done) {
     };
     const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
   };
-  const close = () => { s._finishQs = null; delete s._modQs; ov.remove(); done(); };
+  const close = () => { s._finishQs = null; delete s._modQs; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); ov.remove(); resetScroll(); done(); };
   /* o moderador pode registrar a avaliação pelo notebook (conversando com o participante): o iPhone aplica e segue */
   s._finishQs = (got, skip) => { if (!ov.isConnected) return; if (skip) s.skippedQs = true; else { s.answers = Object.assign({}, got || {}); s.qs = qs.map(q => q.text); s.answeredBy = 'moderador'; } save(); close(); };
   if (s._modQs) ov.innerHTML = `<div class="mc"><div class="hsf-wait"></div><h2>${last ? 'Finalizando o teste…' : 'Preparando o próximo fluxo…'}</h2></div>`;   /* encerrada pelo notebook: a avaliação é registrada lá */
@@ -15275,7 +15293,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21d';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21e';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15311,6 +15329,7 @@ async function renderLive(code, d) {
     if (!w && $('#esp-res')) { w = document.createElement('p'); w.id = 'esp-ver'; w.className = 'err'; w.style.margin = '8px 0 0'; $('#esp-res').after(w); }
     if (w) { w.hidden = !old; w.textContent = old ? '⚠ O iPhone está com uma versão anterior do app de teste. Feche o Sala Espelho por completo no iPhone (deslize para cima) e abra de novo.' : ''; } }
   { let g = $('#esp-diag'); if (!g && $('#esp-res')) { g = document.createElement('p'); g.id = 'esp-diag'; g.className = 'muted'; g.style.cssText = 'margin:6px 0 0;font-size:11px'; $('#esp-res').after(g); }
+    if (g && !$('#esp-vadj')) { const w = document.createElement('div'); w.style.margin = '8px 0 0'; w.innerHTML = vadjCtl('esp-vadj'); g.after(w); }
     if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + (d.rvw && (d.rvw !== d.vw || d.rvh !== d.vh) ? ' (a 1ª tela informou ' + d.rvw + '×' + d.rvh + ')' : '') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px'; }
   renderQs(code, d);
   const rd = d.rd || {}, done = d.result === 'concluiu';
@@ -15643,7 +15662,7 @@ function mirApply(jump) {
   const x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height);
   let pulsing = false;
   (d.key === e.key ? d.taps || [] : []).forEach((p, i) => {
-    const px = (p.xf || 0) * MIR.vw, py = p.ab ? MIR.vh - (p.yb || 0) : p.fixed ? p.y : p.y + e.top - top;
+    const px = (p.xf || 0) * MIR.vw, py = p.ab ? MIR.vh - (p.yb || 0) : vfix(p.fixed ? p.y : p.y + e.top - top, MIR.vh);
     if (py < -12 || py > MIR.vh + 12) return;
     x.globalAlpha = p.old ? .5 : 1;                                        /* visitas anteriores a esta tela: cinza e mais claros */
     if (p.pulse) { const q = Math.min(1, (performance.now() - (MIR.pulseT0 || 0)) / 400); pulsing = q < 1;   /* anel que pisca no toque com ação */
