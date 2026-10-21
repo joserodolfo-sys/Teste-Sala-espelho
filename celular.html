@@ -13679,6 +13679,18 @@ function resetScroll() {
 }
 document.addEventListener('focusout', e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { setTimeout(resetScroll, 80); setTimeout(resetScroll, 400); } }, true);
 if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (window.visualViewport.height >= window.innerHeight - 2) setTimeout(resetScroll, 80); });   /* teclado fechou */
+/* proteção: durante o teste no iPhone, a página e os containers fixos (que não deveriam rolar) às vezes são rolados pelo iOS
+   (teclado, "mostrar elemento" de carrosséis). Isso esconde o cabeçalho do app e a setinha. Devolve ao lugar e anota o que corrigiu. */
+let UNSHIFT = null;
+function unshiftDoc(doc, tag) {
+  if (!doc || !doc.documentElement) return;
+  const w = doc.defaultView, els = [doc.documentElement, doc.body].concat([].slice.call(doc.querySelectorAll('#test,.tv,#device,.stage,#screen,#app,.mod-host,.dev,.frame')));
+  els.forEach(el => { if (!el || !el.scrollTop) return; const oy = w.getComputedStyle(el).overflowY; if (oy === 'auto' || oy === 'scroll') { if (el !== doc.documentElement && el !== doc.body) return; }
+    const px = el.scrollTop; el.scrollTop = 0; UNSHIFT = { at: Date.now(), px: Math.round(px), where: tag + ' ' + (el === doc.documentElement ? 'html' : el === doc.body ? 'body' : (el.id ? '#' + el.id : '.' + String(el.className).split(' ')[0])) }; });
+  if (w.scrollY) { UNSHIFT = { at: Date.now(), px: Math.round(w.scrollY), where: tag + ' página' }; w.scrollTo(0, 0); }
+  for (let i = 0; i < w.frames.length; i++) { try { unshiftDoc(w.frames[i].document, tag === 'iPhone' ? 'app' : 'módulo'); } catch (e) {} }
+}
+setInterval(() => { if (ACTIVE && document.body.classList.contains('phone')) unshiftDoc(document, 'iPhone'); }, 250);
 function viewTeste(pid) {
   if (!ACTIVE || ACTIVE.pid !== pid) { location.hash = '#/'; return; }
   const A = ACTIVE, el = $('#test');
@@ -15293,7 +15305,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21e';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21f';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15330,7 +15342,7 @@ async function renderLive(code, d) {
     if (w) { w.hidden = !old; w.textContent = old ? '⚠ O iPhone está com uma versão anterior do app de teste. Feche o Sala Espelho por completo no iPhone (deslize para cima) e abra de novo.' : ''; } }
   { let g = $('#esp-diag'); if (!g && $('#esp-res')) { g = document.createElement('p'); g.id = 'esp-diag'; g.className = 'muted'; g.style.cssText = 'margin:6px 0 0;font-size:11px'; $('#esp-res').after(g); }
     if (g && !$('#esp-vadj')) { const w = document.createElement('div'); w.style.margin = '8px 0 0'; w.innerHTML = vadjCtl('esp-vadj'); g.after(w); }
-    if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + (d.rvw && (d.rvw !== d.vw || d.rvh !== d.vh) ? ' (a 1ª tela informou ' + d.rvw + '×' + d.rvh + ')' : '') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px'; }
+    if (g) g.textContent = 'iPhone: app ' + (d.ver || 'anterior') + ' · tela ' + (d.vw || '?') + '×' + (d.vh || '?') + (d.rvw && (d.rvw !== d.vw || d.rvh !== d.vh) ? ' (a 1ª tela informou ' + d.rvw + '×' + d.rvh + ')' : '') + ' · margens topo ' + (d.ins ? d.ins.t : '?') + ' px / base ' + (d.ins ? d.ins.b : '?') + ' px' + (d.shift ? ' · deslocamento corrigido: ' + d.shift.where + ' ' + d.shift.px + ' px' : ''); }
   renderQs(code, d);
   const rd = d.rd || {}, done = d.result === 'concluiu';
   $('#esp-res').innerHTML = done ? `<div class="esp-done${MIR.doneSeen === d.idx ? '' : ' pop'}"><b>✓ Concluiu a missão${rd.at != null ? ' em ' + dur(rd.at) : ''}${rd.direto === true ? ' · direto' : rd.direto === false ? ' · indireto' : ''}</b><span id="esp-xp">${rd.explore ? 'Continua explorando. Encerre quando quiser.' : ''}</span></div>`
@@ -15484,7 +15496,7 @@ function liveState() {
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, ins: s.ins || null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, ins: s.ins || null, shift: UNSHIFT && Date.now() - UNSHIFT.at < 60000 ? UNSHIFT : null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
