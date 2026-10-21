@@ -4388,15 +4388,15 @@ const vLabel = (scr, sel) => tokLabel(sel) || (selDecl(scr, sel) ? MANSCR[scr].s
 const stOrd = st => st === 'normal' ? 0 : st === 'calc' ? 1 : st.indexOf('v~') === 0 ? 2 : 3;
 
 /* ---------- manifesto do app (lido do início do arquivo, sem baixar o app inteiro) ---------- */
-const MAN = {}, MANSCR = {};
+const MAN = {}, MANSCR = {}, MANFAIL = {};   /* MANFAIL: endereços cuja leitura do manifesto falhou (para não ficar "lendo…" para sempre) */
 const baseUrl = u => String(u || '').split('?')[0];
 async function loadManifest(url, force) {
   const u = baseUrl(url); if (!u) return null; if (MAN[u] && !force) return MAN[u];
   let txt = '';
-  try { const r = await fetch(u + '?m=' + Date.now(), { headers: { Range: 'bytes=0-65535' }, cache: 'no-store' }); txt = await r.text(); } catch (e) { return null; }
-  const i = txt.indexOf('id="hsf-manifest">'); if (i < 0) return null;
-  let m = null; try { m = JSON.parse(txt.slice(i + 18, txt.indexOf('<\/script>', i))); } catch (e) { return null; }
-  MAN[u] = m; applyManifest(m); return m;
+  try { const r = await fetch(u + '?m=' + Date.now(), { headers: { Range: 'bytes=0-65535' }, cache: 'no-store' }); txt = await r.text(); } catch (e) { MANFAIL[u] = 1; return null; }
+  const i = txt.indexOf('id="hsf-manifest">'); if (i < 0) { MANFAIL[u] = 1; return null; }
+  let m = null; try { m = JSON.parse(txt.slice(i + 18, txt.indexOf('<\/script>', i))); } catch (e) { MANFAIL[u] = 1; return null; }
+  delete MANFAIL[u]; MAN[u] = m; applyManifest(m); return m;
 }
 function applyManifest(m) {
   (m.screens || []).forEach(sc => {
@@ -4571,17 +4571,27 @@ function viewMissoes() {
     <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
       <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
       <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b><br><span class="muted">${esc(f.url)}</span></td>
-        <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a></td></tr>`; }).join('')}</tbody></table></div>
+        <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : MANFAIL[baseUrl(f.url)] ? '<span class="rb no" title="Não encontrei o manifesto neste endereço (ou o site não permite a leitura)">sem manifesto</span>' : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a> <button class="btn sm ghost" data-delf="${esc(f.id)}" type="button">Excluir</button></td></tr>`; }).join('')}</tbody></table></div>
   </div>`;
   $('#app').onclick = e => {
     const d = e.target.closest('[data-delm]'), du = e.target.closest('[data-dupm]'), ds = e.target.closest('[data-dels]');
     if (d && confirm('Excluir esta missão? As sessões já gravadas continuam no histórico.')) { entDelete('missions', d.dataset.delm); viewMissoes(); }
     if (du) { const o = JSON.parse(JSON.stringify(entGet('missions', du.dataset.dupm))); o.id = 'm' + uid(); o.name += ' (cópia)'; entSave('missions', o); viewMissoes(); }
     if (ds && confirm('Excluir este roteiro?')) { entDelete('scripts', ds.dataset.dels); viewMissoes(); }
+    const df = e.target.closest('[data-delf]'); if (df && deleteFlow(df.dataset.delf)) viewMissoes();
   };
-  if (fl.some(f => !MAN[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)])) viewMissoes(); });
+  if (fl.some(f => !MAN[baseUrl(f.url)] && !MANFAIL[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)] || MANFAIL[baseUrl(f.url)])) viewMissoes(); });
 }
 
+/* excluir um fluxo (app) e o manifesto dele: só se nenhuma missão usar */
+function deleteFlow(id) {
+  const f = entGet('flows', id); if (!f) return false;
+  const used = entLive('missions').filter(m => m.flow === id);
+  if (used.length) { alert('Não dá para excluir o fluxo "' + f.name + '": ' + used.length + ' missão(ões) usam ele (' + used.slice(0, 4).map(m => m.name || 'sem nome').join(', ') + (used.length > 4 ? '…' : '') + ').\n\nExclua essas missões, ou troque o fluxo delas, antes.'); return false; }
+  if (entLive('flows').length <= 1) { alert('Mantenha pelo menos um fluxo cadastrado.'); return false; }
+  if (!confirm('Excluir o fluxo "' + f.name + '" (' + f.url + ')?\n\nO manifesto dele deixa de ser lido. As sessões já gravadas continuam no histórico.')) return false;
+  entDelete('flows', id); delete MAN[baseUrl(f.url)]; delete MANFAIL[baseUrl(f.url)]; return true;
+}
 function viewFluxoEd(id) {
   const isNew = id === 'novo', f = isNew ? { id: 'f' + uid(), name: '', url: '' } : JSON.parse(JSON.stringify(entGet('flows', id) || {}));
   $('#app').innerHTML = `<div class="form" style="max-width:640px"><div><a class="crumb" href="#/missoes">← Missões</a><h1>${isNew ? 'Novo fluxo' : 'Editar fluxo'}</h1></div>
@@ -4589,10 +4599,11 @@ function viewFluxoEd(id) {
       <div><label>Nome</label><input type="text" id="fx-n" value="${esc(f.name)}"></div>
       <div><label>Endereço do app</label><input type="text" id="fx-u" value="${esc(f.url)}" placeholder="app.html ou https://…"><p class="muted" style="margin-top:6px">Pode ser um arquivo na mesma pasta (ex.: app.html) ou um endereço completo do mesmo site.</p></div>
       <div id="fx-m" class="muted"></div><p class="err" id="fx-e"></p>
-      <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button></div></div></div>`;
+      <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button>${isNew ? '' : '<button class="btn ghost" id="fx-d" type="button" style="margin-left:auto">Excluir fluxo</button>'}</div></div></div>`;
   const test = async () => { $('#fx-m').textContent = 'Lendo…'; const m = await loadManifest($('#fx-u').value.trim(), true);
     $('#fx-m').innerHTML = m ? `<span class="rb ok">✓ ${esc(m.name)}</span> · ${m.starts.length} pontos de partida · ${m.screens.length} tipos de tela` : '<span class="err">Não encontrei o manifesto neste endereço.</span>'; return m; };
   $('#fx-t').onclick = test;
+  if ($('#fx-d')) $('#fx-d').onclick = () => { if (deleteFlow(f.id)) location.hash = '#/missoes'; };
   $('#fx-s').onclick = async () => { f.name = $('#fx-n').value.trim(); f.url = $('#fx-u').value.trim();
     if (!f.name || !f.url) { $('#fx-e').textContent = 'Preencha nome e endereço.'; return; }
     entSave('flows', f); await test(); location.hash = '#/missoes'; };
