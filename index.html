@@ -4376,6 +4376,7 @@ function viewMissaoEd(id) {
         <section class="stp" data-s="1"><div class="sh"><i>1</i><div><h3>Sobre a missão</h3><p>Dê um nome curto e escreva a tarefa como você vai ler para o participante.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Nome da missão</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x">
             <label>Enunciado da tarefa</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea>
+            <label>Tipo da missão</label><div class="mtipo" style="display:flex;flex-direction:column;gap:6px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Tarefa com fim</b> <span class="muted">— o participante precisa chegar a algum lugar; o painel detecta quando ele conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— o participante explora à vontade, sem caminho ideal nem condição de fim</span></span></label></div><p class="how" id="m-freenote" ${m.free ? '' : 'hidden'} style="margin-top:8px"><b>Exploração livre:</b> sem caminho ideal e sem condição de fim. Você encerra quando quiser, pelo celular (setinha no topo) ou pelo notebook. Na análise aparecem o tempo de exploração, as telas vistas, o caminho e o mapa de calor.</p>
 </div></section>
         <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Escolha um fluxo para abrir na prévia, navegue até a tela onde a missão começa e confirme em “Usar esta tela como início”. Escolher o fluxo ou navegar não muda o início.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
@@ -4389,14 +4390,14 @@ function viewMissaoEd(id) {
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
             <div class="slh" data-for="path"></div></div></section>
         <section class="stp" data-s="4"><div class="sh"><i>4</i><div><h3>Como termina</h3><p>O que conta como “concluiu”. O painel detecta sozinho durante o teste. Se houver mais de uma condição, qualquer uma conclui.</p></div><span class="ok"></span></div>
-          <div class="sb"><div class="mtipo" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Termina numa ação ou tela</b> <span class="muted">— o painel detecta quando o participante conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— sem fim definido: o participante explora e você encerra quando quiser</span></span></label></div><div id="m-endbox" ${m.free ? 'hidden' : ''}><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
+          <div class="sb"><div id="m-endbox"><div id="me" class="lst"></div><p class="muted" id="me-note" hidden style="margin:4px 0 0;font-size:12px"></p>
             <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Definir a última ação na prévia</b>: passe o mouse (o que é clicável fica com contorno vermelho) e clique. O clique não aciona o app, então vale mesmo para um botão que leva a outra tela. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
             <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Definir a última ação na prévia</button></div>
             <p class="muted" style="margin:10px 0 0">Ao concluir, o painel marca o momento e continua gravando: a análise separa o que aconteceu até a conclusão e depois dela. A missão só termina quando você encerra, pelo celular (setinha no topo) ou pelo notebook; a nota é dada onde você encerrou.</p><input type="checkbox" id="m-ae" hidden>
             <details class="adv"><summary>Outras formas de definir o fim</summary>
               <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
-              <div class="slh" data-for="end"></div></details></div><p class="how" id="m-freenote" ${m.free ? '' : 'hidden'}><b>Exploração livre:</b> o painel não marca “concluiu”. Durante o teste, encerre pela bandeja (<b>Encerrar exploração</b>). Na análise aparecem o tempo de exploração, as telas vistas, o caminho e o mapa de calor.</p></div></section>
+              <div class="slh" data-for="end"></div></details></div></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mq" class="lst"></div>
             <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
@@ -4594,7 +4595,13 @@ function viewMissaoEd(id) {
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
   $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }); draw(); };
   $('#mq-t').onclick = () => { m.questions.push({ type: 'text', text: '' }); draw(); };
-  document.querySelectorAll('[name="m-tipo"]').forEach(rb => { rb.onchange = () => { if (!rb.checked) return; m.free = rb.value === 'livre'; $('#m-endbox').hidden = m.free; $('#m-freenote').hidden = !m.free; draw(); }; });
+  const applyType = () => {   /* exploração livre: sem caminho ideal (3) e sem condição de fim (4); "Perguntas e tempo" vira o passo 3 */
+    const s3 = document.querySelector('.stp[data-s="3"]'), s4 = document.querySelector('.stp[data-s="4"]'), n5 = document.querySelector('.stp[data-s="5"] .sh > i'), fn = $('#m-freenote');
+    if (s3) s3.hidden = !!m.free; if (s4) s4.hidden = !!m.free; if (n5) n5.textContent = m.free ? '3' : '5'; if (fn) fn.hidden = !m.free;
+    if (m.free && (CAP.step === 3 || CAP.step === 4)) setStep(5);
+  };
+  document.querySelectorAll('[name="m-tipo"]').forEach(rb => { rb.onchange = () => { if (!rb.checked) return; m.free = rb.value === 'livre'; applyType(); draw(); }; });
+  applyType();
   $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = START; m.autoEnd = !!$('#m-ae').checked; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
@@ -4602,7 +4609,7 @@ function viewMissaoEd(id) {
     if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: confirme onde a missão começa (“Usar esta tela como início”, na prévia).', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
   };
-  recDraw(); setStep(isNew ? 1 : 3); draw(); fillStarts();
+  recDraw(); setStep(isNew ? 1 : (m.free ? 5 : 3)); draw(); fillStarts();
 }
 
 function viewRoteiroEd(id) {
