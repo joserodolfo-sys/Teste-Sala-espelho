@@ -15344,7 +15344,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21i';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21j';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15813,7 +15813,8 @@ if (AUTH) setTimeout(() => cloudKick(), 800);
     doc.addEventListener('touchstart', function (e) { var t = e.touches[0]; if (t) { sx = t.clientX; sy = t.clientY; } }, { passive: true });
     doc.addEventListener('touchmove', function (e) {
       if (e.touches.length > 1) return;                                  /* pinça: não interfere */
-      var t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy; if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+      var t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+      if (Math.abs(dx) < 2 && Math.abs(dy) < 2) { if (!scroller(e.target, true) && !scroller(e.target, false) && e.cancelable) e.preventDefault(); return; }   /* nada rola aqui: bloqueia já no 1º movimento (senão o iPhone começa o elástico e arrasta a tela) */
       var vert = Math.abs(dy) >= Math.abs(dx), n = scroller(e.target, vert);
       if (!n) { if (e.cancelable) e.preventDefault(); return; }          /* nada rola nessa direção (cabeçalho, barra inferior, carrossel no sentido errado): não arrasta a tela */
       var a = vert ? n.scrollTop : n.scrollLeft, len = vert ? n.scrollHeight - n.clientHeight : n.scrollWidth - n.clientWidth, d = vert ? dy : dx;
