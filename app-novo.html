@@ -824,6 +824,7 @@ img.crop{position:absolute;max-width:none}
 .fp-bb img{width:96px;height:42px;display:block}
 /* ===== merge Home_Nova_4: padrão HSF nas telas novas ===== */
 .fq-st{display:none!important}
+.screen:not(.active):not(.entering){visibility:hidden}   /* o iPhone só desenha a tela em uso e a que está entrando: as outras não decodificam imagens nem calculam sombras */
 .fp-bh .fq-mn{display:none!important}   /* boleto: sem o ícone de menu no canto direito */   /* a barra de status falsa do boleto (VIVO 4G · 12:00) nunca aparece */
 :root{--k:calc(var(--safe-top) / var(--s) - 40px)}
 .fp-bh{height:calc(180px + var(--k))!important}
@@ -1552,8 +1553,10 @@ window.CAT_ASSETS = {"card00": "data:image/webp;base64,UklGRuZUAABXRUJQVlA4WAoAA
   if (Q.get('device') === 'iphone') document.documentElement.classList.add('iphone');
   var NAV = window.__HSF_NAV;
   function modJSON(id) { var el = document.getElementById(id); return el ? JSON.parse(el.textContent) : null; }
-  var MODS = { pag: modJSON('hsf-pagmod'), bn: modJSON('hsf-mod-bn'), lg: modJSON('hsf-mod-lg'), sp: modJSON('hsf-mod-sp'), sim: modJSON('hsf-mod-sim') };
-  MODS.nov = MODS.bn; MODS.aj = modJSON('hsf-mod-aj'); MODS.asm = modJSON('hsf-mod-asm'); MODS.ha = modJSON('hsf-mod-ha');          /* histórias da faixa Novidades: o mesmo visualizador do Brandawareness, no modo Novidades */
+  var MODS = {};   /* módulos preparados só quando abertos (antes: todos ao abrir o app, ~9 MB de texto — pesado demais para o iPhone) */
+  [['pag', 'hsf-pagmod'], ['bn', 'hsf-mod-bn'], ['lg', 'hsf-mod-lg'], ['sp', 'hsf-mod-sp'], ['sim', 'hsf-mod-sim'], ['nov', 'hsf-mod-bn'], ['aj', 'hsf-mod-aj'], ['asm', 'hsf-mod-asm'], ['ha', 'hsf-mod-ha']].forEach(function (p) {
+    var c; Object.defineProperty(MODS, p[0], { enumerable: true, configurable: true, get: function () { if (c === undefined) c = modJSON(p[1]); return c; }, set: function (v) { c = v; } });
+  });          /* histórias da faixa Novidades: o mesmo visualizador do Brandawareness, no modo Novidades */
   function injectQ(html, q) { var sc = '<script>window.__Q=' + JSON.stringify(q) + ';<\/script>', i = html.indexOf('<head>'); return html.slice(0, i + 6) + sc + html.slice(i + 6); }
   if (STATIC) {
     var k0 = Q.get('key') || (Q.get('view') === 'sheet' ? Q.get('under') : Q.get('view')) || '';
