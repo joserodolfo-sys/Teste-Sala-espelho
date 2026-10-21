@@ -3450,8 +3450,8 @@ function viewHome() {
         <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
     }).join('')}</div>
     <div class="card" style="margin-top:24px">
-      <div class="row" style="margin-bottom:6px;align-items:flex-start"><div><h2 style="margin:0">Histórico</h2><p class="muted" style="margin:2px 0 0;font-size:13px">Cada participante e as missões que fez. Clique numa linha para ver a análise individual.</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm danger" id="h-del" type="button" hidden>Excluir selecionados</button><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
+      <div class="row" style="margin-bottom:6px;align-items:flex-start;flex-wrap:nowrap;gap:16px"><div style="min-width:0"><h2 style="margin:0">Histórico</h2><p class="muted" style="margin:2px 0 0;font-size:13px">Cada participante e as missões que fez. Clique numa linha para ver a análise individual.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:nowrap;flex:none"><button class="btn sm danger" id="h-del" type="button" style="visibility:hidden;min-width:190px">Excluir selecionados</button><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
       ${P.length ? `<div class="list hlist"><div class="item head"><span><input type="checkbox" id="h-all" title="Selecionar todos"></span><span>Participante</span><span>Fluxos feitos</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
       ${P.slice().reverse().map(p => { const t = sessTotals(p); const open = p.sessions.some(s => !s.endedAt);
         return `<div class="item" data-go="#/participante/${enc(p.pid)}">
@@ -4167,7 +4167,7 @@ document.addEventListener('change', e => {
   const all = [...document.querySelectorAll('[data-hsel]')];
   if (t.id === 'h-all') all.forEach(c => { c.checked = t.checked; });
   const n = all.filter(c => c.checked).length, b = document.getElementById('h-del'), ha = document.getElementById('h-all');
-  if (b) { b.hidden = !n; b.textContent = 'Excluir selecionados (' + n + ')'; }
+  if (b) { b.style.visibility = n ? 'visible' : 'hidden'; b.textContent = 'Excluir selecionados (' + n + ')'; }   /* o espaço do botão fica reservado: os outros não se mexem */
   if (ha) { ha.checked = n > 0 && n === all.length; ha.indeterminate = n > 0 && n < all.length; }
 });
 document.addEventListener('click', e => {
