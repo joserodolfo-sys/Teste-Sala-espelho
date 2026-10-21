@@ -13722,11 +13722,21 @@ function viewTeste(pid) {
   A.clock = setInterval(() => { const c = $('#clock'); if (c) c.textContent = dur(Date.now() - A.t0); }, 500);
   A.auto = setInterval(save, 3000);
 }
+/* margens de segurança reais do aparelho (barra do relógio e barrinha de início), medidas dentro do app durante o teste:
+   o painel aplica as mesmas ao redesenhar as telas (espelho, mapa de calor e sequência), para os toques caírem no lugar certo */
+function frameInsets(fr) {
+  const one = w => { try { const d = w.document, p = d.createElement('div'); p.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+    (d.body || d.documentElement).appendChild(p); const cs = w.getComputedStyle(p), o = { t: Math.round(parseFloat(cs.paddingTop) || 0), b: Math.round(parseFloat(cs.paddingBottom) || 0) }; p.remove(); return o; } catch (e) { return null; } };
+  try { const w = fr.contentWindow, o = one(w) || { t: 0, b: 0 }; for (let i = 0; i < w.frames.length; i++) { const q = one(w.frames[i]); if (q) { o.t = Math.max(o.t, q.t); o.b = Math.max(o.b, q.b); } } return o; } catch (e) { return null; }
+}
+const insQ = ins => ins && (ins.t || ins.b) ? '&sat=' + (ins.t || 0) + '&sab=' + (ins.b || 0) : '';
+let STATIC_INS = null;
 window.addEventListener('message', e => {
   if (!ACTIVE || !ACTIVE.frame || e.source !== ACTIVE.frame.contentWindow) return;
   const m = e.data; if (!m || !m.hsf) return;
   const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
+  if (ev.type === 'view' && (!s.ins || !(s.ins.t || s.ins.b))) { const ins = frameInsets(ACTIVE.frame); if (ins) s.ins = ins; }
   s.events.push(ev); checkMission(s, ev); if (ev.type === 'view') barTint();
 });
 function endTest() {
@@ -13912,7 +13922,7 @@ function setHZ(z) { if (!HZ_VALS[z]) z = 'M'; try { localStorage.setItem('hsf_hz
 const curHZ = () => { try { return localStorage.getItem('hsf_hz') || 'M'; } catch (e) { return 'M'; } };
 setHZ(curHZ());
 async function seqBase(flow, key, st, vw, vh) {
-  const ck = [flow, key, st ? 1 : 0, vw].join('|'); if (SEQ_CACHE.has(ck)) return SEQ_CACHE.get(ck);
+  const ck = [flow, key, st ? 1 : 0, vw, insQ(STATIC_INS)].join('|'); if (SEQ_CACHE.has(ck)) return SEQ_CACHE.get(ck);
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:' + vw + 'px'; document.body.append(host);
   let out = null;
   try {
@@ -14026,7 +14036,7 @@ function viewSessao(id) {
         <h2 style="margin-top:18px">Anotações pós-teste</h2><textarea class="notes" id="notes" placeholder="Dificuldades, falas do participante, insights…">${esc(s.notesPost || '')}</textarea></div>
     </div>`;
   if (!(s.events || []).some(e => e.type === 'view')) $('#heat').insertAdjacentHTML('beforebegin', '<div class="hint" style="background:#fdecee;border-color:#f4b7be;color:#7a0016;margin:0 0 14px">Nenhum toque foi gravado nesta sessão. Isso acontece quando os arquivos <b>fluxo-*.html</b> publicados no site são a versão antiga. Reenvie os 3 ao GitHub e faça um novo teste.</div>');
-  if (s.vw) heatPanel($('#heat'), s.flow, [s], s.vw, s.vh, s.st);
+  if (s.vw) { STATIC_INS = s.ins || null; heatPanel($('#heat'), s.flow, [s], s.vw, s.vh, s.st); }
   else $('#heat').innerHTML = '<p class="muted">Sem dados de tela para gerar o mapa.</p>';
   $('#notes').oninput = e => { s.notesPost = e.target.value; save(); };
   document.querySelectorAll('[data-mk]').forEach(i => i.onchange = () => { const m = s.events.find(e => e.type === 'marker' && e.t === +i.dataset.mk); if (m) { m.label = i.value; save(); } });
@@ -14056,6 +14066,7 @@ function viewGeral(flow, rot) {
     <div class="card" style="margin-top:16px"><div class="row"><h2 style="margin:0">Sessões</h2>${allSS.length !== ss.length ? `<span class="muted">analisando ${ss.length} de ${allSS.length} · <button class="btn sm ghost" data-exclall type="button">Incluir todas</button></span>` : '<span class="muted">desmarque para tirar da análise</span>'}</div><div class="list" style="margin-top:8px">${allSS.map(s => { const a = analyze(s), inc = !GEXCL.has(s.id); return `<div class="item ${inc ? '' : 'excl'}" data-go="#/sessao/${s.id}"><span style="display:flex;gap:10px;align-items:center"><input type="checkbox" data-excl="${s.id}" ${inc ? 'checked' : ''} aria-label="Incluir na análise" style="width:18px;height:18px;accent-color:#cc0000"><span><b>${esc(s.name)}</b><small>${esc(s.age)} anos</small></span></span><span>${dt(s.startedAt)}</span><span>${dur(a.total)}</span><span>${a.tapN} toques</span><span>${a.tapN ? pc(a.missPct) : '–'}</span><span></span><span></span></div>`; }).join('')}</div></div>`
     : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste fluxo.</div>'}`;
   bindMissionStats(flow);
+  STATIC_INS = ((ss.find(x => x.ins && (x.ins.t || x.ins.b)) || {}).ins) || null;
   if (ss.length) heatPanel($('#heat'), flow, ss, vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
   if (ss.length && $('#mseq')) seqRender($('#mseq'), flow, ss.filter(s => s.vw), vw, withVw[0] ? withVw[0].vh : 780, withVw[0] ? withVw[0].st : 0);
 }
@@ -15253,7 +15264,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21a';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-21b';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15298,6 +15309,8 @@ async function renderLive(code, d) {
   $('#esp-n').textContent = d.nTaps ? d.nTaps + ' toque(s) na missão' : '';
   $('#esp-log').innerHTML = (d.log || []).slice().reverse().map(x => `<li${x.d ? ' class="done"' : ''}><span class="muted">${dur(x.t || 0)}</span> ${esc(x.l)}</li>`).join('') || '<li class="muted">Nenhum toque ainda.</li>';
   if (d.vw && d.vh && (MIR.vw !== d.vw || MIR.vh !== d.vh)) { mirReset(); MIR.vw = d.vw; MIR.vh = d.vh; }
+  if (JSON.stringify(d.ins || null) !== JSON.stringify(MIR.ins || null)) { mirReset(); MIR.ins = d.ins || null; }   /* margens do aparelho mudaram: redesenha as telas com elas */
+  STATIC_INS = MIR.ins || null;
   if (d.name && !MIR.nome) MIR.nome = primeiroNome(d.name);
   mirSize();
   const fl = d.flash;
@@ -15439,7 +15452,7 @@ function liveState() {
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, ins: s.ins || null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.vw || null, vh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -15497,7 +15510,7 @@ function staticDoc(html, file, qs) {
   const m = html.match(/<head[^>]*>/i); if (!m) return inj + html; const j = m.index + m[0].length; return html.slice(0, j) + inj + html.slice(j);
 }
 function setStaticFrame(fr, flow, key, st, vh, extra) {
-  const url = staticURL(flow, key, st, vh) + (extra || ''), file = FLOWS[flow].file;
+  const url = staticURL(flow, key, st, vh) + (extra || '') + insQ(STATIC_INS), file = FLOWS[flow].file;
   return appHTML(file).then(h => { if (h.indexOf('hsf-static-srcdoc') < 0) { fr.src = url; return; } fr.srcdoc = staticDoc(h, file, url.split('?')[1] || ''); }).catch(() => { fr.src = url; });
 }
 
