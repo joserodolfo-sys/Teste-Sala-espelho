@@ -4719,7 +4719,7 @@ function chkAccept(id) {
 const chkFresh = m => { const r = CHK.res[m.id]; return r && (r.mAt === m.updatedAt || r.mAt === -1) ? r : null; };
 function chkPill(m) {
   if (CHK_RUN && !chkFresh(m)) return '<span class="rb run">conferindo…</span>';
-  const r = chkFresh(m); if (!r) return '<span class="rb" style="background:#eee;color:#666">' + (CHK.res[m.id] ? 'editada · conferir' : 'não conferida') + '</span>';
+  const r = chkFresh(m); if (!r) return '<button type="button" class="rb" data-chkone="' + esc(m.id) + '" title="' + (CHK.res[m.id] ? 'A missão foi editada depois da última conferência. Clique para conferir só esta missão' : 'Clique para conferir só esta missão') + '" style="background:#eee;color:#444;border:0;cursor:pointer">' + (CHK.res[m.id] ? 'editada · conferir' : 'não conferida · conferir') + '</button>';
   const cls = r.st === 'ok' ? 'ok' : r.st === 'warn' ? 'wr' : 'no', txt = r.st === 'ok' ? '✓ ok' : r.st === 'warn' ? '⚠ atenção' : '✖ quebrou';
   return `<button type="button" class="rb ${cls}" data-chkd="${esc(m.id)}" title="Conferida em ${dt(r.at)}. Clique para ver os detalhes" style="border:0;cursor:pointer">${txt}</button>`;
 }
