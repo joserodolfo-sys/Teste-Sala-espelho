@@ -297,7 +297,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .sqg{margin:0 0 14px}.sqg>p{margin:0 0 6px;font-size:12px}
 .sqm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px}.sqm .in{background:#fff;border-radius:14px;padding:16px;display:flex;gap:18px;flex-wrap:wrap}
 
-@media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
+@media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}.hlist.rc .item{grid-template-columns:24px 1.7fr 1.5fr 1.3fr 1fr 70px 60px 80px 34px}}.fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}.fbar .fc{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px;font-weight:600;color:var(--sec);text-decoration:none;white-space:nowrap}.fbar .fc:hover{border-color:#bbb}.fbar .fc.on{background:var(--ink);border-color:var(--ink);color:#fff}.fbar .fsep{width:1px;height:22px;background:var(--line);margin:0 4px}.tag.g-app{background:#e8effd;color:#1d4fb0}.tag.g-site{background:#e5f5ec;color:#0a7a3c}.tag.g-misto{background:#f3e8fd;color:#6b21a8}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
 @keyframes hsfspin{to{transform:rotate(360deg)}}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 /* espelho estável: colunas de largura fixa (a legenda do celular e a tela final não empurram o resto) */
@@ -3419,7 +3419,7 @@ function route() {
   if (r === 'missao') return viewMissaoEd(p);
   if (r === 'roteiro') return viewRoteiroEd(p);
   if (r === 'fluxo') return viewFluxoEd(p);
-  if (r === 'todos') return viewTodos();
+  if (r === 'todos') return viewTodos(p);
   viewHome();
 }
 window.addEventListener('hashchange', route);
@@ -3453,7 +3453,7 @@ const flowGroup = fl => !fl ? 'app' : (fl.group === 'site' || fl.group === 'app'
 const sessionGroup = s => { const k = s && s.flow; if (k && String(k).indexOf('M_') === 0) { const m = entGet('missions', String(k).slice(2)); return flowGroup(m && entGet('flows', m.flow)); } return 'app'; };
 const scriptGroup = r => { const gs = new Set((r.missions || []).map(id => { const m = entGet('missions', id); return m ? flowGroup(entGet('flows', m.flow)) : null; }).filter(Boolean)); return gs.size > 1 ? 'misto' : gs.size ? [...gs][0] : 'app'; };
 /* a sessão pertence ao roteiro? "sem-app" e "sem-site" = sessões sem roteiro, classificadas pelo fluxo */
-const inRot = (s, rot) => !rot || (String(rot).indexOf('sem-') === 0 ? (!s.script && sessionGroup(s) === String(rot).slice(4)) : s.script === rot);
+const inRot = (s, rot) => !rot || (rot === 'sem' ? !s.script : rot === 'grp:app' || rot === 'grp:site' ? sessionGroup(s) === String(rot).slice(4) : String(rot).indexOf('sem-') === 0 ? (!s.script && sessionGroup(s) === String(rot).slice(4)) : s.script === rot);
 const onListPage = () => !location.hash || /^#\/(todos|rotan)?(\/|$)/.test(location.hash);
 
 function homeGroupCards() {
@@ -3481,6 +3481,7 @@ function viewHome() {
 }
 /* Histórico de um roteiro: só os participantes dele, com as sessões dele */
 function rotHistHTML(rot) {
+  window.__todosFlt = s => inRot(s, rot);
   const P = participants().map(p => Object.assign({}, p, { sessions: p.sessions.filter(s => inRot(s, rot) && !s.archived) })).filter(p => p.sessions.length);
   if (!P.length) return '';
   const r0 = String(rot).indexOf('sem-') === 0 ? null : entGet('scripts', rot);   /* missões do roteiro, na mesma numeração da tabela acima */
@@ -3494,37 +3495,65 @@ function rotHistHTML(rot) {
         <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
         <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div></div>`;
 }
-function viewTodos() {
-  const P = participants(), done = sessions.filter(s => s.events && s.events.length), A = done.map(analyze);
+function viewTodos(fRaw) {
+  /* filtro da página: todos · app · site · sem · <id do roteiro> · sem-app · sem-site (vem do endereço: #/todos/<filtro>) */
+  const f = (fRaw && fRaw !== 'todos') ? fRaw : 'todos', rotsAll = entLive('scripts'), rotF = rotsAll.find(r => r.id === f) || null;
+  const tok = f === 'app' ? 'grp:app' : f === 'site' ? 'grp:site' : f === 'sem' ? 'sem' : rotF ? f : /^sem-(app|site)$/.test(f) ? f : '';
+  if (f !== 'todos' && !tok) { location.hash = '#/todos'; return; }
+  const flt = tok ? (s => inRot(s, tok)) : (() => true); window.__todosFlt = flt;
+  const ssF = sessions.filter(s => flt(s) && !s.archived);
+  const label = f === 'todos' ? 'Todos' : f === 'app' ? 'Aplicativo' : f === 'site' ? 'Site' : f === 'sem' ? 'Sem roteiro' : rotF ? rotF.name : 'Sem roteiro · ' + GRP_NAME[f.slice(4)];
+  const P = participants().map(p => Object.assign({}, p, { sessions: p.sessions.filter(s => flt(s) && !s.archived) })).filter(p => p.sessions.length);
+  const kpiRow = ss => { const done = ss.filter(s => s.events && s.events.length), A = done.map(analyze);
+    return `<div class="grid kpis">${kpi('PARTICIPANTES', new Set(ss.map(pidOf)).size)}${kpi('SESSÕES', ss.length, 'um fluxo = uma sessão')}
+      ${kpi('DURAÇÃO MÉDIA / FLUXO', A.length ? dur(avg(A.map(a => a.total))) : '–')}
+      ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}</div>`; };
+  /* barra de filtro */
+  const chip = (id, txt) => `<a class="fc ${f === id ? 'on' : ''}" href="#/todos/${enc(id)}">${esc(txt)}</a>`;
+  const bar = `<div class="fbar">${chip('todos', 'Todos')}${chip('app', 'Aplicativo')}${chip('site', 'Site')}${chip('sem', 'Sem roteiro')}${rotsAll.length ? '<span class="fsep"></span>' + rotsAll.map(r => chip(r.id, r.name)).join('') : ''}</div>`;
+  const sub = f === 'todos' ? 'Todos os roteiros, com os números separados por Aplicativo e Site.' : f === 'app' || f === 'site' ? 'Só os participantes do ' + (f === 'app' ? 'aplicativo' : 'site') + ' (todos os roteiros do grupo).' : f === 'sem' || /^sem-/.test(f) ? 'Sessões feitas sem escolher um roteiro, agrupadas pelo fluxo da missão.' : 'Só os participantes deste roteiro.';
+  /* números do topo */
+  const kpis = f === 'todos'
+    ? (['app', 'site'].map(g => { const sg = ssF.filter(s => sessionGroup(s) === g); return sg.length ? `<div class="hsec-h" style="margin:22px 0 10px"><h2>${GRP_NAME[g]}</h2></div>${kpiRow(sg)}` : ''; }).join('') || kpiRow(ssF))
+    : kpiRow(ssF);
+  /* análise geral por missão */
+  const keysAll = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0);
+  const card = ([k, fl], i) => { const ss = ssF.filter(s => s.flow === k && s.events && s.events.length), an = ss.map(analyze);
+    const q = rotF ? '/' + enc(f) : f === 'sem' ? '/sem-' + sessionGroup({ flow: k }) : /^sem-/.test(f) ? '/' + f : '';
+    return `<button class="card flow" data-go="#/geral/${k}${q}"><div class="n">${rotF ? 'M' + (i + 1) : fl.n}</div><b>${fl.name}</b><span class="muted">${fl.sub}</span>
+      <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`; };
+  let missoes;
+  if (f === 'todos') missoes = ['app', 'site'].map(g => { const l = keysAll.filter(([k]) => sessionGroup({ flow: k }) === g); return l.length ? `<div style="margin:14px 0 8px;font-weight:700">${GRP_NAME[g]}</div><div class="grid flows">${l.map(card).join('')}</div>` : ''; }).join('');
+  else { const l = rotF ? (rotF.missions || []).map(id => keysAll.find(([k]) => k === 'M_' + id)).filter(Boolean) : (f === 'app' || f === 'site') ? keysAll.filter(([k]) => sessionGroup({ flow: k }) === f) : keysAll.filter(([k]) => ssF.some(s => s.flow === k)); missoes = l.length ? `<div class="grid flows">${l.map(card).join('')}</div>` : '<p class="muted">Nenhuma missão neste filtro ainda.</p>'; }
+  /* histórico */
+  const ksRot = rotF ? (rotF.missions || []).map(x => 'M_' + x) : null;
+  const row = p => { const t = sessTotals(p), open = p.sessions.some(s => !s.endedAt);
+    const rs = [...new Set(p.sessions.map(s => s.script).filter(Boolean))].map(id => entGet('scripts', id)).filter(Boolean);
+    const rolChips = rs.length ? rs.map(r => `<span class="tag g-${scriptGroup(r)}" style="margin:0 4px 0 0">${esc(r.name)}</span>`).join('') : '<span class="tag gray" style="margin:0">Sem roteiro</span>';
+    let feitos;
+    if (ksRot) feitos = ksRot.map((k, i) => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${esc((FLOWS[k] && FLOWS[k].name) || k)}" style="margin:0 4px 0 0">M${i + 1}${n > 1 ? '×' + n : ''}</span>`; }).join(' ');
+    else { const feitas = new Set(p.sessions.map(s => s.flow)).size, total = rs.length ? new Set(rs.flatMap(r => r.missions || [])).size : 0; feitos = `<span class="tag ${total && feitas >= total ? 'ok' : 'out'}" style="margin:0">${total ? feitas + ' de ' + total + ' missões' : feitas + (feitas === 1 ? ' missão' : ' missões')}</span>`; }
+    return `<div class="item" data-go="#/participante/${enc(p.pid)}"><span class="hck"><input type="checkbox" data-hsel="${esc(p.pid)}" title="Selecionar"></span><span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
+      <span>${rolChips}</span><span>${feitos}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
+      <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
+      <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; };
+  const ex = tok ? ` data-rot="${esc(tok)}" data-tag="${esc(slugName(label))}"` : '';
   $('#app').innerHTML = `
-    <div class="row"><div><a class="crumb" href="#/">← Painel</a><h1>Todos os participantes</h1><p class="muted">A lista geral de todos os roteiros. Para ver um teste separado, abra o roteiro no Painel. Os dados ficam salvos neste navegador; baixe um backup (JSON) de vez em quando.</p></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova">+ Novo participante</a></div></div>
+    <div class="row"><div><a class="crumb" href="#/">← Painel</a><h1>Todos os participantes${f === 'todos' ? '' : ' · ' + esc(label)}</h1><p class="muted">${sub} Os dados ficam salvos neste navegador; baixe um backup (JSON) de vez em quando.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${rotF || /^sem-/.test(f) ? `<a class="btn" href="#/rotan/${enc(f)}">Abrir painel completo do roteiro →</a>` : ''}<a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova${rotF ? '/' + enc(f) : ''}">+ Novo participante</a></div></div>
+    ${bar}
     <div id="chk"></div><div id="cchk"></div>
     <p class="muted" data-cloudb style="margin:6px 0 0"></p>
-    <div class="grid kpis">
-      ${kpi('PARTICIPANTES', P.length)}${kpi('SESSÕES', sessions.length, 'um fluxo = uma sessão')}
-      ${kpi('DURAÇÃO MÉDIA / FLUXO', A.length ? dur(avg(A.map(a => a.total))) : '–')}
-      ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}
-    </div>
+    ${kpis}
     <div id="bk">${backupBanner()}</div>
-    
-    <div class="hsec-h"><h2>Análise geral por missão</h2><p>Todos os participantes juntos em cada missão: taxa de sucesso, caminhos percorridos e o mapa de calor com os toques de todos.</p></div>
-    <div class="grid flows">${Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, f]) => {
-      const ss = done.filter(s => s.flow === k && !s.archived), an = ss.map(analyze);
-      return `<button class="card flow" data-go="#/geral/${k}"><div class="n">${f.n}</div><b>${f.name}</b><span class="muted">${f.sub}</span>
-        <div class="st"><span>${ss.length} sessão(ões)</span>${an.length ? `<span>${dur(avg(an.map(a => a.total)))} em média</span><span>${pc(sum(an.map(a => a.miss)) / Math.max(1, sum(an.map(a => a.tapN))) * 100)} fora do alvo</span>` : ''}</div></button>`;
-    }).join('')}</div>
+    <div class="hsec-h"><h2>Análise geral por missão</h2><p>${f === 'todos' ? 'Todos os participantes em cada missão, separados por Aplicativo e Site: taxa de sucesso, caminhos percorridos e o mapa de calor com os toques.' : 'Só os participantes deste filtro em cada missão: taxa de sucesso, caminhos percorridos e o mapa de calor com os toques.'}</p></div>
+    ${missoes}
     <div class="card" style="margin-top:24px">
-      <div class="row" style="margin-bottom:6px;align-items:flex-start;flex-wrap:nowrap;gap:16px"><div style="min-width:0"><h2 style="margin:0">Histórico</h2><p class="muted" style="margin:2px 0 0;font-size:13px">Cada participante e as missões que fez. Clique numa linha para ver a análise individual.</p></div>
-        <div style="display:flex;gap:8px;flex-wrap:nowrap;flex:none"><button class="btn sm danger" id="h-del" type="button" style="visibility:hidden;min-width:190px">Excluir selecionados</button><button class="btn sm" data-exp="json">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv">Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
-      ${P.length ? `<div class="list hlist"><div class="item head"><span><input type="checkbox" id="h-all" title="Selecionar todos"></span><span>Participante</span><span>Fluxos feitos</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
-      ${P.slice().reverse().map(p => { const t = sessTotals(p); const open = p.sessions.some(s => !s.endedAt);
-        return `<div class="item" data-go="#/participante/${enc(p.pid)}">
-        <span class="hck"><input type="checkbox" data-hsel="${esc(p.pid)}" title="Selecionar"></span><span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
-        <span>${Object.keys(SHOWN(p.sessions)).map(k => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${FLOWS[k].name}">${FLOWS[k].n}${n > 1 ? '×' + n : ''}</span>`; }).join(' ')}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
-        <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
-        <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div>`
-      : `<div class="empty">Nenhum participante ainda.<br>Clique em <b>Novo participante</b> para começar um teste.</div>`}
+      <div class="row" style="margin-bottom:6px;align-items:flex-start;flex-wrap:nowrap;gap:16px"><div style="min-width:0"><h2 style="margin:0">Histórico</h2><p class="muted" style="margin:2px 0 0;font-size:13px">Cada participante e o roteiro dele. Clique numa linha para ver a análise individual.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:nowrap;flex:none"><button class="btn sm danger" id="h-del" type="button" style="visibility:hidden;min-width:190px">Excluir selecionados</button><button class="btn sm" data-exp="json"${ex}>Exportar backup (JSON)</button><button class="btn sm" data-exp="csv"${ex}>Exportar toques (CSV)</button><label class="btn sm" style="cursor:pointer">Importar<input type="file" accept=".json" id="imp" hidden></label></div></div>
+      ${P.length ? `<div class="list hlist rc"><div class="item head"><span><input type="checkbox" id="h-all" title="Selecionar todos"></span><span>Participante</span><span>Roteiro</span><span>Missões feitas</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
+        ${P.slice().reverse().map(row).join('')}</div>`
+      : '<div class="empty">Nenhum participante neste filtro.<br>Use <b>+ Novo participante</b> para começar um teste.</div>'}
     </div>`;
   checkFlows(); chkUI(); chkAutoSoon(); updateCloudUI(); cloudKick();
 }
@@ -4361,7 +4390,7 @@ document.addEventListener('change', e => {
 document.addEventListener('click', e => {
   if (!e.target.closest('#h-del')) return;
   const pids = [...document.querySelectorAll('[data-hsel]:checked')].map(c => c.dataset.hsel); if (!pids.length) return;
-  if (!confirm('Excluir ' + pids.length + ' participante(s) e todas as sessões deles? Não dá para desfazer.')) return;
+  const fora = window.__todosFlt ? pids.filter(pid => sessions.some(s => pidOf(s) === pid && !window.__todosFlt(s))).length : 0; if (!confirm('Excluir ' + pids.length + ' participante(s) e todas as sessões deles? Não dá para desfazer.' + (fora ? '\n\nAtenção: ' + (fora === 1 ? '1 deles tem sessões' : fora + ' deles têm sessões') + ' fora do filtro atual (de outro roteiro). Essas sessões também serão apagadas.' : ''))) return;
   sessions = sessions.filter(s => !pids.includes(pidOf(s))); save();
   const tb = tomb(); pids.forEach(pid => { if (!tb.p.includes(pid)) tb.p.push(pid); }); lsSet('hsf_tomb', tb);
   if (!AUTH) alert('Excluídos só neste navegador. Você não está conectado à nuvem (☁ Entrar): eles ficam pendentes e são apagados do banco assim que você entrar.');
@@ -4383,7 +4412,7 @@ document.addEventListener('click', e => {
   if (rf) { const p = getP(rf.dataset.runflow), f = document.querySelector('input[name=pf]:checked'); if (p && f) { archivePrev(p.pid, [f.value]); beginBattery(p, [f.value]); } return; }
   const ex = e.target.closest('[data-exp]');
   if (ex) {
-    const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : ex.dataset.rot ? sessions.filter(s => inRot(s, ex.dataset.rot)) : sessions, tag = ex.dataset.rot ? 'roteiro-' : '';
+    const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : ex.dataset.rot ? sessions.filter(s => inRot(s, ex.dataset.rot)) : sessions, tag = ex.dataset.rot ? (ex.dataset.tag || 'roteiro') + '-' : '';
     if (ex.dataset.exp === 'json') { download('hsf-backup-' + tag + today() + '.json', JSON.stringify(backupObj(ex.dataset.rot ? one : sessions)), 'application/json'); if (!ex.dataset.rot) { markBackup(); if (onListPage()) route(); } }
     else download('hsf-toques-' + tag + today() + '.csv', csv(one), 'text/csv;charset=utf-8');
     return;
