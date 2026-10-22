@@ -3897,11 +3897,28 @@ function drawHeat(H) {
   ctx.putImageData(img, 0, 0);
 }
 const VIEW_H = 800;
+/* mapa de calor: quando a tela do protótipo não carrega, diz a causa e o endereço, em vez de uma frase genérica */
+function heatFail(host, fr, o, H, lento) {
+  host.querySelectorAll('.hload').forEach(x => x.remove());
+  if (host.querySelector('.hfail')) return;
+  const f = FLOWS[o.flow] || {}; let abs = null; try { abs = new URL(fileBase(f.file || ''), location.href); } catch (e) {}
+  const url = abs ? abs.href : (f.file || '?'); let doc = null; try { doc = fr.contentDocument; } catch (e) {}
+  let causa;
+  if (abs && abs.origin !== location.origin) causa = `O app está em <b>outro site</b> (${esc(abs.host)}) e o navegador não deixa o painel ler a tela dele. O mapa só funciona com apps no <b>mesmo site do painel</b> (${esc(location.host)}). Hospede o arquivo em outro repositório da mesma conta e cadastre o fluxo de novo com esse endereço.`;
+  else if (lento && !H.loaded) causa = 'O arquivo ainda não terminou de carregar (ele é grande). Aguarde um pouco e tente de novo.';
+  else if (doc && /(^|\s)404(\s|$)|not found|isn.t a GitHub Pages site here/i.test((doc.title || '') + ' ' + (doc.body ? doc.body.innerText.slice(0, 300) : ''))) causa = 'O arquivo <b>não foi encontrado</b> neste endereço. Confira o nome do arquivo, se ele está no repositório e se o GitHub Pages está ligado.';
+  else if (doc && !doc.querySelector('#screen')) causa = 'O arquivo deste endereço <b>não é a versão preparada para o painel</b> (faltam o manifesto e o adaptador). Suba de novo a versão <code>site-….html</code> que foi entregue.';
+  else causa = 'O navegador não deixou o painel ler a tela. Recarregue a página (Ctrl+Shift+R) e tente de novo.';
+  host.insertAdjacentHTML('beforeend', `<div class="hint hfail" style="margin-top:8px;background:#fff4d6;border-color:#f0d98a;color:#6b4a00"><b>Não foi possível carregar a tela do protótipo para o mapa.</b><br>${causa}<br><small>Endereço do app: ${esc(url)}</small><br><button class="btn sm" type="button" style="margin-top:6px" data-heatretry>Tentar de novo</button></div>`);
+  const b = host.querySelector('[data-heatretry]'); if (b) b.onclick = () => { const on = document.querySelector('#hm [data-m].on'); if (on) on.click(); else mountHeat(host, o); };
+}
 function mountHeat(host, o) {
   host.innerHTML = '';
   const sheet = o.key.startsWith('sheet~'), wrap = document.createElement('div'); wrap.className = 'hv'; wrap.style.width = o.vw + 'px';
   const fr = document.createElement('iframe'); fr.style.width = o.vw + 'px'; fr.style.height = (sheet ? VIEW_H : 1400) + 'px'; setStaticFrame(fr, o.flow, o.key, o.st, o.vh);
-  const cv = document.createElement('canvas'); wrap.append(fr, cv); host.append(wrap);
+  const cv = document.createElement('canvas'); wrap.append(fr, cv); wrap.style.position = 'relative';
+  const ld = document.createElement('div'); ld.className = 'hload'; ld.style.cssText = 'position:absolute;left:0;right:0;top:0;height:100%;max-height:' + VIEW_H + 'px;z-index:5;background:rgba(255,255,255,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:13px;color:#555;padding:16px';
+  ld.innerHTML = '<div class="hsf-wait"></div><div class="hlt">Carregando a tela do protótipo…<br><small style="color:#888">o arquivo é grande; na primeira vez pode levar alguns segundos</small></div>'; wrap.append(ld); host.append(wrap);
   const H = { cv, pts: o.pts, mode: o.mode, top: 0, sheet, viewH: VIEW_H, height: VIEW_H }; H.ready = new Promise(res => { H._res = res; });
   const measure = final => {
     try {
@@ -3910,10 +3927,20 @@ function mountHeat(host, o) {
       H.viewH = Hh; H.top = ct ? ct.getBoundingClientRect().top : 0; H.pos = sheet ? null : stretchPos(d); H._al = {}; window.__lastHeat = H;
       fr.style.height = wrap.style.height = Hh + 'px'; cv.width = o.vw; cv.height = Hh; cv.style.width = o.vw + 'px'; cv.style.height = Hh + 'px';
       H.height = Hh; drawHeat(H); return true;
-    } catch (e) { if (final && !H.ok) host.insertAdjacentHTML('beforeend', '<p class="muted" style="margin-top:8px">Não foi possível carregar a tela do protótipo para o mapa.</p>'); return false; }
+    } catch (e) {
+      if (final && !H.ok && fr.isConnected) {   /* quadro já descartado (o moderador trocou de tela): não escreve aviso por cima do mapa novo */
+        let cross = false; try { cross = new URL(fileBase((FLOWS[o.flow] || {}).file || ''), location.href).origin !== location.origin; } catch (x) {}
+        if (!cross && !H.retried && fr.isConnected) {   /* conexão lenta: tenta carregar a tela mais uma vez antes de avisar */
+          H.retried = true; ld.querySelector('.hlt').innerHTML = 'Ainda carregando…<br><small style="color:#888">tentando de novo</small>';
+          const u = fr.getAttribute('src'); if (u) fr.src = u; else if (fr.srcdoc) { const sd = fr.srcdoc; fr.srcdoc = ''; fr.srcdoc = sd; }
+        } else heatFail(host, fr, o, H);
+      }
+      return false;
+    }
   };
   /* a tela pode chegar em duas etapas (arquivo único): mede algumas vezes até assentar */
-  fr.addEventListener('load', () => (fr.srcdoc || fr.getAttribute('src')) && [600, 1400, 2600].forEach((t, i) => setTimeout(() => { if (measure(i === 2)) H.ok = true; if (i === 2 || H.ok) H._res(); }, t)));
+  fr.addEventListener('load', () => { if (!(fr.srcdoc || fr.getAttribute('src'))) return; H.loaded = true; [600, 1400, 2600].forEach((t, i) => setTimeout(() => { if (measure(i === 2)) { H.ok = true; ld.remove(); } if (i === 2 || H.ok) H._res(); }, t)); });
+  setTimeout(() => { if (!H.loaded && !H.ok && fr.isConnected) { heatFail(host, fr, o, H, true); H._res(); } }, window.HSF_HEAT_TO || 60000);   /* arquivo que nunca termina de carregar */
   return H;
 }
 /* painel de mapa de calor: Tela > Assembleia > Estado */
@@ -5858,9 +5885,16 @@ function staticDoc(html, file, qs) {
   const inj = '<base href="' + fileBase(file) + '"><script>window.__HSFQ=' + JSON.stringify(qs) + ';window.__Q=' + JSON.stringify(qs) + ';<\/script>';
   const m = html.match(/<head[^>]*>/i); if (!m) return inj + html; const j = m.index + m[0].length; return html.slice(0, j) + inj + html.slice(j);
 }
+/* só os primeiros bytes: a marca dos apps que usam srcdoc fica no começo do arquivo; os sites (14 MB) carregam direto no quadro, sem baixar duas vezes */
+const SRCDOC = {};
+function needSrcdoc(file) {
+  const u = fileBase(file);
+  if (!SRCDOC[u]) SRCDOC[u] = (APPHTML[u] ? Promise.resolve(APPHTML[u]).then(h => h.indexOf('hsf-static-srcdoc') >= 0) : fetch(u, { headers: { Range: 'bytes=0-4095' }, cache: 'no-cache' }).then(async r => { if (!r.ok) throw new Error('HTTP ' + r.status); const rd = r.body.getReader(), x = await rd.read(); rd.cancel().catch(() => {}); return new TextDecoder().decode(x.value || new Uint8Array()).indexOf('hsf-static-srcdoc') >= 0; })).catch(e => { delete SRCDOC[u]; throw e; });
+  return SRCDOC[u];
+}
 function setStaticFrame(fr, flow, key, st, vh, extra) {
   const url = staticURL(flow, key, st, vh) + (extra || '') + insQ(STATIC_INS), file = FLOWS[flow].file;
-  return appHTML(file).then(h => { if (h.indexOf('hsf-static-srcdoc') < 0) { fr.src = url; return; } fr.srcdoc = staticDoc(h, file, url.split('?')[1] || ''); }).catch(() => { fr.src = url; });
+  return needSrcdoc(file).then(yes => { if (!yes) { fr.src = url; return; } return appHTML(file).then(h => { fr.srcdoc = staticDoc(h, file, url.split('?')[1] || ''); }); }).catch(() => { fr.src = url; });
 }
 
 /* ---------- miniatura da tela final da missão (metade do tamanho do celular), para o moderador saber onde o participante deve chegar ---------- */
