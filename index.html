@@ -3144,7 +3144,7 @@ function analyze(s) {
   return { total, taps, tapN: taps.length, hits, miss: taps.length - hits, missPct: taps.length ? (taps.length - hits) / taps.length * 100 : 0,
            steps, top, byKey, first: taps[0] && views[0] ? taps[0].t - views[0].t : null,
            backs: taps.filter(t => t.act === 'back').length, sheets: views.filter(v => v.key.startsWith('sheet~')).length,
-           screens: Object.keys(byKey).length, markers: ev.filter(e => e.type === 'marker') };
+           screens: new Set(Object.keys(byKey).map(keyBase)).size, markers: ev.filter(e => e.type === 'marker') };
 }
 const kpi = (l, v, sub = '') => `<div class="kpi"><small>${l}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
 
@@ -3395,6 +3395,7 @@ const flowTag = f => `${FLOWS[f].n}. ${FLOWS[f].name}`;
 /* ================== Roteador ================== */
 let ACTIVE = null;
 function route() {
+  uiHarvest(sessions);
   const parts = (location.hash || '#/').split('/'); const r = parts[1] || ''; const p = decodeURIComponent(parts[2] || ''); const q = parts[3];
   $('#top').style.display = (r === 'teste' || r === 'relatorio') ? 'none' : '';
   if (r !== 'teste') hideTest();
@@ -3806,7 +3807,7 @@ let STATIC_INS = null;
 window.addEventListener('message', e => {
   if (!ACTIVE || !ACTIVE.frame || e.source !== ACTIVE.frame.contentWindow) return;
   const m = e.data; if (!m || !m.hsf) return;
-  const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 });
+  const s = ACTIVE.s, ev = Object.assign({}, m.ev, { t: Date.now() - ACTIVE.t0 }); if (ev.type === 'ui') uiHarvest([{ events: [ev] }]);
   if (ev.type === 'view' && !s.vw) { s.vw = ev.vw; s.vh = ev.vh; s.st = ev.st; }
   if (ev.type === 'tap' && LASTUP && Date.now() - LASTUP.t < 900) { ev.fx = Math.round(LASTUP.x); ev.fy = Math.round(LASTUP.y); ev.fcy = Math.round(LASTUP.cy); ev.fsc = LASTUP.sc; LASTUP = null; }   /* onde o dedo realmente tocou */
   if (ev.type === 'view') { const evv = ev; setTimeout(() => { const a = anchorsNow(); if (a && a.length) evv.anch = a; }, 450); }   /* referências da tela */
@@ -3864,7 +3865,7 @@ function viewParticipante(pid) {
 function staticURL(flow, key, st, vh) {
   const k = parseKey(key), p = new URLSearchParams({ static: '1', st: st ? '1' : '0' });
   p.set('view', k.sheet ? 'sheet' : k.scr); if (k.sheet) p.set('under', k.scr);
-  if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel); if (vh && !k.sheet) p.set('h', vh); if (FLOWS[flow] && FLOWS[flow].logged) p.set('logged', '1');
+  if (k.cur) p.set('cur', k.cur); if (k.sel) p.set('sel', k.sel); { const rg = !k.sheet && k.sel && UI_REG[k.scr + '|' + k.sel]; if (rg) p.set('ui', b64u({ d: rg.d, sh: rg.sh })); } if (vh && !k.sheet) p.set('h', vh); if (FLOWS[flow] && FLOWS[flow].logged) p.set('logged', '1');
   return furl(FLOWS[flow].file, p.toString());
 }
 function palette() {
@@ -3876,13 +3877,14 @@ function palette() {
 }
 function drawHeat(H) {
   const cv = H.cv, W = cv.width, Hh = cv.height, ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, Hh);
-  H.auto = 0; const P = H.pts.map(p => ({ x: p.xf * W, y: tapPy(p, H), hit: p.hit, n: p.n }));
+  H.auto = 0; const P = H.pts.map(p => ({ x: p.xf * W, y: tapPy(p, H), hit: p.hit, n: p.n, val: p.val }));
   { const ha = document.getElementById('hauto'); if (ha) ha.textContent = H.auto ? ' · posição real do dedo em ' + H.auto + ' de ' + H.pts.length + ' toque(s)' : ''; }
   if (H.mode === 'dots') {
     P.forEach((p, i) => {
       ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, 7); ctx.fillStyle = p.hit ? 'rgba(31,32,36,.88)' : 'rgba(228,5,33,.9)'; ctx.fill();
       ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
       ctx.fillStyle = '#fff'; ctx.font = '700 10px Montserrat,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.n || (i + 1), p.x, p.y + .5);
+      if (p.val) { ctx.font = '700 11px Montserrat,sans-serif'; const tw = ctx.measureText(p.val).width + 12, bx = Math.min(p.x + 16, W - tw - 2), by = p.y - 9; ctx.fillStyle = 'rgba(31,32,36,.92)'; ctx.beginPath(); (ctx.roundRect ? ctx.roundRect(bx, by, tw, 18, 9) : ctx.rect(bx, by, tw, 18)); ctx.fill(); ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(p.val, bx + 6, p.y + .5); ctx.textAlign = 'center'; }
     }); return;
   }
   const off = document.createElement('canvas'); off.width = W; off.height = Hh; const o = off.getContext('2d'), r = 30;
@@ -4477,9 +4479,14 @@ const nomeQ = s => { const p = primeiroNome(s && s.name); return p ? '&nome=' + 
 const HSL = { c: 'Cartão {n} em destaque', promos: 'Banner {n} em destaque', fotos: 'Foto {n}', street: 'Street · card {n}', adventure: 'Adventure · card {n}', offroad: 'Off-Road · card {n}', banners: 'Banner {n} em destaque' };
 const hasTok = sel => /(^|\.)[a-z]+\d+(\.|$)/.test(sel || '');
 const tokLabel = sel => { if (!sel) return null; const out = []; String(sel).split('.').forEach(t => { const m = t.match(/^([a-z]+)(\d+)$/); if (m) out.push(HSL[m[1]] ? HSL[m[1]].replace('{n}', m[2]) : t); }); return out.length ? out.join(' · ') : null; };
-const selDecl = (scr, sel) => !!(typeof MANSCR !== 'undefined' && MANSCR[scr] && MANSCR[scr].selNames && MANSCR[scr].selNames[sel]);
+/* estados dos componentes (lista aberta, acordeão, aba) que o protótipo gravou: nome e como redesenhar a tela naquele estado */
+const UI_REG = {};
+const uiHarvest = list => (list || []).forEach(s => (s.events || []).forEach(e => { if (e.type === 'ui' && e.tk && e.d) { const k = parseKey(e.key).scr + '|' + e.tk; if (!UI_REG[k]) UI_REG[k] = { n: e.n || '', d: e.d, sh: e.sh || null }; } }));
+const uiName = (scr, sel) => (UI_REG[scr + '|' + sel] || {}).n || null;
+const b64u = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const selDecl = (scr, sel) => !!((typeof MANSCR !== 'undefined' && MANSCR[scr] && MANSCR[scr].selNames && MANSCR[scr].selNames[sel]) || UI_REG[scr + '|' + sel]);
 const stateOf = p => p.sheet ? 'sheet' : (p.sel ? ((hasTok(p.sel) || selDecl(p.scr, p.sel)) ? 'v~' + p.sel : 'calc') : 'normal');
-const vLabel = (scr, sel) => tokLabel(sel) || (selDecl(scr, sel) ? MANSCR[scr].selNames[sel] : null) || sel;
+const vLabel = (scr, sel) => uiName(scr, sel) || tokLabel(sel) || ((typeof MANSCR !== 'undefined' && MANSCR[scr] && MANSCR[scr].selNames && MANSCR[scr].selNames[sel]) || null) || sel;
 const stOrd = st => st === 'normal' ? 0 : st === 'calc' ? 1 : st.indexOf('v~') === 0 ? 2 : 3;
 
 /* ---------- manifesto do app (lido do início do arquivo, sem baixar o app inteiro) ---------- */
@@ -4514,7 +4521,7 @@ function manCur(scr, cur) {
 function manKeyName(key) {
   const k = parseKey(key), sc = MANSCR[k.scr]; if (!sc) return null;
   let n = sc.name; const c = manCur(k.scr, k.cur); if (c) n += ' · ' + c;
-  const sn = k.sel && ((sc.selNames && sc.selNames[k.sel]) || tokLabel(k.sel));
+  const sn = k.sel && ((sc.selNames && sc.selNames[k.sel]) || uiName(k.scr, k.sel) || tokLabel(k.sel));
   if (k.sheet) return (sn ? sn + ' (folha sobre ' + n + ')' : `Bottomsheet (sobre ${n})`);
   if (k.sel) n += ' · ' + (sn || sc.selName || 'seleção ' + k.sel);
   return n;
