@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script src="hsf-config.js"></script>
+<script>/* ambiente separado (opcional): o arquivo hsf-config.js define window.HSF_CFG = { ns, url, key, nome, flows }.
+   Sem esse arquivo nada muda. Com ele: o navegador guarda os dados com outro prefixo e o banco é o do arquivo. */
+(function () { var c = window.HSF_CFG; if (!c || !c.ns) return; var p = 'hsf_' + c.ns + '_', S = Storage.prototype, g = S.getItem, s = S.setItem, r = S.removeItem;
+  var m = function (k) { k = String(k); return k.indexOf('hsf_') === 0 ? p + k.slice(4) : k; };
+  S.getItem = function (k) { return g.call(this, m(k)); }; S.setItem = function (k, v) { return s.call(this, m(k), v); }; S.removeItem = function (k) { return r.call(this, m(k)); };
+  if (c.nome) document.addEventListener('DOMContentLoaded', function () { document.title = c.nome; var t = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (t) t.content = c.nome; }); })();</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>HSF · Teste de usabilidade — Moderador</title>
@@ -3141,7 +3149,9 @@ function analyze(s) {
 const kpi = (l, v, sub = '') => `<div class="kpi"><small>${l}</small><b>${v}</b>${sub ? `<span>${sub}</span>` : ''}</div>`;
 
 /* ================== Nuvem (Supabase) ================== */
-const SB = { url: localStorage.getItem('hsf_sb_url') || 'https://rymaoyigyikezcmhwlwe.supabase.co', key: 'sb_publishable_QF60tOTWBONuqqjT6Q5Ecw_mOBAwgwv' };
+const SB = (window.HSF_CFG && window.HSF_CFG.ns)   /* ambiente separado: só usa o banco do hsf-config.js, nunca cai no banco original */
+  ? { url: window.HSF_CFG.url || '', key: window.HSF_CFG.key || '' }
+  : { url: localStorage.getItem('hsf_sb_url') || 'https://rymaoyigyikezcmhwlwe.supabase.co', key: 'sb_publishable_QF60tOTWBONuqqjT6Q5Ecw_mOBAwgwv' };
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let AUTH = lsGet('hsf_auth', null);
@@ -3153,6 +3163,7 @@ function setAuth(j, email) {
   lsSet('hsf_auth', AUTH);
 }
 async function sbLogin(email, password) {
+  if (!SB.url || !SB.key) throw new Error('Banco não configurado: preencha a url e a key no hsf-config.js');
   const r = await fetch(SB.url + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: SB.key, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
   const j = await sbJson(r);
   if (!r.ok) throw new Error((j && (j.error_description || j.msg || j.message)) || ('Erro ' + r.status));
@@ -3166,6 +3177,7 @@ async function sbRefresh() {
   setAuth(j);
 }
 async function sb(path, opts = {}) {
+  if (!SB.url || !SB.key) throw new Error('Banco não configurado: preencha a url e a key no hsf-config.js');
   if (!AUTH) throw new Error('Não conectado à nuvem');
   if (AUTH.expires_at - Date.now() < 60000) await sbRefresh();
   const go = () => fetch(SB.url + path, Object.assign({}, opts, { headers: Object.assign({ apikey: SB.key, Authorization: 'Bearer ' + AUTH.access_token, 'Content-Type': 'application/json' }, opts.headers || {}) }));
@@ -3390,7 +3402,9 @@ function route() {
   if (window.HSF_PHONE) return phoneRoute(r, p);
   if (r === 'espelho') return viewEspelho(p);
   window.scrollTo(0, 0);
-  if (r === 'nova') return viewNova();
+  /* páginas de análise precisam dos manifestos dos fluxos (tipos de tela dos apps novos e dos sites): espera a leitura antes de desenhar */
+  if (/^(geral|sessao|participante|relatorio|rotan)$/.test(r) && !window.__manOk) { $('#app').innerHTML = '<p class="muted" style="padding:24px 0">Carregando…</p>'; const go = () => { window.__manOk = true; route(); }; Promise.all(entLive('flows').map(f => loadManifest(f.url))).then(go, go); return; }
+  if (r === 'nova') return viewNova(p);
   if (r === 'teste') return viewTeste(p);
   if (r === 'fluxos') return viewFluxos();
   if (r === 'previa') return viewPrevia(p);
@@ -3405,6 +3419,7 @@ function route() {
   if (r === 'missao') return viewMissaoEd(p);
   if (r === 'roteiro') return viewRoteiroEd(p);
   if (r === 'fluxo') return viewFluxoEd(p);
+  if (r === 'todos') return viewTodos();
   viewHome();
 }
 window.addEventListener('hashchange', route);
@@ -3431,10 +3446,58 @@ function backupBanner() {
   if (!n) return '';
   return `<div class="hint" style="margin:0 0 18px"><div class="row"><span><b>${n} sessão(ões) ainda sem backup.</b> Os dados ficam só neste navegador; baixe o JSON${AUTH ? ' ou aguarde o envio para a nuvem' : ' ou conecte à nuvem (☁ Entrar)'}.${meta.at ? ' Último backup: ' + dt(meta.at) + '.' : ''}</span><button class="btn sm" data-exp="json">Baixar backup agora</button></div></div>`;
 }
+/* ================== Grupos (Aplicativo × Site) e painel por roteiro ================== */
+const GRP_NAME = { app: 'Aplicativo', site: 'Site', misto: 'Aplicativo e Site' };
+/* grupo do fluxo: o que foi escolhido em "Fluxos"; sem escolha, arquivos "site-…" são Site e o resto é Aplicativo */
+const flowGroup = fl => !fl ? 'app' : (fl.group === 'site' || fl.group === 'app') ? fl.group : (/(^|\/)site-[^/?#]*$/.test(String(fl.url || '').split('?')[0]) ? 'site' : 'app');
+const sessionGroup = s => { const k = s && s.flow; if (k && String(k).indexOf('M_') === 0) { const m = entGet('missions', String(k).slice(2)); return flowGroup(m && entGet('flows', m.flow)); } return 'app'; };
+const scriptGroup = r => { const gs = new Set((r.missions || []).map(id => { const m = entGet('missions', id); return m ? flowGroup(entGet('flows', m.flow)) : null; }).filter(Boolean)); return gs.size > 1 ? 'misto' : gs.size ? [...gs][0] : 'app'; };
+/* a sessão pertence ao roteiro? "sem-app" e "sem-site" = sessões sem roteiro, classificadas pelo fluxo */
+const inRot = (s, rot) => !rot || (String(rot).indexOf('sem-') === 0 ? (!s.script && sessionGroup(s) === String(rot).slice(4)) : s.script === rot);
+const onListPage = () => !location.hash || /^#\/(todos|rotan)?(\/|$)/.test(location.hash);
+
+function homeGroupCards() {
+  const rs = entLive('scripts'), loose = sessions.filter(s => !s.script && s.flow && !s.archived);
+  const sub = { app: 'Roteiros feitos no aplicativo.', site: 'Roteiros feitos nos protótipos do site.', misto: 'Roteiros com missões do aplicativo e do site.' };
+  return ['app', 'site', 'misto'].map(g => {
+    const rg = rs.filter(r => scriptGroup(r) === g), lg = loose.filter(s => sessionGroup(s) === g);
+    if (g === 'misto' && !rg.length && !lg.length) return '';
+    const cards = rg.map(r => { const ss = sessions.filter(s => s.script === r.id && !s.archived), np = new Set(ss.map(pidOf)).size;
+        return `<button class="card flow" data-go="#/rotan/${enc(r.id)}"><div class="n">R</div><b>${esc(r.name)}</b><span class="muted">${(r.missions || []).length} missão(ões)</span><div class="st"><span>${np} participante(s)</span>${ss.length ? `<span>nota média ${scaleAvg(ss)}</span>` : ''}</div></button>`; }).join('')
+      + (lg.length ? `<button class="card flow" data-go="#/rotan/sem-${g}"><div class="n">∅</div><b>Sem roteiro</b><span class="muted">sessões soltas, classificadas pelo fluxo</span><div class="st"><span>${new Set(lg.map(pidOf)).size} participante(s)</span></div></button>` : '');
+    return `<div class="hsec-h"><h2>${GRP_NAME[g]}</h2><p>${sub[g]}</p></div>${cards ? `<div class="grid flows">${cards}</div>` : `<p class="muted" style="margin:0 0 8px">Nenhum roteiro de ${GRP_NAME[g].toLowerCase()} ainda. <a href="#/roteiro/novo">Criar roteiro</a></p>`}`;
+  }).join('');
+}
 function viewHome() {
+  $('#app').innerHTML = `
+    <div class="row"><div><h1>Painel</h1><p class="muted">Um painel por roteiro: escolha o roteiro para ver os participantes, os números e as análises dele. Os dados ficam salvos neste navegador; baixe um backup (JSON) de vez em quando.</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova">+ Novo participante</a></div></div>
+    <div id="chk"></div><div id="cchk"></div>
+    <p class="muted" data-cloudb style="margin:6px 0 0"></p>
+    <div id="bk">${backupBanner()}</div>
+    ${homeGroupCards()}
+    <div class="card" style="margin-top:24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><b>Todos os participantes</b><p class="muted" style="margin:2px 0 0;font-size:13px">A lista geral, com os números somados e a análise por missão de todos os roteiros.</p></div><a class="btn" href="#/todos">Abrir →</a></div>`;
+  checkFlows(); chkUI(); chkAutoSoon(); updateCloudUI(); cloudKick();
+}
+/* Histórico de um roteiro: só os participantes dele, com as sessões dele */
+function rotHistHTML(rot) {
+  const P = participants().map(p => Object.assign({}, p, { sessions: p.sessions.filter(s => inRot(s, rot) && !s.archived) })).filter(p => p.sessions.length);
+  if (!P.length) return '';
+  const r0 = String(rot).indexOf('sem-') === 0 ? null : entGet('scripts', rot);   /* missões do roteiro, na mesma numeração da tabela acima */
+  const ks = r0 ? (r0.missions || []).map(x => 'M_' + x) : [...new Set(P.flatMap(p => p.sessions.map(s => s.flow)))];
+  return `<div class="card" style="margin-top:16px"><div class="row" style="margin-bottom:6px;align-items:flex-start;flex-wrap:nowrap;gap:16px"><div style="min-width:0"><h2 style="margin:0">Histórico</h2><p class="muted" style="margin:2px 0 0;font-size:13px">Os participantes deste roteiro. Clique numa linha para ver a análise individual.</p></div>
+    <button class="btn sm danger" id="h-del" type="button" style="visibility:hidden;min-width:190px">Excluir selecionados</button></div>
+    <div class="list hlist"><div class="item head"><span><input type="checkbox" id="h-all" title="Selecionar todos"></span><span>Participante</span><span>Fluxos feitos</span><span>Data</span><span>Duração</span><span>Toques</span><span>Fora do alvo</span><span></span></div>
+    ${P.slice().reverse().map(p => { const t = sessTotals(p), open = p.sessions.some(s => !s.endedAt);
+      return `<div class="item" data-go="#/participante/${enc(p.pid)}"><span class="hck"><input type="checkbox" data-hsel="${esc(p.pid)}" title="Selecionar"></span><span><b>${esc(p.name)}</b><small>${esc(p.age)} anos · ${p.code}</small></span>
+        <span>${ks.map((k, i) => { const n = p.sessions.filter(s => s.flow === k).length; return `<span class="tag ${n ? 'ok' : 'out'}" title="${esc((FLOWS[k] && FLOWS[k].name) || k)}">M${i + 1}${n > 1 ? '×' + n : ''}</span>`; }).join(' ')}${open ? ' <span class="tag gray">interrompida</span>' : ''}</span>
+        <span>${dt(p.sessions[0].startedAt)}</span><span>${dur(t.total)}</span><span>${t.taps}</span><span>${t.taps ? pc(t.miss / t.taps * 100) : '–'}</span>
+        <button class="x" data-delp="${esc(p.pid)}" title="Excluir participante">✕</button></div>`; }).join('')}</div></div>`;
+}
+function viewTodos() {
   const P = participants(), done = sessions.filter(s => s.events && s.events.length), A = done.map(analyze);
   $('#app').innerHTML = `
-    <div class="row"><div><h1>Participantes</h1><p class="muted">Os dados ficam salvos neste navegador. Baixe um backup (JSON) de vez em quando.</p></div>
+    <div class="row"><div><a class="crumb" href="#/">← Painel</a><h1>Todos os participantes</h1><p class="muted">A lista geral de todos os roteiros. Para ver um teste separado, abra o roteiro no Painel. Os dados ficam salvos neste navegador; baixe um backup (JSON) de vez em quando.</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn" href="#/fluxos">Visualizar fluxos</a><a class="btn primary" href="#/nova">+ Novo participante</a></div></div>
     <div id="chk"></div><div id="cchk"></div>
     <p class="muted" data-cloudb style="margin:6px 0 0"></p>
@@ -3444,7 +3507,7 @@ function viewHome() {
       ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}
     </div>
     <div id="bk">${backupBanner()}</div>
-    ${homeRoteiros()}
+    
     <div class="hsec-h"><h2>Análise geral por missão</h2><p>Todos os participantes juntos em cada missão: taxa de sucesso, caminhos percorridos e o mapa de calor com os toques de todos.</p></div>
     <div class="grid flows">${Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, f]) => {
       const ss = done.filter(s => s.flow === k && !s.archived), an = ss.map(analyze);
@@ -3509,11 +3572,11 @@ function viewPrevia(k) {
 }
 
 /* ================== Novo participante (bateria de fluxos) ================== */
-function viewNova() {
+function viewNova(preRot) {
   let order = Object.keys(LIVE()), on = Object.fromEntries(order.map((k, i) => [k, i === 0]));
   $('#app').innerHTML = `
     <div class="form">
-      <div><a class="crumb" href="#/">← Painel</a><h1>Novo participante</h1><p class="muted">Cadastre uma vez e escolha os fluxos. Cada fluxo é gravado separado, e você passa para o próximo pela bandeja do moderador.</p></div>
+      <div><a class="crumb" href="${preRot && entGet('scripts', preRot) ? '#/rotan/' + enc(preRot) : '#/'}">← Voltar</a><h1>Novo participante</h1><p class="muted">Cadastre uma vez e escolha os fluxos. Cada fluxo é gravado separado, e você passa para o próximo pela bandeja do moderador.</p></div>
       <div class="card f" style="display:flex;flex-direction:column;gap:16px">
         <div class="two"><div><label>Nome do participante *</label><input type="text" id="f-name" autocomplete="off" autofocus></div>
           <div><label>Idade *</label><input type="number" id="f-age" min="1" max="120" inputmode="numeric"></div></div>
@@ -3537,7 +3600,7 @@ function viewNova() {
   NEW_SCRIPT = null;
   $('#f-rot').onchange = () => { const r = entGet('scripts', $('#f-rot').value); NEW_SCRIPT = r ? r.id : null; if (!r) return; const ks = r.missions.map(x => 'M_' + x).filter(k => FLOWS[k] && !FLOWS[k].legacy);
     order = ks.concat(order.filter(k => !ks.includes(k))); Object.keys(on).forEach(k => { on[k] = false; }); ks.forEach(k => { on[k] = true; }); draw(); };
-  { const dflt = entLive('scripts').find(r => r.isDefault); if (dflt) { $('#f-rot').value = dflt.id; $('#f-rot').onchange(); } }
+  { const dflt = (preRot && entGet('scripts', preRot)) || entLive('scripts').find(r => r.isDefault); if (dflt) { $('#f-rot').value = dflt.id; $('#f-rot').onchange(); } }
   makeSortable($('#fl'), keys => { order = keys; draw(); });
   const fl = $('#fl');
   fl.onclick = e => {
@@ -3605,7 +3668,7 @@ function protoBack() {
   const walk = (w, d) => { try { const fe = w.frameElement; if (fe && d > 0 && !protoVisible(fe)) return; docs.push(w.document); for (let i = 0; i < w.frames.length && d < 3; i++) walk(w.frames[i], d + 1); } catch (e) {} };
   walk(A.frame.contentWindow, 0);
   for (let i = docs.length - 1; i >= 0; i--) {   /* do módulo mais de cima para o app */
-    const d = docs[i], scope = d.querySelector('.screen.active') || d.body; if (!scope) continue;
+    const d = docs[i]; try { const hw = d.defaultView; if (hw && typeof hw.HSF_BACK === 'function' && hw.HSF_BACK()) return true; } catch (e) {} const scope = d.querySelector('.screen.active') || d.body; if (!scope) continue;
     const el = [].slice.call(scope.querySelectorAll(PROTO_BACK_SEL)).find(protoVisible); if (el) { el.click(); return true; }
   }
   return false;
@@ -3908,7 +3971,7 @@ const HZ_VALS = { P: .42, M: .55, G: .72 };
 /* ajuste por app: cada protótipo monta a tela de um jeito, então cada um guarda o seu valor (padrão: App atual 5%, App novo 0%) */
 const vadjFile = flow => { const f = FLOWS[flow]; return f ? String(f.file || '').split('?')[0].split('/').pop() : ''; };
 const vadjIsNovo = flow => /app-novo/.test(vadjFile(flow));
-const vadjFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vadj:' + vadjFile(flow))); return isFinite(v) ? v : (vadjIsNovo(flow) ? 0 : 5); };
+const vadjFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vadj:' + vadjFile(flow))); return isFinite(v) ? v : (vadjFile(flow) === 'app.html' ? 5 : 0); };
 let VADJ = 0, VADJ_FLOW = null, VAB = 0;
 /* ajuste da faixa de baixo (px): desloca só os toques gravados pela distância até a base (botões presos ao rodapé); padrão App novo +38, App atual 0 */
 const vabFor = flow => { const v = parseFloat(localStorage.getItem('hsf_vab:' + vadjFile(flow))); return isFinite(v) ? v : (vadjIsNovo(flow) ? 38 : 0); };
@@ -4047,7 +4110,7 @@ function viewSessao(id) {
 /* ================== Análise geral por fluxo ================== */
 function viewGeral(flow, rot) {
   if (!FLOWS[flow]) { location.hash = '#/'; return; }
-  const f = FLOWS[flow], allSS = sessions.filter(s => s.flow === flow && s.events && s.events.length && !s.archived && (!rot || s.script === rot)), ss = allSS.filter(s => !GEXCL.has(s.id)), an = ss.map(analyze);
+  const f = FLOWS[flow], allSS = sessions.filter(s => s.flow === flow && s.events && s.events.length && !s.archived && inRot(s, rot)), ss = allSS.filter(s => !GEXCL.has(s.id)), an = ss.map(analyze);
   const keys = {}; an.forEach(a => Object.values(a.byKey).forEach(o => { const k = keys[o.key] || (keys[o.key] = { key: o.key, ms: [], taps: 0, miss: 0, n: 0 }); k.ms.push(o.ms); k.taps += o.taps; k.miss += o.miss; k.n++; }));
   const ks = Object.values(keys).sort((a, b) => b.taps - a.taps);
   const tabs = Object.entries(SHOWN(sessions)).filter(([k]) => k.indexOf('M_') === 0).map(([k, x]) => `<a class="btn sm ${k === flow ? 'primary' : ''}" href="#/geral/${k}">${x.n}. ${x.name}</a>`).join('');
@@ -4307,9 +4370,9 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('click', e => {
   const dp = e.target.closest('[data-delp]');
-  if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); refreshBanner(); if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; } return; }
+  if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); refreshBanner(); if (onListPage()) route(); else location.hash = '#/'; } return; }
   const del = e.target.closest('[data-del]');
-  if (del) { e.stopPropagation(); if (confirm('Excluir esta sessão? Não dá para desfazer.')) { sessions = sessions.filter(s => s.id !== del.dataset.del); save(); cloudDelete('s', del.dataset.del); refreshBanner(); if (location.hash === '#/' || !location.hash) route(); else location.hash = '#/'; } return; }
+  if (del) { e.stopPropagation(); if (confirm('Excluir esta sessão? Não dá para desfazer.')) { sessions = sessions.filter(s => s.id !== del.dataset.del); save(); cloudDelete('s', del.dataset.del); refreshBanner(); if (onListPage()) route(); else location.hash = '#/'; } return; }
   const pj = e.target.closest('[data-pjson]');
   if (pj) { const p = getP(pj.dataset.pjson); if (p) { download(`hsf-${p.code}-${today()}.json`, JSON.stringify(backupObj(p.sessions)), 'application/json'); markBackup(); } return; }
   const pdf = e.target.closest('[data-pdf]');
@@ -4320,9 +4383,9 @@ document.addEventListener('click', e => {
   if (rf) { const p = getP(rf.dataset.runflow), f = document.querySelector('input[name=pf]:checked'); if (p && f) { archivePrev(p.pid, [f.value]); beginBattery(p, [f.value]); } return; }
   const ex = e.target.closest('[data-exp]');
   if (ex) {
-    const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : sessions;
-    if (ex.dataset.exp === 'json') { download('hsf-backup-' + today() + '.json', JSON.stringify(backupObj(sessions)), 'application/json'); markBackup(); if (location.hash === '#/' || !location.hash) viewHome(); }
-    else download('hsf-toques-' + today() + '.csv', csv(one), 'text/csv;charset=utf-8');
+    const one = ex.dataset.id ? sessions.filter(s => s.id === ex.dataset.id) : ex.dataset.rot ? sessions.filter(s => inRot(s, ex.dataset.rot)) : sessions, tag = ex.dataset.rot ? 'roteiro-' : '';
+    if (ex.dataset.exp === 'json') { download('hsf-backup-' + tag + today() + '.json', JSON.stringify(backupObj(ex.dataset.rot ? one : sessions)), 'application/json'); if (!ex.dataset.rot) { markBackup(); if (onListPage()) route(); } }
+    else download('hsf-toques-' + tag + today() + '.csv', csv(one), 'text/csv;charset=utf-8');
     return;
   }
   const go = e.target.closest('[data-go]'); if (go) location.hash = go.dataset.go;
@@ -4330,14 +4393,14 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.id !== 'imp' || !e.target.files[0]) return;
   const r = new FileReader();
-  r.onload = () => { try { const x = JSON.parse(r.result), arr = Array.isArray(x) ? x : (x.sessions || []); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save(); alert(n + ' sessão(ões) importada(s).'); viewHome(); } catch (err) { alert('Arquivo inválido.'); } };
+  r.onload = () => { try { const x = JSON.parse(r.result), arr = Array.isArray(x) ? x : (x.sessions || []); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save(); alert(n + ' sessão(ões) importada(s).'); route(); } catch (err) { alert('Arquivo inválido.'); } };
   r.readAsText(e.target.files[0]);
 });
 /* ================== Fluxos, missões e roteiros (painel agnóstico ao fluxo) ================== */
 const ENT_LS = 'hsf_entities_v1';
 let ENT = lsGet(ENT_LS, { flows: [], missions: [], scripts: [] });
 ['flows', 'missions', 'scripts'].forEach(k => { if (!Array.isArray(ENT[k])) ENT[k] = []; });
-if (!ENT.flows.length) ENT.flows.push({ id: 'f_hsf', name: 'HSF · Consórcio', url: 'app.html', updatedAt: 0 });
+if (!ENT.flows.length) ((window.HSF_CFG && Array.isArray(window.HSF_CFG.flows)) ? window.HSF_CFG.flows : [{ id: 'f_hsf', name: 'HSF · Consórcio', url: 'app.html' }]).forEach(f => ENT.flows.push(Object.assign({ updatedAt: 0 }, f)));
 const entLive = kind => ENT[kind].filter(x => !x.deleted);
 ENT.missions.forEach(m => { let ch = false; (m.questions || []).forEach(q => { if (q.type === 'scale' && /1 a 7/.test(q.text || '')) { q.text = q.text.replace('1 a 7', '1 a 5'); ch = true; } }); if (ch) { m.updatedAt = Date.now(); m.pushed = false; } });
 lsSet(ENT_LS, ENT);
@@ -4586,13 +4649,17 @@ function chkVisible(d) {
 }
 function chkLabels(d) {   /* textos e rótulos do que é tocável e está visível (inclui camadas por cima da tela ativa) */
   const set = new Set();
-  chkDocs(d).forEach(doc => doc.querySelectorAll('[data-label],button,a,[data-act],[data-nav],[data-go],.hotspot,.btn').forEach(el => { if (!deepVisible(el)) return; const dl = el.getAttribute('data-label'); if (dl) set.add(chkNorm(dl)); const tx = chkNorm(el.textContent); if (tx && tx.length < 90) set.add(tx); }));
+  chkDocs(d).forEach(doc => doc.querySelectorAll('[data-label],[data-r],button,a,[data-act],[data-nav],[data-go],.hotspot,.btn').forEach(el => { if (!deepVisible(el)) return; const dl = el.getAttribute('data-label') || el.getAttribute('data-r'); if (dl) set.add(chkNorm(dl)); const tx = chkNorm(el.textContent); if (tx && tx.length < 90) set.add(tx); }));
   return set;
 }
 /* o rótulo gravado no toque é cortado em 40 caracteres: compara pelo começo do texto */
 function chkHasLabel(set, label) {
   const sp = x => x.replace(/\s+/g, ''), L = sp(chkNorm(label)), L2 = sp(chkNorm(label).replace(/\s*\([^)]*\)\s*$/, ''));   /* sem o sufixo “(sem destino)”, “(cálculo)”… */
   for (const t of set) { const T = sp(t); if (T.startsWith(L) || (L2.length >= 6 && (T.startsWith(L2) || (T.length >= 6 && L2.startsWith(T))))) return true; } return false;
+}
+function chkSigHook(doc) {   /* telas que são só imagem: o app informa uma assinatura da imagem atual (HSF_SIG) */
+  try { for (const d of chkDocs(doc)) { const w = d.defaultView; if (w && typeof w.HSF_SIG === 'function') return String(w.HSF_SIG()); } } catch (e) {}
+  return '';
 }
 function chkHook(doc) {   /* o próprio app informa qual tela está mostrando (gancho HSF_KEY ou HSF_HA.keyOf), quando existe */
   try { for (const d of chkDocs(doc)) { const w = d.defaultView; if (!w) continue; if (typeof w.HSF_KEY === 'function') return w.HSF_KEY(); if (w.HSF_HA && typeof w.HSF_HA.keyOf === 'function') return w.HSF_HA.keyOf(); } } catch (e) {}
@@ -4605,11 +4672,11 @@ function chkRender(flowId, key, needHook) {
     const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-9000px;top:0;width:393px;height:1400px;border:0'; fr.setAttribute('aria-hidden', 'true'); document.body.append(fr);
     try { await setStaticFrame(fr, flowId, key, 0, 852); } catch (e) {}
     let n = 0, last = '', est = 0; const t = setInterval(() => {
-      let tx = '', hook = null, multi = false; try { const d = fr.contentDocument; if (d && d.body) { tx = chkVisible(d); hook = chkHook(d); multi = d.querySelectorAll('.screen').length >= 10; } } catch (e) {}
+      let tx = '', hook = null, multi = false, sg = ''; try { const d = fr.contentDocument; if (d && d.body) { tx = chkVisible(d); hook = chkHook(d); sg = chkSigHook(d); multi = d.querySelectorAll('.screen').length >= 10; } } catch (e) {}
       if (tx && tx === last) est++; else est = 0; last = tx; n++;
       /* espera pelo menos 5 s (módulos embutidos aparecem depois); em telas fora do manifesto, espera também o app informar a tela */
       const pronto = est >= 6 && n >= 20 && (!needHook || hook != null || !multi);
-      if (pronto || n > (needHook ? 84 : 56) || (!tx && n > 26 && !needHook)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), labels, hook }); }
+      if (pronto || n > (needHook ? 84 : 56) || (!tx && n > 26 && !needHook)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(sg ? tx + '|' + sg : tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), sig: sg, labels, hook }); }
     }, 250);
   }));
   CHK_CACHE.set(ck, pr); return pr;
@@ -4640,9 +4707,9 @@ function chkProbeStart(fl, startId) {
   }));
 }
 /* mostra o trecho onde o texto da tela mudou */
-function chkDiff(a, b) {
+function chkDiff(a, b, ga, gb) {
   a = a || ''; b = b || ''; let i = 0; const L = Math.min(a.length, b.length); while (i < L && a[i] === b[i]) i++;
-  if (i >= L && a.length === b.length) return 'mudou em outra parte da tela (mais abaixo)';
+  if (i >= L && a.length === b.length) return (ga || '') !== (gb || '') ? 'a imagem da tela mudou' : 'mudou em outra parte da tela (mais abaixo)';
   const cut = (t, j) => (j > 30 ? '…' : '') + t.slice(Math.max(0, j - 30), j + 50).trim() + (t.length > j + 50 ? '…' : '');
   return 'antes: “' + cut(a, i) + '” · agora: “' + cut(b, i) + '”';
 }
@@ -4684,8 +4751,8 @@ async function chkMission(m, sigs) {
         else if (fimAv.length) add('Tela final', 'warn', 'confira o fim da missão', { lines: fimAv, lbChanged: lbF });
         else add('Tela final', 'ok', ends.map(c => condLabel(c)).join(' · '));
         const mud = [];
-        keys.forEach(k => { const s = state[k]; if (s && s.st === 'ok' && s.r && s.r.tam) { newFp[k] = { h: s.r.h, s: s.r.s, t: s.r.t }; if (base[k] && base[k].h !== s.r.h) mud.push({ key: k, antes: base[k].t || base[k].s, agora: s.r.t }); } });
-        if (mud.length) add('Conteúdo', 'warn', mud.length + ' tela(s) mudaram de conteúdo desde a última conferência', { fpChanged: mud.map(x => x.key), lines: mud.map(x => keyName(x.key) + ' — ' + chkDiff(x.antes, x.agora)) });
+        keys.forEach(k => { const s = state[k]; if (s && s.st === 'ok' && s.r && (s.r.tam || s.r.sig)) { newFp[k] = { h: s.r.h, s: s.r.s, t: s.r.t, g: s.r.sig || '' }; if (base[k] && base[k].h !== s.r.h) mud.push({ key: k, antes: base[k].t || base[k].s, agora: s.r.t, gAntes: base[k].g || '', gAgora: s.r.sig || '' }); } });
+        if (mud.length) add('Conteúdo', 'warn', mud.length + ' tela(s) mudaram de conteúdo desde a última conferência', { fpChanged: mud.map(x => x.key), lines: mud.map(x => keyName(x.key) + ' — ' + chkDiff(x.antes, x.agora, x.gAntes, x.gAgora)) });
       }
     }
   }
@@ -4770,7 +4837,7 @@ function viewMissoes() {
         <td class="r" style="white-space:nowrap">${r.isDefault ? '' : `<button class="btn sm ghost" data-defs="${esc(r.id)}" type="button">★ Tornar padrão</button> `}<a class="btn sm" href="#/roteiro/${enc(r.id)}">Editar</a> <button class="btn sm ghost" data-dels="${esc(r.id)}">Excluir</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum roteiro ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
       <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
-      <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b><br><span class="muted">${esc(f.url)}</span></td>
+      <table><tbody>${fl.map(f => { const m = MAN[baseUrl(f.url)]; return `<tr><td><b>${esc(f.name)}</b> <span class="rb" style="background:#eee;color:#444">${GRP_NAME[flowGroup(f)]}</span><br><span class="muted">${esc(f.url)}</span></td>
         <td>${m ? `<span class="rb ok">manifesto ok · ${m.starts.length} pontos de partida</span>` : MANFAIL[baseUrl(f.url)] ? '<span class="rb no" title="Não encontrei o manifesto neste endereço (ou o site não permite a leitura)">sem manifesto</span>' : '<span class="rb run">lendo manifesto…</span>'}</td><td class="r"><a class="btn sm" href="#/fluxo/${enc(f.id)}">Editar</a> <button class="btn sm ghost" data-delf="${esc(f.id)}" type="button">Excluir</button></td></tr>`; }).join('')}</tbody></table></div>
   </div>`;
   $('#app').onclick = e => {
@@ -4802,13 +4869,15 @@ function viewFluxoEd(id) {
     <div class="card f" style="display:flex;flex-direction:column;gap:14px">
       <div><label>Nome</label><input type="text" id="fx-n" value="${esc(f.name)}"></div>
       <div><label>Endereço do app</label><input type="text" id="fx-u" value="${esc(f.url)}" placeholder="app.html ou https://…"><p class="muted" style="margin-top:6px">Pode ser um arquivo na mesma pasta (ex.: app.html) ou um endereço completo do mesmo site.</p></div>
+      <div><label>Grupo</label><select id="fx-g"><option value="app">Aplicativo</option><option value="site">Site</option></select><p class="muted" style="margin-top:6px">Classifica as sessões que não têm roteiro. Arquivos que começam com “site-” são marcados como Site automaticamente.</p></div>
       <div id="fx-m" class="muted"></div><p class="err" id="fx-e"></p>
       <div class="btns"><button class="btn" id="fx-t">Ler manifesto</button><button class="btn primary" id="fx-s">Salvar</button>${isNew ? '' : '<button class="btn ghost" id="fx-d" type="button" style="margin-left:auto">Excluir fluxo</button>'}</div></div></div>`;
   const test = async () => { $('#fx-m').textContent = 'Lendo…'; const m = await loadManifest($('#fx-u').value.trim(), true);
     $('#fx-m').innerHTML = m ? `<span class="rb ok">✓ ${esc(m.name)}</span> · ${m.starts.length} pontos de partida · ${m.screens.length} tipos de tela` : '<span class="err">Não encontrei o manifesto neste endereço.</span>'; return m; };
   $('#fx-t').onclick = test;
+  $('#fx-g').value = flowGroup(f); let gT = !isNew; $('#fx-g').onchange = () => { gT = true; }; $('#fx-u').oninput = () => { if (!gT) $('#fx-g').value = flowGroup({ url: $('#fx-u').value }); };
   if ($('#fx-d')) $('#fx-d').onclick = () => { if (deleteFlow(f.id)) location.hash = '#/missoes'; };
-  $('#fx-s').onclick = async () => { f.name = $('#fx-n').value.trim(); f.url = $('#fx-u').value.trim();
+  $('#fx-s').onclick = async () => { f.name = $('#fx-n').value.trim(); f.url = $('#fx-u').value.trim(); f.group = $('#fx-g').value;
     if (!f.name || !f.url) { $('#fx-e').textContent = 'Preencha nome e endereço.'; return; }
     entSave('flows', f); await test(); location.hash = '#/missoes'; };
   if (f.url) test();
@@ -5167,9 +5236,12 @@ const slugName = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/
 /* ---------- análise por roteiro ---------- */
 function lastPer(ss) { const o = {}; ss.slice().sort((a, b) => a.startedAt - b.startedAt).forEach(s => { o[pidOf(s) + '|' + s.flow] = s; }); return o; }
 function viewRoteiroAn(id) {
-  const r = entGet('scripts', id); if (!r) { location.hash = '#/'; return; }
-  const ms = (r.missions || []).map(x => entGet('missions', x)).filter(Boolean);
-  const ss = sessions.filter(s => s.script === id && s.flow && s.flow.indexOf('M_') === 0 && !s.archived), last = lastPer(ss);
+  const sem = String(id).indexOf('sem-') === 0, gsem = sem ? String(id).slice(4) : '';
+  const ssAll = sessions.filter(s => inRot(s, id) && s.flow && s.flow.indexOf('M_') === 0 && !s.archived);
+  const r = sem ? { id, name: 'Sem roteiro · ' + (GRP_NAME[gsem] || ''), missions: [...new Set(ssAll.map(s => s.flow.slice(2)))] } : entGet('scripts', id);
+  if (!r || (sem && !GRP_NAME[gsem])) { location.hash = '#/'; return; }
+  const ms = (r.missions || []).map(x => entGet('missions', x)).filter(Boolean), grp = sem ? gsem : scriptGroup(r);
+  const ss = ssAll, last = lastPer(ss);
   const pids = [...new Set(ss.map(pidOf))], P = pids.map(pid => { const s0 = ss.find(s => pidOf(s) === pid); return { pid, name: s0.name, age: s0.age }; });
   const cellOf = (pid, m) => last[pid + '|M_' + m.id];
   const allOk = P.filter(p => ms.every(m => { const s = cellOf(p.pid, m); return s && /^(concluiu|explorou)$/.test(sessResult(s)); })).length;
@@ -5179,8 +5251,8 @@ function viewRoteiroAn(id) {
     const ic = r2 === 'explorou' ? '🧭 explorou' : r2 === 'concluiu' ? (d.direto === true ? '✓ direto' : d.direto === false ? '✓ indireto' : '✓') : r2 === 'desistiu' ? '✕ desistiu' : '– não concluiu';
     return `<td class="mx ${cls}" data-go="#/sessao/${s.id}" title="Abrir sessão"><b>${ic}</b>${t ? `<small>${t}</small>` : ''}</td>`; };
   $('#app').innerHTML = `<a class="crumb" href="#/">← Painel</a>
-    <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1>Análise do roteiro · ${esc(r.name)}</h1><p class="muted">${ms.map(m => esc(m.name)).join(' → ')}</p></div>
-      <button class="btn sm" id="rot-pdf" type="button">⬇ PDF desta análise</button></div>
+    <div class="row" style="align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1>${esc(r.name)} <span class="rb" style="background:#eee;color:#444;font-size:13px;vertical-align:middle">${GRP_NAME[grp] || ''}</span></h1><p class="muted">${sem ? 'Sessões feitas sem escolher um roteiro, agrupadas pelo fluxo da missão.' : ms.map(m => esc(m.name)).join(' → ')}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${sem ? '' : `<a class="btn primary" href="#/nova/${enc(id)}">+ Novo participante</a>`}<button class="btn sm" data-exp="json" data-rot="${esc(id)}" type="button">Exportar backup (JSON)</button><button class="btn sm" data-exp="csv" data-rot="${esc(id)}" type="button">Exportar toques (CSV)</button><button class="btn sm" id="rot-pdf" type="button">⬇ PDF desta análise</button></div></div>
     <div id="rotwrap">${P.length ? `<div class="grid kpis">${kpi('PARTICIPANTES', P.length)}${kpi('COMPLETARAM TODAS', pct(allOk, P.length) + '%', allOk + ' de ' + P.length)}
       ${kpi('TEMPO TOTAL MÉDIO', totals.length ? dur(avgN(totals)) : '–', 'soma das missões')}${kpi('NOTA MÉDIA GERAL', scaleAvg(ss), 'escala de 1 a 5')}</div>
     <div class="card" style="margin-top:16px"><h2>Participante × missão</h2><p class="muted" style="margin:0 0 8px">Clique numa célula para abrir a sessão.</p>
@@ -5190,7 +5262,7 @@ function viewRoteiroAn(id) {
       <tbody>${ms.map((m, i) => { const s2 = ss.filter(s => s.flow === 'M_' + m.id), c = missionCounts(m, s2);
         return `<tr><td>M${i + 1}. ${esc(m.name)}</td><td class="r">${c.n}</td><td class="r">${m.free ? 'exploração' : c.n ? pct(c.suc, c.n) + '%' : '–'}</td><td class="r">${(m.path || []).length && c.n ? pct(c.dir, c.n) + '%' : '–'}</td>
           <td class="r">${c.times.length ? dur(avgN(c.times)) : '–'}</td><td class="r">${scaleAvg(s2)}</td><td class="r"><a class="btn sm" href="#/geral/M_${enc(m.id)}/${enc(id)}">Ver missão</a></td></tr>`; }).join('')}</tbody></table></div>`
-    : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste roteiro. Cadastre um participante escolhendo este roteiro.</div>'}</div>`;
+    : '<div class="card empty" style="margin-top:20px">Ainda não há sessões deste roteiro. Use <b>+ Novo participante</b> para começar.</div>'}</div>${rotHistHTML(id)}`;
   $('#rot-pdf').onclick = () => pdfOf($('#rotwrap'), 'hsf-roteiro-' + slugName(r.name), 'Roteiro · ' + r.name);
 }
 function homeRoteiros() {
