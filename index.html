@@ -4750,12 +4750,14 @@ function chkRender(flowId, key, needHook) {
   const pr = CHK_REND(() => new Promise(async res => {
     const fr = document.createElement('iframe'); fr.style.cssText = 'position:fixed;left:-9000px;top:0;width:393px;height:1400px;border:0'; fr.setAttribute('aria-hidden', 'true'); document.body.append(fr);
     try { await setStaticFrame(fr, flowId, key, 0, 852); } catch (e) {}
-    let n = 0, last = '', est = 0; const t = setInterval(() => {
+    let n = 0, last = '', est = 0, loadN = null; fr.addEventListener('load', () => { if (loadN == null && (fr.srcdoc || fr.getAttribute('src'))) loadN = n; });   /* só decide “em branco” depois que o arquivo terminou de carregar (ele é grande) */
+ const t = setInterval(() => {
       let tx = '', hook = null, multi = false, sg = ''; try { const d = fr.contentDocument; if (d && d.body) { tx = chkVisible(d); hook = chkHook(d); sg = chkSigHook(d); multi = d.querySelectorAll('.screen').length >= 10; } } catch (e) {}
       if (tx && tx === last) est++; else est = 0; last = tx; n++;
       /* espera pelo menos 5 s (módulos embutidos aparecem depois); em telas fora do manifesto, espera também o app informar a tela */
       const pronto = est >= 6 && n >= 20 && (!needHook || hook != null || !multi);
-      if (pronto || n > (needHook ? 84 : 56) || (!tx && n > 26 && !needHook)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(sg ? tx + '|' + sg : tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), sig: sg, labels, hook }); }
+      const lim = loadN == null ? 240 : loadN + (needHook ? 84 : 56);
+ if (pronto || n > lim || (!tx && n > 26 && !needHook && loadN != null)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(sg ? tx + '|' + sg : tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), sig: sg, labels, hook }); }
     }, 250);
   }));
   CHK_CACHE.set(ck, pr); return pr;
@@ -4848,7 +4850,7 @@ async function chkNeeded() {
   return need;
 }
 async function chkAll(only) {
-  if (CHK_RUN) return; const ms = (only ? [entGet('missions', only)] : entLive('missions')).filter(Boolean); if (!ms.length) return;
+  if (CHK_RUN) return; CHK_CACHE.clear();   /* nunca reaproveitar o resultado de uma conferência anterior: ele podia ter saído ruim por carregamento lento ou versão antiga */ const ms = (only ? [entGet('missions', only)] : entLive('missions')).filter(Boolean); if (!ms.length) return;
   CHK_RUN = { done: 0, total: ms.length }; chkUI();
   const sigs = {}; for (const fl of entLive('flows')) { const u = baseUrl(fl.url); if (!(u in sigs)) sigs[u] = await chkSig(fl.url); }
   const fila = ms.slice();
@@ -4877,17 +4879,31 @@ function chkPill(m) {
 }
 function chkDetail(m) {
   const r = chkFresh(m); if (!r) return '<p class="muted" style="margin:0">Ainda não conferida (ou editada depois da última conferência).</p>'; const ic = { ok: '✓', warn: '⚠', bad: '✖' };
-  return `<div class="chkd">${r.items.map(x => `<div class="ci ${x.st}"><b>${ic[x.st]} ${esc(x.part)}</b> · ${esc(x.msg)}${(x.lines || []).length ? `<ul>${x.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}</div>`).join('')}
+  return `<div class="chkd">${r.items.map(x => `<div class="ci ${x.st}"><b>${ic[x.st]} ${esc(x.part)}</b> · ${esc(x.msg)}${(x.lines || []).length ? `<ul>${x.lines.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}${x.st !== 'ok' && chkHow(x) ? `<div class="muted" style="margin-top:4px">→ ${esc(chkHow(x))}</div>` : ''}</div>`).join('')}
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn sm" data-chkone="${esc(m.id)}" type="button">Conferir de novo</button>${r.items.some(x => x.fpChanged || (x.lbChanged || []).length) ? `<button class="btn sm" data-chkacc="${esc(m.id)}" type="button" title="Guarda o conteúdo atual como o correto">Aceitar as mudanças</button>` : ''}<span class="muted">conferida em ${dt(r.at)}</span></div></div>`;
+}
+/* por que cada missão está marcada: o primeiro motivo, direto no banner */
+function chkWhy(list) { return '<ul style="margin:6px 0 0 18px;padding:0;font-size:13px">' + list.map(x => { const it = x.r.items.find(i => i.st === x.r.st) || {}, ln = (it.lines || [])[0]; return '<li><b>' + x.n + '</b>' + (x.m && x.m.name ? ' · ' + esc(x.m.name) : '') + ' — ' + esc((it.part ? it.part + ': ' : '') + (it.msg || '')) + (ln ? ' <span style="opacity:.85">(' + esc(ln.length > 160 ? ln.slice(0, 160) + '…' : ln) + ')</span>' : '') + '</li>'; }).join('') + '</ul>'; }
+function chkOpenBad(st) { entLive('missions').forEach(m => { const r = chkFresh(m); if (r && r.st === st) CHK_OPEN.add(m.id); }); if (location.hash.indexOf('#/missoes') === 0) setTimeout(viewMissoes, 0); }
+/* o que fazer, em cada tipo de aviso */
+function chkHow(x) {
+  const t = (x.part + ' ' + x.msg + ' ' + (x.lines || []).join(' ')).toLowerCase();
+  if (/ponto de partida/.test(t)) return 'Abra a missão (Editar) e confirme o início de novo, no passo 2.';
+  if (/manifesto|fluxo\) desta missão/.test(t)) return 'Confira o endereço do app em Fluxos: o arquivo precisa ser a versão com manifesto (site-….html).';
+  if (/não tem condição de fim/.test(t)) return 'Abra a missão (Editar) e defina como ela termina, no passo 4.';
+  if (/não existe mais/.test(t)) return 'Abra a missão (Editar) e grave o caminho de novo, no passo 3. Se acabou de subir o app, espere uns minutos e clique em “Conferir de novo”.';
+  if (/em branco/.test(t)) return 'A tela veio vazia. Pode ser carregamento lento: clique em “Conferir de novo”.';
+  if (/não consegui concluir/.test(t)) return 'Clique em “Conferir de novo”.';
+  return '';
 }
 function chkBannerHTML() {
   const hint = (bg, bd, fg, h) => `<div class="hint" style="background:${bg};border-color:${bd};color:${fg}">${h}</div>`;
   if (CHK_RUN) return hint('#eef2ff', '#c7d0f5', '#2b3a8c', `<b>Conferindo as missões…</b> ${CHK_RUN.done} de ${CHK_RUN.total}${CHK_STALE ? ' · o app foi atualizado desde a última conferência' : ''}`);
   const ms = entLive('missions'); if (!ms.length) return '';
   if (CHK_STALE) return hint('#fff4d6', '#f0d98a', '#6b4a00', '<b>O app foi atualizado</b> desde a última conferência. <button class="btn sm" data-chkgo type="button" style="margin-left:6px">Conferir agora</button>');
-  const rs = ms.map((m, i) => ({ n: 'M' + (i + 1), r: chkFresh(m) })).filter(x => x.r), bad = rs.filter(x => x.r.st === 'bad'), warn = rs.filter(x => x.r.st === 'warn');
-  if (bad.length) return hint('#fdecee', '#f4b7be', '#7a0016', `<b>${bad.length} missão(ões) com problema:</b> ${bad.map(x => x.n).join(', ')} · <a href="#/missoes">ver detalhes</a>`);
-  if (warn.length) return hint('#fff4d6', '#f0d98a', '#6b4a00', `<b>${warn.length} missão(ões) para conferir:</b> ${warn.map(x => x.n).join(', ')} · <a href="#/missoes">ver detalhes</a>`);
+  const rs = ms.map((m, i) => ({ n: 'M' + (i + 1), m, r: chkFresh(m) })).filter(x => x.r), bad = rs.filter(x => x.r.st === 'bad'), warn = rs.filter(x => x.r.st === 'warn');
+  if (bad.length) return hint('#fdecee', '#f4b7be', '#7a0016', `<b>${bad.length} missão(ões) com problema</b> · <a href="#/missoes" onclick="chkOpenBad('bad')">abrir os detalhes</a>${chkWhy(bad)}`);
+  if (warn.length) return hint('#fff4d6', '#f0d98a', '#6b4a00', `<b>${warn.length} missão(ões) para conferir</b> · <a href="#/missoes" onclick="chkOpenBad('warn')">abrir os detalhes</a>${chkWhy(warn)}`);
   if (rs.length && rs.length === ms.length && CHK.at) return `<p class="muted" style="margin:6px 0">✓ Missões conferidas em ${dt(CHK.at)} · tudo certo</p>`;
   return '';
 }
