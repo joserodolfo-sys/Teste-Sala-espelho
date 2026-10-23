@@ -4757,13 +4757,16 @@ function chkRender(flowId, key, needHook) {
       /* espera pelo menos 5 s (módulos embutidos aparecem depois); em telas fora do manifesto, espera também o app informar a tela */
       const pronto = est >= 6 && n >= 20 && (!needHook || hook != null || !multi);
       const lim = loadN == null ? 240 : loadN + (needHook ? 84 : 56);
- if (pronto || n > lim || (!tx && n > 26 && !needHook && loadN != null)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} fr.remove(); res({ h: chkHash(sg ? tx + '|' + sg : tx), tam: tx.length, s: tx.slice(0, 90), t: tx.slice(0, 1500), sig: sg, labels, hook }); }
+ if (pronto || n > lim || (!tx && n > 26 && !needHook && loadN != null)) { clearInterval(t); let labels = new Set(); try { labels = chkLabels(fr.contentDocument); } catch (e) {} let nsc = -1; try { nsc = fr.contentDocument.querySelectorAll('.screen, #screen').length; } catch (e) {}
+ fr.remove(); res({ h: chkHash(sg ? tx + '|' + sg : tx), tam: tx.length, nsc, carregou: loadN != null, s: tx.slice(0, 90), t: tx.slice(0, 1500), sig: sg, labels, hook }); }
     }, 250);
   }));
   CHK_CACHE.set(ck, pr); return pr;
 }
 const chkFallbackKey = key => { const b = String(key).split('#')[0], i = b.indexOf('@'); return i < 0 ? null : b.slice(0, i) + '@__nao_existe__'; };
 /* a tela existe? (declarada no manifesto, ou renderiza algo diferente da tela padrão do módulo) */
+/* por que a tela veio em branco: separa “não carregou”, “o app nem montou as telas” e “só esta tela ficou vazia” */
+const chkBlankWhy = r => !r.carregou ? 'o arquivo do app não terminou de carregar' : r.nsc === 0 ? 'o app carregou, mas não montou nenhuma tela (um arquivo ou script que ele precisa pode não ter carregado, como o simulacao.js)' : 'o app montou as telas, mas esta veio vazia';
 async function chkKeyState(flowId, man, key, base) {
   /* folha (bottomsheet): o painel não consegue redesenhá-la sozinha (abre em branco); confere a tela que fica por baixo */
   if (String(key).startsWith('sheet~')) { const u = await chkKeyState(flowId, man, String(key).slice(6), base); return u.st === 'bad' ? { st: 'bad', msg: 'a tela por baixo da folha ' + u.msg } : { st: 'ok', sheet: true, r: null }; }
@@ -4773,7 +4776,7 @@ async function chkKeyState(flowId, man, key, base) {
   if (known) return { st: 'ok', r };
   const fbk = chkFallbackKey(key); if (!fbk) return { st: 'ok', r, inconclusivo: true };
   /* em branco: só é problema se a tela já teve conteúdo na conferência anterior */
-  if (!r.tam) return base && base[key] && base[key].t ? { st: 'bad', msg: 'abre em branco (antes tinha conteúdo)', r } : { st: 'ok', r, inconclusivo: true };
+  if (!r.tam) return base && base[key] && base[key].t ? { st: 'bad', msg: 'abre em branco (antes tinha conteúdo) · ' + chkBlankWhy(r), r } : { st: 'ok', r, inconclusivo: true };
   const fb = await chkRender(flowId, fbk);
   if (fb && fb.h === r.h) return { st: 'bad', msg: 'não existe mais (abre a tela padrão do módulo)', r };
   return { st: 'ok', r };
@@ -4892,7 +4895,8 @@ function chkHow(x) {
   if (/manifesto|fluxo\) desta missão/.test(t)) return 'Confira o endereço do app em Fluxos: o arquivo precisa ser a versão com manifesto (site-….html).';
   if (/não tem condição de fim/.test(t)) return 'Abra a missão (Editar) e defina como ela termina, no passo 4.';
   if (/não existe mais/.test(t)) return 'Abra a missão (Editar) e grave o caminho de novo, no passo 3. Se acabou de subir o app, espere uns minutos e clique em “Conferir de novo”.';
-  if (/em branco/.test(t)) return 'A tela veio vazia. Pode ser carregamento lento: clique em “Conferir de novo”.';
+  if (/não montou nenhuma tela/.test(t)) return 'O app carregou, mas as telas não apareceram. Confira se todos os arquivos do app estão no GitHub (por exemplo simulacao.js, ao lado do app.html) e abra o app direto no navegador para ver se funciona.';
+  if (/em branco/.test(t)) return 'A tela veio vazia. Clique em “Conferir de novo”; se continuar, abra o app direto no navegador e vá até essa tela para ver se ela aparece.';
   if (/não consegui concluir/.test(t)) return 'Clique em “Conferir de novo”.';
   return '';
 }
