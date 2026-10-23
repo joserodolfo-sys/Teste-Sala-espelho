@@ -298,7 +298,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .sqm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px}.sqm .in{background:#fff;border-radius:14px;padding:16px;display:flex;gap:18px;flex-wrap:wrap}
 
 @media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}.hlist.rc .item{grid-template-columns:24px 1.7fr 1.5fr 1.3fr 1fr 70px 60px 80px 34px}}.fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}.fbar .fc{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px;font-weight:600;color:var(--sec);text-decoration:none;white-space:nowrap}.fbar .fc:hover{border-color:#bbb}.fbar .fc.on{background:var(--ink);border-color:var(--ink);color:#fff}.fbar .fsep{width:1px;height:22px;background:var(--line);margin:0 4px}.tag.g-app{background:#e8effd;color:#1d4fb0}.tag.g-site{background:#e5f5ec;color:#0a7a3c}.tag.g-misto{background:#f3e8fd;color:#6b21a8}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
-@keyframes hsfspin{to{transform:rotate(360deg)}}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
+@keyframes hsfspin{to{transform:rotate(360deg)}}.rb.fin{background:#eaf1ff;color:#1d4fb0}.rb.fin.no{background:#f1f1f1;color:#666}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 /* espelho estável: colunas de largura fixa (a legenda do celular e a tela final não empurram o resto) */
 @media(min-width:961px){.esp-live{grid-template-columns:420px minmax(0,1fr)}.esp-side{grid-template-columns:minmax(0,1fr)}.esp-side>.esp-fin{grid-column:1;grid-row:auto}}@media(min-width:1121px){.esp-side{grid-template-columns:360px 256px}.esp-side>.esp-fin{grid-column:2;grid-row:1 / span 5}}.mir-cap{width:100%;overflow-wrap:anywhere}.esp-log{min-height:188px}#esp-res{min-height:26px}
@@ -4608,6 +4608,22 @@ function stepsHTML(steps, o) {
 function visitedPath(s, upTo) {
   const out = []; (s.events || []).forEach(e => { const k = keyBase(e.key); if (e.type === 'view' && (upTo == null || e.t <= upTo) && out[out.length - 1] !== k) out.push(k); }); return out;
 }
+/* ponto final sinalizado (opcional). Tarefa com fim: liga com m.markEnd e usa as condições de fim (m.ends). Exploração livre: m.fends, gravado no editor.
+   O resultado é calculado a partir dos eventos gravados, então vale também para os testes já feitos. */
+const finalConds = m => !m ? [] : m.free ? (m.fends || []) : (m.markEnd ? (m.ends || []) : []);
+function finalReach(s) {
+  const f = FLOWS[s.flow], m = f && f.mission, cs = finalConds(m); if (!cs.length) return null;
+  const hit = ev => cs.some(c => c.type === 'view' ? (ev.type === 'view' && keyMatch(ev.key, c.key)) : (ev.type === 'tap' && ev.label === c.label && keyMatch(ev.key, c.key)));
+  const e = (s.events || []).find(hit);
+  return { at: e ? e.t : null, how: e ? (e.type === 'view' ? 'tela' : 'toque') : null };
+}
+function finalBadge(s, long) {
+  const m = FLOWS[s.flow] && FLOWS[s.flow].mission; if (!m || !s.result || !finalConds(m).length) return '';
+  const r = finalReach(s); if (!r) return '';
+  if (!m.free && r.at != null && s.result === 'concluiu') return '';   /* na tarefa com fim, o “Concluiu” já diz isso */
+  return r.at != null ? `<span class="rb fin">◎ ${long ? 'Chegou ao último ponto em ' : 'Último ponto '}${dur(r.at)}</span>` : `<span class="rb fin no">◎ ${long ? 'Não chegou ao último ponto' : 'Sem último ponto'}</span>`;
+}
+function resultBadge(s, long) { const b = resultBadge0(s, long), f = finalBadge(s, long); return f ? (b ? b + ' ' + f : f) : b; }
 function checkMission(s, ev) {
   const f = FLOWS[s.flow], m = f && f.mission; if (!m || s.result || m.free) return;
   const hit = (m.ends || []).some(c => c.type === 'view' ? (ev.type === 'view' && keyMatch(ev.key, c.key)) : (ev.type === 'tap' && ev.label === c.label && keyMatch(ev.key, c.key)));
@@ -4632,7 +4648,7 @@ function exploreOf(s) {
   const ev = (s.events || []).filter(e => e.t > d.at && !e.done), taps = ev.filter(e => e.type === 'tap').length, screens = new Set(ev.filter(e => e.type === 'view').map(e => keyBase(e.key))).size;
   return taps || screens ? { taps, screens } : null;
 }
-function resultBadge(s, long) {
+function resultBadge0(s, long) {
   const r = s.result, d = s.resultData || {};
   if (!FLOWS[s.flow] || !FLOWS[s.flow].mission) return '';
   if (!r) return long ? '<span class="rb run">Em andamento…</span>' : '';
@@ -4890,7 +4906,7 @@ function viewMissoes() {
     <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><span style="display:flex;gap:8px"><button class="btn sm" id="chk-all" type="button" title="Confere se o início, o caminho ideal e a tela final de cada missão ainda funcionam no app publicado"${CHK_RUN ? ' disabled' : ''}>Conferir missões</button><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></span></div>
       ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th>Conferência</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
         const f = FLOWS['M_' + m.id]; return `<tr><td>M${i + 1}</td><td><b>${esc(m.name)}</b><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
-        <td>${m.free ? '🧭 Exploração livre' : (m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>'}</td>
+        <td>${(m.free ? '🧭 Exploração livre' : (m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>') + (finalConds(m).length ? '<br><span class="muted">◎ ' + (m.free ? 'Último ponto: ' + finalConds(m).map(c => esc(condLabel(c))).join(' · ') : 'sinaliza o ponto final na análise') + '</span>' : '')}</td>
         <td>${chkPill(m)}</td>
         <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>${CHK_OPEN.has(m.id) ? `<tr class="chkr"><td></td><td colspan="5">${chkDetail(m)}</td></tr>` : ''}`; }).join('')}</tbody></table>`
       : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
@@ -4960,15 +4976,15 @@ function viewMissaoEd(id) {
         <section class="stp" data-s="1"><div class="sh"><i>1</i><div><h3>Sobre a missão</h3><p>Dê um nome curto e escreva a tarefa como você vai ler para o participante.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Nome da missão</label><input type="text" id="mn" value="${esc(m.name)}" placeholder="Ex.: Simular a CG 160 Start em 36x">
             <label>Enunciado da tarefa</label><textarea id="mp" rows="3" placeholder="Ex.: Você quer comprar uma CG 160 Start em 36 parcelas. Mostre como faria.">${esc(m.prompt)}</textarea>
-            <label>Tipo da missão</label><div class="mtipo" style="display:flex;flex-direction:column;gap:6px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Tarefa com fim</b> <span class="muted">— o participante precisa chegar a algum lugar; o painel detecta quando ele conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— o participante explora à vontade, sem caminho ideal nem condição de fim</span></span></label></div><p class="how" id="m-freenote" ${m.free ? '' : 'hidden'} style="margin-top:8px"><b>Exploração livre:</b> sem caminho ideal e sem condição de fim. Você encerra quando quiser, pelo celular (setinha no topo) ou pelo notebook. Na análise aparecem o tempo de exploração, as telas vistas, o caminho e o mapa de calor.</p>
+            <label>Tipo da missão</label><div class="mtipo" style="display:flex;flex-direction:column;gap:6px"><label class="chk"><input type="radio" name="m-tipo" value="fim" ${m.free ? '' : 'checked'}> <span><b>Tarefa com fim</b> <span class="muted">— o participante precisa chegar a algum lugar; o painel detecta quando ele conclui</span></span></label><label class="chk"><input type="radio" name="m-tipo" value="livre" ${m.free ? 'checked' : ''}> <span><b>Exploração livre</b> <span class="muted">— o participante explora à vontade, sem caminho ideal nem condição de fim</span></span></label></div><p class="how" id="m-freenote" ${m.free ? '' : 'hidden'} style="margin-top:8px"><b>Exploração livre:</b> sem caminho ideal e sem condição de fim. Você encerra quando quiser, pelo celular (setinha no topo) ou pelo notebook. Na análise aparecem o tempo de exploração, as telas vistas, o caminho e o mapa de calor. Opcionalmente, defina o último comportamento no passo 3.</p>
 </div></section>
         <section class="stp" data-s="2"><div class="sh"><i>2</i><div><h3>Onde começa</h3><p>Escolha um fluxo para abrir na prévia, navegue até a tela onde a missão começa e confirme em “Usar esta tela como início”. Escolher o fluxo ou navegar não muda o início.</p></div><span class="ok"></span></div>
           <div class="sb"><label>Em qual app</label><div class="row" style="gap:8px;justify-content:flex-start;flex-wrap:nowrap"><select id="mf" style="flex:1">${flows.map(f => `<option value="${esc(f.id)}" ${f.id === m.flow ? 'selected' : ''}>${esc(f.name)} · ${esc(f.url)}</option>`).join('')}</select><a class="btn sm ghost" href="#/fluxo/novo" style="white-space:nowrap">＋ Cadastrar outro app</a></div>
             <div class="stbox" id="ms-lb"></div>
             <label>Abrir um fluxo na prévia</label><select id="ms"></select></div></section>
-        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3>Caminho ideal</h3><p>Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. Ao concluir, você escolhe se a missão termina no <b>último toque</b> ou na <b>última tela</b> (passo 4). O caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
-          <div class="sb"><div id="mpth" class="chips"></div>
-            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b>Gravando o caminho ideal</b></div><p>A prévia voltou ao início da missão (<b id="rec-st"></b>). Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora; se o último toque for fora do escopo, ele ainda pode virar o fim.</p><div id="rec-l" class="chips"></div>
+        <section class="stp" data-s="3"><div class="sh"><i>3</i><div><h3 id="s3-h">Caminho ideal</h3><p id="s3-p">Grave o caminho de quem sabe usar o app: as <b>telas</b> e os <b>toques</b>. Ao concluir, você escolhe se a missão termina no <b>último toque</b> ou na <b>última tela</b> (passo 4). O caminho separa quem foi <b>direto</b> de quem <b>se perdeu</b>.</p></div><span class="ok"></span></div>
+          <div class="sb"><div id="mf-endbox" hidden><label>Último comportamento definido</label><div id="mfe" class="lst"></div><p class="muted" id="mf-note" hidden style="margin:4px 0 0;font-size:12px"></p></div><div id="mpth" class="chips"></div>
+            <div id="rec-box" class="recb" hidden><div class="rt"><span class="dot"></span><b id="rec-t">Gravando o caminho ideal</b></div><p id="rec-p">A prévia voltou ao início da missão (<b id="rec-st"></b>). Faça a tarefa como o participante ideal: cada tela e cada toque entram na lista abaixo. Toques sem ação ou fora do escopo ficam de fora; se o último toque for fora do escopo, ele ainda pode virar o fim.</p><div id="rec-l" class="chips"></div>
               <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm primary" id="rec-ok" type="button">✓ Concluir gravação</button><button class="btn sm ghost" id="rec-x" type="button">Cancelar</button></div></div>
             <div id="rec-fim" class="pkc" hidden></div>
             <div class="row" id="rec-btns" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="rec-go" type="button">● Gravar o caminho na prévia</button><button class="btn sm" id="sl-path" type="button">＋ Adicionar tela da lista</button><button class="btn sm ghost" id="cp-clr" type="button">Limpar</button></div>
@@ -4978,7 +4994,8 @@ function viewMissaoEd(id) {
             <div class="how"><b>Como definir:</b> ao concluir a gravação do caminho (passo 3), escolha se termina no último <b>toque</b> ou na última <b>tela</b>. Ou toque em <b>🎯 Definir a última ação na prévia</b>: passe o mouse (o que é clicável fica com contorno vermelho) e clique. O clique não aciona o app, então vale mesmo para um botão que leva a outra tela. Para trocar depois, use <b>🏁 Usar como fim</b> em qualquer passo do caminho.</div>
             <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start"><button class="btn sm" id="pk-on" type="button">🎯 Definir a última ação na prévia</button></div>
             <p class="muted" style="margin:10px 0 0">Ao concluir, o painel marca o momento e continua gravando: a análise separa o que aconteceu até a conclusão e depois dela. A missão só termina quando você encerra, pelo celular (setinha no topo) ou pelo notebook; a nota é dada onde você encerrou.</p><input type="checkbox" id="m-ae" hidden>
-            <details class="adv"><summary>Outras formas de definir o fim</summary>
+            <label class="chk" id="mk-w" style="margin-top:12px"><input type="checkbox" id="m-mk" ${m.markEnd ? 'checked' : ''}> <span><b>Sinalizar o ponto final na análise</b> <span class="tag">opcional</span><br><span class="muted">Mostra, para cada participante, se e quando chegou ao ponto final, calculado também nos testes já gravados. Não muda como a conclusão é detectada.</span></span></label>
+ <details class="adv"><summary>Outras formas de definir o fim</summary>
               <div class="row" style="gap:8px;margin-top:8px;justify-content:flex-start;flex-wrap:wrap"><button class="btn sm" id="sl-end" type="button">☰ Escolher uma tela na lista</button>
                 <button class="btn sm ghost" id="me-v" type="button">Digitar chave da tela</button><button class="btn sm ghost" id="me-t" type="button">Digitar nome do elemento</button></div>
               <div class="slh" data-for="end"></div></details></div></div></section>
@@ -5008,8 +5025,8 @@ function viewMissaoEd(id) {
   const hint = () => {
     updUse();
     if (CAP.picking) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">Modo escolher ativo:</b> clique no botão ou na área onde a missão termina. O clique não aciona o app.';
-    if (CAP.rec) return $('#cap-hint').innerHTML = '<b style="color:#cc0000">● Gravando:</b> faça a tarefa como o participante ideal (telas e toques). Conclua a gravação no passo 3.';
-    $('#cap-hint').textContent = HINTS[CAP.step] || HINTS[1];
+    if (CAP.rec) return $('#cap-hint').innerHTML = m.free ? '<b style="color:#cc0000">● Gravando:</b> navegue até a última tela ou botão que importa. Conclua a gravação no passo 3.' : '<b style="color:#cc0000">● Gravando:</b> faça a tarefa como o participante ideal (telas e toques). Conclua a gravação no passo 3.';
+    $('#cap-hint').textContent = (m.free && CAP.step === 3 ? 'Toque em “Gravar o último comportamento na prévia” (passo 3) e navegue até a última tela ou botão. É opcional.' : HINTS[CAP.step]) || HINTS[1];
   };
   const setStep = n => { CAP.step = n; document.querySelectorAll('.stp').forEach(x => x.classList.toggle('on', +x.dataset.s === n)); hint(); };
   document.querySelectorAll('.stp').forEach(x => x.addEventListener('focusin', () => setStep(+x.dataset.s)));
@@ -5099,7 +5116,8 @@ function viewMissaoEd(id) {
   const done = n => { const sec = document.querySelector(`.stp[data-s="${n}"]`); return sec; };
   const draw = () => {
     lst('#me', m.ends, c => (c.type === 'tap' ? '👆 ' : '📱 ') + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido. Grave o caminho ideal no passo 3.');
-    $('#mpth').innerHTML = m.steps.length ? stepsHTML(m.steps, { edit: true, isEnd }) : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
+    lst('#mfe', m.ends, c => (c.type === 'tap' ? '👆 ' : '📱 ') + esc(condLabel(c)), i => { m.ends.splice(i, 1); draw(); }, 'Ainda não definido.');
+ $('#mpth').innerHTML = m.steps.length ? stepsHTML(m.steps, { edit: true, isEnd }) : '<p class="muted">Sem caminho ideal. Sem ele, o resultado mostra só “concluiu”, sem separar direto e indireto.</p>';
     $('#mpth').onclick = e => {
       const x = e.target.closest('.x'), f = e.target.closest('[data-fim]');
       if (x) { m.steps.splice(+x.dataset.i, 1); syncPath(); draw(); }
@@ -5107,15 +5125,15 @@ function viewMissaoEd(id) {
     };
     lst('#mq', m.questions, q => `<input type="text" class="qt" value="${esc(q.text)}" style="width:100%"> <span class="muted">${q.type === 'scale' ? 'escala 1 a 5' : 'aberta'}</span>`, i => { m.questions.splice(i, 1); draw(); }, 'Sem perguntas.');
     $('#mq').querySelectorAll('.qt').forEach((t, i) => { t.oninput = () => { m.questions[i].text = t.value; }; });
-    const st = { 1: !!($('#mn').value.trim()), 2: !!START, 3: m.steps.length > 0, 4: !!m.free || m.ends.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
+    const st = { 1: !!($('#mn').value.trim()), 2: !!START, 3: m.free ? m.ends.length > 0 : m.steps.length > 0, 4: !!m.free || m.ends.length > 0, 5: m.questions.length > 0 || !!$('#ml').value };
     Object.entries(st).forEach(([n, ok]) => { const sec = done(n); if (sec) sec.classList.toggle('done', ok); });
   };
   /* lista de telas com busca, aberta dentro do passo que pediu */
   const SL = document.createElement('div'); SL.className = 'slw';
   SL.innerHTML = '<div class="row"><b id="sl-t"></b><button class="btn sm ghost" id="sl-x" type="button">Fechar</button></div><input type="search" id="sl-q" placeholder="Buscar tela… (ex.: catálogo, seguro, assembleia)"><div id="sl-l" class="sll"></div>';
   const openList = forWhat => {
-    CAP.listFor = forWhat; const host = document.querySelector(`.slh[data-for="${forWhat}"]`); host.innerHTML = ''; host.appendChild(SL); SL.hidden = false;
-    $('#sl-t').textContent = forWhat === 'end' ? 'Terminar quando chegar em qual tela?' : 'Adicionar qual tela ao caminho ideal?';
+    CAP.listFor = forWhat; const host = document.querySelector(`.slh[data-for="${m.free && forWhat === 'end' ? 'path' : forWhat}"]`); host.innerHTML = ''; host.appendChild(SL); SL.hidden = false;
+    $('#sl-t').textContent = forWhat === 'end' ? (m.free ? 'Último comportamento: ao chegar em qual tela?' : 'Terminar quando chegar em qual tela?') : 'Adicionar qual tela ao caminho ideal?';
     $('#sl-q').value = ''; drawList(); $('#sl-q').focus();
   };
   const drawList = () => {
@@ -5131,7 +5149,7 @@ function viewMissaoEd(id) {
     else { m.steps.push({ t: 'v', key: k }); syncPath(); b.classList.add('added'); }
     draw();
   });
-  $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList('path');
+  $('#sl-end').onclick = () => openList('end'); $('#sl-path').onclick = () => openList(m.free ? 'end' : 'path');
   $('#mf').onchange = () => { START = ''; PREV = ''; fillStarts(); };
   $('#ms').onchange = () => { const v = $('#ms').value; const e = (manOf().epics || []).find(x => x.id === v); if (!e) return; PREV = e.start; reloadCap(); $('#ms').value = ''; };
   $('#ms-lb').onclick = e => { if (e.target.closest('#ms-see')) { PREV = START; reloadCap(); } };
@@ -5150,12 +5168,12 @@ function viewMissaoEd(id) {
       + '<button class="btn sm primary" data-rs="ini" type="button">Gravar a partir do início da missão</button><button class="btn sm" data-rs="cur" type="button">Usar a tela atual como início e gravar</button><button class="btn sm ghost" data-rs="x" type="button">Cancelar</button></div>';
     box.onclick = e => { const b = e.target.closest('[data-rs]'); if (!b) return; const a = b.dataset.rs; box.hidden = true; if (a === 'x') return; if (a === 'cur') { START = sid; draw(); } startRec(); };
   };
-  const endNote = t => { const n = $('#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
+  const endNote = t => { const n = $(m.free ? '#mf-note' : '#me-note'); if (n) { n.textContent = t; n.hidden = false; } };
   $('#rec-ok').onclick = () => {
     if (CAP.recSteps.length) {
-      m.steps = CAP.recSteps.slice(); syncPath();
-      askEnd();
-    }
+ if (m.free) { const keep = m.steps; m.steps = CAP.recSteps.slice(); askEnd(); m.steps = keep; }   /* livre: o gravado só serve para escolher o último ponto; não vira caminho ideal */
+ else { m.steps = CAP.recSteps.slice(); syncPath(); askEnd(); }
+ }
     CAP.rec = false; recDraw(); hint(); draw();
   };
   $('#rec-x').onclick = () => { CAP.rec = false; CAP.recSteps = []; CAP.lastOos = null; recDraw(); hint(); };
@@ -5170,34 +5188,51 @@ function viewMissaoEd(id) {
     if (tap) opts.push({ c: { type: 'tap', label: tap.label, key: tap.key }, t: 'Quando o participante tocar em “' + tap.label + '”' + (oos ? ' (fora do escopo)' : '') });
     if (lastV) opts.push({ c: { type: 'view', key: lastV.key }, t: 'Quando chegar na tela “' + keyName(lastV.key) + '”' });
     const box = $('#rec-fim'); CAP.lastOos = null;
-    if (opts.length < 2) { box.hidden = true; m.ends = opts[0] ? [opts[0].c] : []; if (opts[0]) endNote('Fim definido pelo caminho: ' + opts[0].t.toLowerCase() + '.'); return; }
+    if (opts.length < 2) { box.hidden = true; m.ends = opts[0] ? [opts[0].c] : []; if (opts[0]) endNote((m.free ? 'Último comportamento definido: ' : 'Fim definido pelo caminho: ') + opts[0].t.toLowerCase() + '.'); return; }
     m.ends = [];
-    box.innerHTML = '<b>Como a missão deve terminar?</b><p class="muted" style="margin:0">O caminho gravado termina com um toque e uma tela. Escolha o que conta como “concluiu”:</p><div class="pkb">'
+    box.innerHTML = (m.free ? '<b>Qual é o último comportamento?</b><p class="muted" style="margin:0">O que você gravou termina com um toque e uma tela. Escolha o que vale como “chegou ao último ponto”:</p><div class="pkb">' : '<b>Como a missão deve terminar?</b><p class="muted" style="margin:0">O caminho gravado termina com um toque e uma tela. Escolha o que conta como “concluiu”:</p><div class="pkb">')
       + opts.map((o, i) => '<button class="btn sm ' + (i === 0 ? 'primary' : '') + '" data-fim="' + i + '" type="button">' + (o.c.type === 'tap' ? '👆 ' : '📱 ') + esc(o.t) + '</button>').join('')
-      + '</div><p class="muted" style="margin:0;font-size:12px">Destacado: a sugestão (o último toque). Dá para trocar depois com 🏁 Usar como fim.</p>';
+      + '</div><p class="muted" style="margin:0;font-size:12px">Destacado: a sugestão (o último toque). ' + (m.free ? 'Dá para gravar de novo para trocar.' : 'Dá para trocar depois com 🏁 Usar como fim.') + '</p>';
     box.hidden = false;
     box.onclick = e => { const b = e.target.closest('[data-fim]'); if (!b) return; const o = opts[+b.dataset.fim]; m.ends = [o.c]; box.hidden = true;
-      endNote(o.c.type === 'tap' ? 'Fim: no toque em “' + o.c.label + '”.' : 'Fim: ao chegar na tela ' + keyName(o.c.key) + '.'); draw(); };
+      endNote(o.c.type === 'tap' ? (m.free ? 'Último comportamento: no toque em “' : 'Fim: no toque em “') + o.c.label + '”.' : (m.free ? 'Último comportamento: ao chegar na tela ' : 'Fim: ao chegar na tela ') + keyName(o.c.key) + '.'); draw(); };
     setTimeout(() => box.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
   }
-  $('#cp-clr').onclick = () => { m.steps = []; syncPath(); draw(); };
+  $('#cp-clr').onclick = () => { if (m.free) { m.ends = []; const n = $('#mf-note'); if (n) n.hidden = true; } else { m.steps = []; syncPath(); } draw(); };
   $('#me-v').onclick = () => { const k = prompt('Chave da tela (ex.: sim@model_seguro). Use @* para “qualquer variação” (ex.: home@*).'); if (k) { m.ends.push({ type: 'view', key: k.trim() }); draw(); } };
   $('#me-t').onclick = () => { const l = prompt('Nome do elemento, exatamente como aparece no caminho de cliques'); if (l) { m.ends.push({ type: 'tap', label: l.trim() }); draw(); } };
   $('#mq-s').onclick = () => { m.questions.push({ type: 'scale', text: 'De 1 a 5, quão fácil foi realizar esta tarefa?' }); draw(); };
   $('#mq-t').onclick = () => { m.questions.push({ type: 'text', text: '' }); draw(); };
-  const applyType = () => {   /* exploração livre: sem caminho ideal (3) e sem condição de fim (4); "Perguntas e tempo" vira o passo 3 */
-    const s3 = document.querySelector('.stp[data-s="3"]'), s4 = document.querySelector('.stp[data-s="4"]'), n5 = document.querySelector('.stp[data-s="5"] .sh > i'), fn = $('#m-freenote');
-    if (s3) s3.hidden = !!m.free; if (s4) s4.hidden = !!m.free; if (n5) n5.textContent = m.free ? '3' : '5'; if (fn) fn.hidden = !m.free;
-    if (m.free && (CAP.step === 3 || CAP.step === 4)) setStep(5);
-  };
-  document.querySelectorAll('[name="m-tipo"]').forEach(rb => { rb.onchange = () => { if (!rb.checked) return; m.free = rb.value === 'livre'; applyType(); draw(); }; });
-  applyType();
-  $('#msave').onclick = () => {
+  let STASH = m.free ? (m.ends || []) : (m.fends || []).slice();
+ if (m.free) m.ends = (m.fends || []).slice();   /* livre: m.ends passa a ser o último ponto; a lista original da missão fica guardada e volta ao salvar */
+ const S3_H0 = $('#s3-h').innerHTML, S3_P0 = $('#s3-p').innerHTML, REC_T0 = $('#rec-t').innerHTML, REC_P0 = $('#rec-p').innerHTML, GO0 = $('#rec-go').textContent, CLR0 = $('#cp-clr').textContent, SLP0 = $('#sl-path').textContent;
+ const applyType = () => {
+  const s3 = document.querySelector('.stp[data-s="3"]'), s4 = document.querySelector('.stp[data-s="4"]'), n5 = document.querySelector('.stp[data-s="5"] .sh > i'), fn = $('#m-freenote'), L = !!m.free;
+  if (s3) s3.hidden = false; if (s4) s4.hidden = L; if (n5) n5.textContent = L ? '4' : '5'; if (fn) fn.hidden = !L;
+  /* exploração livre: o passo 3 vira "Último comportamento" (opcional) e reaproveita a gravação na prévia */
+  $('#s3-h').innerHTML = L ? 'Último comportamento <span class="tag">opcional</span>' : S3_H0;
+  $('#s3-p').innerHTML = L ? 'Marque onde o participante deve chegar por último. Grave na prévia: navegue até a última tela ou botão e escolha se vale o <b>toque no botão</b> ou a <b>chegada na tela</b>. A exploração não termina nem conta como “concluiu”; a análise mostra se e quando ele chegou, inclusive nos testes já feitos.' : S3_P0;
+  $('#rec-t').innerHTML = L ? 'Gravando até o último comportamento' : REC_T0;
+  $('#rec-p').innerHTML = L ? 'A prévia voltou ao início da missão (<b id="rec-st"></b>). Navegue até o <b>último comportamento</b> esperado. Ao concluir, você escolhe se vale o toque no botão ou a chegada na tela.' : REC_P0;
+  $('#rec-go').textContent = L ? '● Gravar o último comportamento na prévia' : GO0;
+  $('#cp-clr').textContent = L ? 'Remover' : CLR0; $('#sl-path').textContent = L ? '☰ Escolher uma tela na lista' : SLP0;
+  $('#mf-endbox').hidden = !L; $('#mpth').style.display = L ? 'none' : '';
+  if (L && CAP.step === 4) setStep(3);
+ };
+ document.querySelectorAll('[name="m-tipo"]').forEach(rb => { rb.onchange = () => {
+  if (!rb.checked) return; const nf = rb.value === 'livre';
+  if (nf !== !!m.free) { const t = m.ends; m.ends = STASH; STASH = t; setPick(false); if (CAP.rec) { CAP.rec = false; CAP.recSteps = []; CAP.lastOos = null; recDraw(); } $('#rec-fim').hidden = true; ['#mf-note', '#me-note'].forEach(q => { const n = $(q); if (n) n.hidden = true; }); }
+  m.free = nf; applyType(); draw(); }; });
+ applyType();
+ $('#msave').onclick = () => {
     m.name = $('#mn').value.trim(); m.prompt = $('#mp').value.trim(); m.flow = $('#mf').value; m.start = START; m.autoEnd = !!$('#m-ae').checked; m.limit = $('#ml').value;
     m.questions = m.questions.filter(q => (q.text || '').trim());
     syncPath(); const miss = !m.name ? 1 : !m.start ? 2 : !m.free && !m.ends.length ? 4 : 0;
     if (miss) { $('#merr').textContent = ({ 1: 'Passo 1: dê um nome para a missão.', 2: 'Passo 2: confirme onde a missão começa (“Usar esta tela como início”, na prévia).', 4: 'Passo 4: defina como a missão termina (grave o caminho ideal no passo 3: o último passo vira o fim).' })[miss]; setStep(miss); document.querySelector(`.stp[data-s="${miss}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
-    setPick(false); window.removeEventListener('message', onMsg); entSave('missions', m); location.hash = '#/missoes';
+    setPick(false); window.removeEventListener('message', onMsg);
+ m.markEnd = !m.free && !!$('#m-mk').checked; if (m.free) { m.fends = m.ends.slice(); m.ends = STASH.slice(); } else m.fends = STASH.slice();   /* o que não foi mexido fica como estava */
+ if (!m.fends.length) delete m.fends; if (!m.markEnd) delete m.markEnd;
+ entSave('missions', m); location.hash = '#/missoes';
   };
   recDraw(); setStep(isNew ? 1 : (m.free ? 5 : 3)); draw(); fillStarts();
 }
