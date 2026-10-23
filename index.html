@@ -298,7 +298,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .sqm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px}.sqm .in{background:#fff;border-radius:14px;padding:16px;display:flex;gap:18px;flex-wrap:wrap}
 
 @media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}.hlist.rc .item{grid-template-columns:24px 1.7fr 1.5fr 1.3fr 1fr 70px 60px 80px 34px}}.fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}.fbar .fc{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px;font-weight:600;color:var(--sec);text-decoration:none;white-space:nowrap}.fbar .fc:hover{border-color:#bbb}.fbar .fc.on{background:var(--ink);border-color:var(--ink);color:#fff}.fbar .fsep{width:1px;height:22px;background:var(--line);margin:0 4px}.tag.g-app{background:#e8effd;color:#1d4fb0}.tag.g-site{background:#e5f5ec;color:#0a7a3c}.tag.g-misto{background:#f3e8fd;color:#6b21a8}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
-@keyframes hsfspin{to{transform:rotate(360deg)}}.rb.fin{background:#eaf1ff;color:#1d4fb0}.rb.fin.no{background:#f1f1f1;color:#666}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
+@keyframes hsfspin{to{transform:rotate(360deg)}}.mnrow{display:flex;align-items:center;gap:6px}.mrow .mlb{display:inline-block;min-width:30px}.mn{display:inline-block;min-width:26px;padding:1px 6px;border-radius:6px;background:#f1f1f1;color:#555;font-size:11px;font-weight:700;text-align:center}.mvs{display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle}.mrow .mv{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fafafb;font-size:9px;color:var(--sec);padding:0}.mrow .mv:disabled{opacity:.3;cursor:default}.mrow .dh{display:inline-block;vertical-align:middle}.mrow.dragging{background:#fff6f6;outline:2px solid #e7b3b3}.tag.g-app{background:#e8efff;color:#1d4fb0}.rb.fin{background:#eaf1ff;color:#1d4fb0}.rb.fin.no{background:#f1f1f1;color:#666}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 /* espelho estável: colunas de largura fixa (a legenda do celular e a tela final não empurram o resto) */
 @media(min-width:961px){.esp-live{grid-template-columns:420px minmax(0,1fr)}.esp-side{grid-template-columns:minmax(0,1fr)}.esp-side>.esp-fin{grid-column:1;grid-row:auto}}@media(min-width:1121px){.esp-side{grid-template-columns:360px 256px}.esp-side>.esp-fin{grid-column:2;grid-row:1 / span 5}}.mir-cap{width:100%;overflow-wrap:anywhere}.esp-log{min-height:188px}#esp-res{min-height:26px}
@@ -3394,6 +3394,13 @@ const flowTag = f => `${FLOWS[f].n}. ${FLOWS[f].name}`;
 
 /* ================== Roteador ================== */
 let ACTIVE = null;
+let ROUTE_HASH = null, RENDER_HASH = null;
+/* mesma página redesenhada (marcar checkbox, filtro, botão): mantém a posição da rolagem; só vai ao topo ao trocar de página */
+(function () {
+  const install = () => { const el = document.getElementById('app'), d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML'); if (!el || !d || el.__keepScroll) return; el.__keepScroll = true;
+    Object.defineProperty(el, 'innerHTML', { configurable: true, get() { return d.get.call(this); }, set(v) { const y = window.scrollY, same = RENDER_HASH === location.hash; d.set.call(this, v); if (same && y > 0) window.scrollTo(0, y); RENDER_HASH = location.hash; } }); };
+  if (document.getElementById('app')) install(); else document.addEventListener('DOMContentLoaded', install);
+})();
 function route() {
   uiHarvest(sessions);
   const parts = (location.hash || '#/').split('/'); const r = parts[1] || ''; const p = decodeURIComponent(parts[2] || ''); const q = parts[3];
@@ -3402,8 +3409,7 @@ function route() {
   if (r !== 'espelho') stopMirror();
   if (window.HSF_PHONE) return phoneRoute(r, p);
   if (r === 'espelho') return viewEspelho(p);
-  window.scrollTo(0, 0);
-  /* páginas de análise precisam dos manifestos dos fluxos (tipos de tela dos apps novos e dos sites): espera a leitura antes de desenhar */
+  if (location.hash !== ROUTE_HASH) window.scrollTo(0, 0); ROUTE_HASH = location.hash; /* páginas de análise precisam dos manifestos dos fluxos (tipos de tela dos apps novos e dos sites): espera a leitura antes de desenhar */
   if (/^(geral|sessao|participante|relatorio|rotan)$/.test(r) && !window.__manOk) { $('#app').innerHTML = '<p class="muted" style="padding:24px 0">Carregando…</p>'; const go = () => { window.__manOk = true; route(); }; Promise.all(entLive('flows').map(f => loadManifest(f.url))).then(go, go); return; }
   if (r === 'nova') return viewNova(p);
   if (r === 'teste') return viewTeste(p);
@@ -3672,8 +3678,10 @@ function resetScroll() {
   try { window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
     const t = document.getElementById('test'); if (t) { t.scrollTop = 0; const tv = t.querySelector('.tv'); if (tv) tv.scrollTop = 0; } } catch (e) {}
 }
-document.addEventListener('focusout', e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { setTimeout(resetScroll, 80); setTimeout(resetScroll, 400); } }, true);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (window.visualViewport.height >= window.innerHeight - 2) setTimeout(resetScroll, 80); });   /* teclado fechou */
+/* só no iPhone e durante o teste (onde o teclado desloca a página); nunca em checkbox/rádio, e nunca nas páginas do painel no notebook */
+const needReset = t => !!(window.HSF_PHONE || (typeof ACTIVE !== 'undefined' && ACTIVE) || (t && t.closest && t.closest('#test')));
+document.addEventListener('focusout', e => { const t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !/^(checkbox|radio|button|submit|range)$/i.test(t.type || '') && needReset(t)) { setTimeout(resetScroll, 80); setTimeout(resetScroll, 400); } }, true);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => { if (needReset(null) && window.visualViewport.height >= window.innerHeight - 2) setTimeout(resetScroll, 80); });   /* teclado fechou */
 /* proteção: durante o teste no iPhone, a página e os containers fixos (que não deveriam rolar) às vezes são rolados pelo iOS
    (teclado, "mostrar elemento" de carrosséis). Isso esconde o cabeçalho do app e a setinha. Devolve ao lugar e anota o que corrigiu. */
 let UNSHIFT = null;
@@ -4457,12 +4465,17 @@ document.addEventListener('change', e => {
 /* ================== Fluxos, missões e roteiros (painel agnóstico ao fluxo) ================== */
 const ENT_LS = 'hsf_entities_v1';
 let ENT = lsGet(ENT_LS, { flows: [], missions: [], scripts: [] });
-['flows', 'missions', 'scripts'].forEach(k => { if (!Array.isArray(ENT[k])) ENT[k] = []; });
+['flows', 'missions', 'scripts', 'config'].forEach(k => { if (!Array.isArray(ENT[k])) ENT[k] = []; });
 if (!ENT.flows.length) ((window.HSF_CFG && Array.isArray(window.HSF_CFG.flows)) ? window.HSF_CFG.flows : [{ id: 'f_hsf', name: 'HSF · Consórcio', url: 'app.html' }]).forEach(f => ENT.flows.push(Object.assign({ updatedAt: 0 }, f)));
-const entLive = kind => ENT[kind].filter(x => !x.deleted);
+/* ordem das missões: lista de ids num registro à parte (kind 'config'). Missão que não está na lista (nova) entra no fim. Não altera as missões: a conferência continua valendo. */
+const MORD_ID = 'cfg-missoes-ordem';
+const mOrdIds = () => { const c = (ENT.config || []).find(x => x.id === MORD_ID && !x.deleted); return c && Array.isArray(c.ids) ? c.ids : []; };
+const entLive = kind => { const L = ENT[kind].filter(x => !x.deleted); if (kind !== 'missions') return L; const ord = mOrdIds(); if (!ord.length) return L; const pos = new Map(ord.map((id, i) => [id, i])); return L.filter(x => pos.has(x.id)).sort((a, b) => pos.get(a.id) - pos.get(b.id)).concat(L.filter(x => !pos.has(x.id))); };
 ENT.missions.forEach(m => { let ch = false; (m.questions || []).forEach(q => { if (q.type === 'scale' && /1 a 7/.test(q.text || '')) { q.text = q.text.replace('1 a 7', '1 a 5'); ch = true; } }); if (ch) { m.updatedAt = Date.now(); m.pushed = false; } });
 lsSet(ENT_LS, ENT);
 const entGet = (kind, id) => ENT[kind].find(x => x.id === id);
+function mOrdSave(ids) { ENT.config = ENT.config || []; const c = ENT.config.find(x => x.id === MORD_ID) || { id: MORD_ID }; c.ids = ids.slice(); entSave('config', c); }
+function mMove(id, delta) { const ids = entLive('missions').map(x => x.id), i = ids.indexOf(id), j = i + delta; if (i < 0 || j < 0 || j >= ids.length) return; [ids[i], ids[j]] = [ids[j], ids[i]]; mOrdSave(ids); }
 function entSave(kind, obj) {
   obj.updatedAt = Date.now(); obj.pushed = false;
   const L = ENT[kind], i = L.findIndex(x => x.id === obj.id); if (i < 0) L.push(obj); else L[i] = obj;
@@ -4471,7 +4484,7 @@ function entSave(kind, obj) {
 function entDelete(kind, id) { const o = entGet(kind, id); if (!o) return; o.deleted = true; entSave(kind, o); }
 async function entPushAll() {
   if (!AUTH) return;
-  const kinds = { flows: 'flow', missions: 'mission', scripts: 'script' };
+  const kinds = { flows: 'flow', missions: 'mission', scripts: 'script', config: 'config' };
   for (const k of Object.keys(kinds)) for (const o of ENT[k].filter(x => !x.pushed)) {
     try {
       if (o.deleted) {   /* excluída no painel: apaga a linha no banco e confere (a marca de excluída continua só neste navegador) */
@@ -4488,7 +4501,7 @@ async function entPushAll() {
 }
 async function entPull() {
   const rows = await sbAll('/rest/v1/entities?select=*');
-  const map = { flow: 'flows', mission: 'missions', script: 'scripts' }; let ch = false;
+  const map = { flow: 'flows', mission: 'missions', script: 'scripts', config: 'config' }; let ch = false;
   rows.forEach(r => {
     const k = map[r.kind]; if (!k) return; const d = Object.assign({}, r.data, { pushed: true }), cur = entGet(k, r.id);
     if (!cur || (d.updatedAt || 0) > (cur.updatedAt || 0)) { if (cur) Object.assign(cur, d); else ENT[k].push(d); ch = true; }
@@ -4922,15 +4935,14 @@ function viewMissoes() {
     <div><a class="crumb" href="#/">← Painel</a><h1>Missões</h1><p class="muted">Defina onde cada tarefa começa e o que conta como concluída. O painel detecta o fim sozinho durante o teste.</p></div>
     <div id="cchk">${chkBannerHTML()}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Missões</h2><span style="display:flex;gap:8px"><button class="btn sm" id="chk-all" type="button" title="Confere se o início, o caminho ideal e a tela final de cada missão ainda funcionam no app publicado"${CHK_RUN ? ' disabled' : ''}>Conferir missões</button><a class="btn sm primary" href="#/missao/novo">＋ Nova missão</a></span></div>
-      ${ms.length ? `<table style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th>Conferência</th><th></th></tr></thead><tbody>${ms.map((m, i) => {
-        const f = FLOWS['M_' + m.id]; return `<tr><td>M${i + 1}</td><td><b>${esc(m.name)}</b><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
+      ${ms.length ? `<table id="mtab" style="margin-top:12px"><thead><tr><th>#</th><th>Missão</th><th>Começa em</th><th>Termina quando</th><th>Conferência</th><th></th></tr></thead>${ms.map((m, i) => { const f = FLOWS['M_' + m.id], g = flowGroup(entGet('flows', m.flow)); return `<tbody class="mrow" data-k="${esc(m.id)}"><tr><td style="white-space:nowrap"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span> <b class="mlb">M${i + 1}</b><span class="mvs"><button class="mv" type="button" data-mup="${esc(m.id)}" title="Subir" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" type="button" data-mdn="${esc(m.id)}" title="Descer" ${i === ms.length - 1 ? 'disabled' : ''}>▼</button></span></td><td><b>${esc(m.name)}</b> <span class="tag g-${g}">${g === 'site' ? 'Site' : 'App'}</span><br><span class="muted">${esc((m.prompt || '').slice(0, 90))}</span></td><td>${esc(f ? f.sub : m.start)}</td>
         <td>${(m.free ? '🧭 Exploração livre' : (m.ends || []).map(c => esc(condLabel(c))).join('<br>') || '<span class="err">sem condição de fim</span>') + (finalConds(m).length ? '<br><span class="muted">◎ ' + (m.free ? 'Último ponto: ' + finalConds(m).map(c => esc(condLabel(c))).join(' · ') : 'sinaliza o ponto final na análise') + '</span>' : '')}</td>
         <td>${chkPill(m)}</td>
-        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>${CHK_OPEN.has(m.id) ? `<tr class="chkr"><td></td><td colspan="5">${chkDetail(m)}</td></tr>` : ''}`; }).join('')}</tbody></table>`
+        <td class="r" style="white-space:nowrap"><a class="btn sm" href="#/missao/${enc(m.id)}">Editar</a> <button class="btn sm ghost" data-dupm="${esc(m.id)}">Duplicar</button> <button class="btn sm ghost" data-delm="${esc(m.id)}">Excluir</button></td></tr>${CHK_OPEN.has(m.id) ? `<tr class="chkr"><td></td><td colspan="5">${chkDetail(m)}</td></tr>` : ''}</tbody>`; }).join('')}</table>`
       : '<p class="muted" style="margin-top:10px">Nenhuma missão ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Roteiros</h2><a class="btn sm primary" href="#/roteiro/novo">＋ Novo roteiro</a></div>
       <p class="muted">Um roteiro é a sequência de missões de um teste. O roteiro marcado como <b>★ padrão</b> já vem selecionado ao cadastrar um participante.</p>
-      ${sc.length ? `<table><tbody>${sc.map(r => `<tr><td><b>${esc(r.name)}</b>${r.isDefault ? ' <span class="rb ok">★ padrão</span>' : ''}<br><span class="muted">${(r.missions || []).map(id => { const m = entGet('missions', id); return m && !m.deleted ? esc(m.name) : null; }).filter(Boolean).join(' → ') || 'sem missões'}</span></td>
+      ${sc.length ? `<table><tbody>${sc.map(r => `<tr><td><b>${esc(r.name)}</b>${r.isDefault ? ' <span class="rb ok">★ padrão</span>' : ''}<br><span class="muted">${(r.missions || []).map(id => { const m = entGet('missions', id); return m && !m.deleted ? esc((FLOWS['M_' + id] ? FLOWS['M_' + id].n + ' ' : '') + m.name) : null; }).filter(Boolean).join(' → ') || 'sem missões'}</span></td>
         <td class="r" style="white-space:nowrap">${r.isDefault ? '' : `<button class="btn sm ghost" data-defs="${esc(r.id)}" type="button">★ Tornar padrão</button> `}<a class="btn sm" href="#/roteiro/${enc(r.id)}">Editar</a> <button class="btn sm ghost" data-dels="${esc(r.id)}">Excluir</button></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum roteiro ainda.</p>'}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Fluxos (apps)</h2><a class="btn sm" href="#/fluxo/novo">＋ Novo fluxo</a></div>
       <p class="muted">Cada fluxo é um arquivo de app com manifesto. Para testar outro produto, cadastre o endereço do novo app.</p>
@@ -4940,15 +4952,17 @@ function viewMissoes() {
   $('#app').onclick = e => {
     const d = e.target.closest('[data-delm]'), du = e.target.closest('[data-dupm]'), ds = e.target.closest('[data-dels]');
     if (d && confirm('Excluir esta missão? As sessões já gravadas continuam no histórico.')) { entDelete('missions', d.dataset.delm); viewMissoes(); }
-    if (du) { const o = JSON.parse(JSON.stringify(entGet('missions', du.dataset.dupm))); o.id = 'm' + uid(); o.name += ' (cópia)'; entSave('missions', o); viewMissoes(); }
+    if (du) { const o = JSON.parse(JSON.stringify(entGet('missions', du.dataset.dupm))); const orig = o.id; o.id = 'm' + uid(); o.name += ' (cópia)'; entSave('missions', o); const ids = entLive('missions').map(x => x.id).filter(x => x !== o.id); ids.splice(ids.indexOf(du.dataset.dupm) + 1, 0, o.id); mOrdSave(ids); viewMissoes(); }
     if (ds && confirm('Excluir este roteiro?')) { entDelete('scripts', ds.dataset.dels); viewMissoes(); }
     const df = e.target.closest('[data-delf]'); if (df && deleteFlow(df.dataset.delf)) viewMissoes();
-    const cd = e.target.closest('[data-chkd]'); if (cd) { const id = cd.dataset.chkd; if (CHK_OPEN.has(id)) CHK_OPEN.delete(id); else CHK_OPEN.add(id); viewMissoes(); }
+    const mu = e.target.closest('[data-mup]'), md = e.target.closest('[data-mdn]'); if (mu) { mMove(mu.dataset.mup, -1); viewMissoes(); } if (md) { mMove(md.dataset.mdn, 1); viewMissoes(); }
+ const cd = e.target.closest('[data-chkd]'); if (cd) { const id = cd.dataset.chkd; if (CHK_OPEN.has(id)) CHK_OPEN.delete(id); else CHK_OPEN.add(id); viewMissoes(); }
     if (e.target.closest('#chk-all') || e.target.closest('[data-chkgo]')) chkAll();
     const co = e.target.closest('[data-chkone]'); if (co) { CHK_OPEN.add(co.dataset.chkone); chkAll(co.dataset.chkone); }
     const ca = e.target.closest('[data-chkacc]'); if (ca) { chkAccept(ca.dataset.chkacc); CHK_OPEN.add(ca.dataset.chkacc); chkAll(ca.dataset.chkacc); }
   };
-  if (fl.some(f => !MAN[baseUrl(f.url)] && !MANFAIL[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)] || MANFAIL[baseUrl(f.url)])) viewMissoes(); });
+  makeSortableRows($('#mtab'), keys => { mOrdSave(keys); viewMissoes(); });
+ if (fl.some(f => !MAN[baseUrl(f.url)] && !MANFAIL[baseUrl(f.url)])) Promise.all(fl.map(f => loadManifest(f.url))).then(() => { if (location.hash.indexOf('#/missoes') === 0 && fl.every(f => MAN[baseUrl(f.url)] || MANFAIL[baseUrl(f.url)])) viewMissoes(); });
 }
 
 /* excluir um fluxo (app) e o manifesto dele: só se nenhuma missão usar */
@@ -5267,7 +5281,7 @@ function viewRoteiroEd(id) {
       <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary" id="rsave">Salvar roteiro</button></div></div></div>`;
   const draw = () => { const act = order.filter(k => on[k]);
     $('#rl').innerHTML = order.map((k, i) => { const m = entGet('missions', k); const f = FLOWS['M_' + k];
-      return `<div class="fo ${on[k] ? '' : 'off'}" data-k="${k}"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''}><div><b>${esc(m.name)}</b><span class="s">${esc(f ? f.sub : '')}</span></div>
+      return `<div class="fo ${on[k] ? '' : 'off'}" data-k="${k}"><span class="dh" title="Arrastar para reordenar" aria-hidden="true">⋮⋮</span><input type="checkbox" data-on="${k}" ${on[k] ? 'checked' : ''}><div><span class="mnrow">${f ? `<span class="mn">${esc(f.n)}</span>` : ''}<b>${esc(m.name)}</b></span><span class="s">${esc(f ? f.sub : '')}</span></div>
         <span class="ord">${on[k] ? act.indexOf(k) + 1 + 'º' : '–'}</span><button class="mv" type="button" data-up="${i}" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mv" type="button" data-dn="${i}" ${i === order.length - 1 ? 'disabled' : ''}>▼</button></div>`; }).join('') || '<p class="muted">Crie missões primeiro.</p>'; };
   draw();
   makeSortable($('#rl'), keys => { order = keys; draw(); });
@@ -5503,6 +5517,18 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-defs
 
 /* ---------- reordenar arrastando pela alça ⋮⋮ (cadastro e editor de roteiro) ---------- */
 const SORT = { d: null };
+/* arrastar linhas de uma tabela: cada missão é um <tbody data-k>; o próprio grupo se move enquanto você arrasta */
+const SORT2 = { d: null };
+function makeSortableRows(box, onDone) {
+  if (!box) return; box.__onSort = onDone; if (box.__sortable2) return; box.__sortable2 = true;
+  box.addEventListener('pointerdown', e => { const h = e.target.closest('.dh'); if (!h) return; const it = h.closest('[data-k]'); if (!it || it.parentNode !== box) return; e.preventDefault(); it.classList.add('dragging'); document.body.classList.add('sorting'); SORT2.d = { box, it, moved: false }; });
+}
+window.addEventListener('pointermove', e => { const d = SORT2.d; if (!d) return; if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+  const sibs = [...d.box.children].filter(x => x.hasAttribute('data-k') && x !== d.it); let before = null;
+  for (const s of sibs) { const r = s.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { before = s; break; } }
+  if (before) { if (d.it.nextElementSibling !== before) { d.box.insertBefore(d.it, before); d.moved = true; } } else if (d.box.lastElementChild !== d.it) { d.box.appendChild(d.it); d.moved = true; } });
+const sortEnd2 = () => { const d = SORT2.d; if (!d) return; SORT2.d = null; document.body.classList.remove('sorting'); d.it.classList.remove('dragging'); if (d.moved && d.box.__onSort) d.box.__onSort([...d.box.children].filter(x => x.hasAttribute('data-k')).map(x => x.dataset.k)); };
+window.addEventListener('pointerup', sortEnd2); window.addEventListener('pointercancel', sortEnd2);
 function makeSortable(box, onDone) {
   if (!box) return; box.__onSort = onDone;
   if (box.__sortable) return; box.__sortable = true;
