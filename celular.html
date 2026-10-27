@@ -15662,7 +15662,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21m';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-27a';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -15720,9 +15720,9 @@ async function renderLive(code, d) {
     const before = MIR.lastKey && grp0(MIR.lastKey) === grp0(fl.key) ? (MIR.lastTaps || []).filter(p => p.n !== fl.n) : [];
     MIR.d = Object.assign({}, d, { key: fl.key, scroll: fl.scroll || 0, taps: before.concat([Object.assign({}, fl, { pulse: 1 })]) });
     mirShow(d.flow, fl.key, d.st);
-    MIR.flashTm = setTimeout(() => { MIR.flashTm = null; const nd = MIR.pend; MIR.pend = null; if (!nd) return; MIR.d = nd; if (nd.key && FLOWS[nd.flow]) mirShow(nd.flow, nd.key, nd.st); }, 400);
+    MIR.flashTm = setTimeout(() => { MIR.flashTm = null; const nd = MIR.pend; MIR.pend = null; if (!nd) return; MIR.d = nd; if (nd.key && FLOWS[nd.flow]) mirShow(nd.flow, nd.key, nd.st, nd.ui); }, 400);
   } else if (MIR.flashTm) MIR.pend = d;                                    /* chegou outro estado durante a piscada: entra no fim dela */
-  else { MIR.d = d; if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st); }
+  else { MIR.d = d; if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st, d.ui); }
   MIR.lastKey = d.key; MIR.lastTaps = d.taps || [];
   renderFinal(d);
 }
@@ -15851,9 +15851,13 @@ function liveState() {
     if (e.type === 'tap') { if (grp(e.key) !== g0 && ev[lv].t - e.t < 1500) { const sc0 = ev.filter(x => x.type === 'scroll' && x.key === e.key && x.t <= e.t).pop(); flash = Object.assign(tp(e), { key: e.key, t: e.t, scroll: sc0 ? sc0.top || 0 : 0 }); } break; } }
   const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
-  const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
+  /* estado dos componentes da tela atual (valores escolhidos, lista aberta, aviso...) para o espelho reproduzir */
+ let ui = null; { const tkn = key && key.indexOf('#') > 0 ? key.split('#')[1] : ''; let sh, shSeen = false, uiD;
+ for (let i = ev.length - 1; i >= 0; i--) { const e = ev[i]; if (e.type !== 'ui') continue; if (!shSeen) { sh = e.all || e.sh; shSeen = true; } if (tkn && uiD === undefined && e.tk === tkn) uiD = e.d; if (shSeen && (!tkn || uiD !== undefined)) break; }
+ if (sh || uiD) ui = { d: uiD || undefined, sh: sh || undefined }; }
+ const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, anch: lv >= 0 ? ev[lv].anch || null : null, ins: s.ins || null, shift: UNSHIFT && Date.now() - UNSHIFT.at < 60000 ? UNSHIFT : null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, ui, anch: lv >= 0 ? ev[lv].anch || null : null, ins: s.ins || null, shift: UNSHIFT && Date.now() - UNSHIFT.at < 60000 ? UNSHIFT : null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -15960,18 +15964,25 @@ function mirSize() {
   if (cv.width !== MIR.vw || cv.height !== MIR.vh) { cv.width = MIR.vw; cv.height = MIR.vh; cv.style.width = MIR.vw + 'px'; cv.style.height = MIR.vh + 'px'; }
 }
 window.addEventListener('resize', () => { if ($('#mir-wrap')) mirSize(); });
-function mirLoad(flow, key, st) {
+function mirLoad(flow, key, st, ui) {
   const id = flow + '|' + key; let e = MIR.cache.get(id);
   if (e) { MIR.cache.delete(id); MIR.cache.set(id, e); return e; }
   const host = $('#mir-screens'); if (!host) return null;
   const fr = document.createElement('iframe'); fr.className = 'mir-fr'; fr.tabIndex = -1; fr.setAttribute('aria-hidden', 'true');
   fr.style.width = MIR.vw + 'px'; fr.style.height = MIR.vh + 'px'; host.appendChild(fr);   /* já no tamanho final: sem redimensionar depois (algumas telas se re-esticam ao redimensionar) */
-  e = { id, flow, key, fr, top: 0, ok: false }; e.ready = new Promise(res => { e._res = res; });
+  e = { id, flow, key, fr, top: 0, ok: false, _uiSig: ui ? JSON.stringify(ui) : '' }; e.ready = new Promise(res => { e._res = res; });
   fr.addEventListener('load', () => { if (fr.srcdoc || fr.getAttribute('src')) mirSettle(e); });
-  setStaticFrame(fr, flow, key, st, MIR.vh, MIR.nome ? '&nome=' + encodeURIComponent(MIR.nome) : '');
+  setStaticFrame(fr, flow, key, st, MIR.vh, (MIR.nome ? '&nome=' + encodeURIComponent(MIR.nome) : '') + (ui ? '&ui=' + b64u(ui) : ''));
   MIR.cache.set(id, e);
   for (const [k0, e0] of MIR.cache) { if (MIR.cache.size <= 6) break; if (e0 === MIR.cur || e0 === MIR.want || e0 === e) continue; e0.fr.remove(); MIR.cache.delete(k0); }
   return e;
+}
+/* espelho ao vivo: aplica no quadro já aberto o estado dos componentes (sem recarregar o arquivo do site) */
+function mirSetUI(e, ui) {
+  const sig = ui ? JSON.stringify(ui) : ''; if ((e._uiSig || '') === sig && e._wantUI === undefined) return;
+  if (!e.ok) { e._wantUI = ui || null; return; }
+  e._wantUI = undefined; e._uiSig = sig;
+  try { const w = e.fr.contentWindow; if (w && typeof w.HSF_SETUI === 'function') { w.HSF_SETUI(ui || {}); if (e === MIR.cur) setTimeout(() => mirApply(true), 60); } } catch (err) {}
 }
 function mirSettle(e) {
   let n = 0;
@@ -15979,7 +15990,7 @@ function mirSettle(e) {
     if (!e.fr.isConnected || e.ok) return;
     try {
       const d = e.fr.contentDocument, sc = d && d.getElementById('screen');
-      if (sc && sc.getBoundingClientRect().height > 100) { mirViewport(e, d, sc); e.ok = true; e._res(); return; }
+      if (sc && sc.getBoundingClientRect().height > 100) { mirViewport(e, d, sc); e.ok = true; e._res(); if (e._wantUI !== undefined) mirSetUI(e, e._wantUI); return; }
     } catch (err) {}
     if (++n < 40) setTimeout(tryIt, 150); else { e.ok = true; e._res(); }
   };
@@ -16008,8 +16019,8 @@ function mirViewport(e, d, sc) {
   const ct = (ct0 && ct0.scrollHeight > ct0.clientHeight + 5 ? ct0 : null) || findScroller(sc.closest('body')) || ct0;
   if (ct) { ct.style.overflow = 'hidden'; e.ct = ct; e.kct = ct.clientHeight ? (ct.getBoundingClientRect().height / ct.clientHeight) || 1 : 1; }
 }
-function mirShow(flow, key, st) {
-  const e = mirLoad(flow, key, st); if (!e) return; MIR.want = e;
+function mirShow(flow, key, st, ui) {
+ const e = mirLoad(flow, key, st, ui); if (!e) return; MIR.want = e; mirSetUI(e, ui);
   if (e === MIR.cur) return mirApply();
   if (e.ok) return mirActivate(e);
   $('#mir-wait').hidden = !MIR.cur;
