@@ -326,7 +326,7 @@ body.sorting,body.sorting *{cursor:grabbing!important;user-select:none!important
 .mov .mi{width:56px;height:56px;border-radius:50%;margin:0 auto 10px;display:grid;place-items:center;font-size:28px;font-weight:800;color:#fff}.mov .mi.ok{background:#0a7a3c}.mov .mi.no{background:#8a8b90}
 .mov h2{margin:0;font-size:20px}.mov .mn{margin:6px 0 0;color:#555}.mov .mt{margin:10px 0 0;font-size:15px}
 .mov .btn.big{width:100%;margin-top:18px}.mov .qq{text-align:left;margin-top:16px}.mov .qq p{font-weight:600;margin:0 0 8px}
-.mov .sc{display:flex;gap:6px}.mov .sc button{flex:1;height:44px;border:1px solid #ccc;border-radius:10px;background:#fff;font-weight:700;font-size:16px;cursor:pointer}.mov .sc button.on{background:#cc0000;color:#fff;border-color:#cc0000}
+.mov .sc{display:flex;gap:4px}.mov .sc button{flex:1;min-width:0;padding:0;height:44px;border:1px solid #ccc;border-radius:10px;background:#fff;font-weight:700;font-size:15px;cursor:pointer}.mov .sc button.on{background:#cc0000;color:#fff;border-color:#cc0000}
 .mov .step{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#cc0000}
 .mov .task{text-align:left;background:#f7f7f9;border-radius:12px;padding:14px;margin-top:14px}.mov .task span{display:block;font-size:11px;font-weight:700;text-transform:uppercase;color:#888;margin-bottom:6px}.mov .task p{margin:0;font-size:16px;line-height:1.45;color:#222}
 .mov.intro{background:rgba(18,18,22,.7)}
@@ -3093,6 +3093,10 @@ const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const dur = ms => { const t = Math.round(ms / 1000); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+/* escala de notas: de 1 a 5, de meio em meio (as notas inteiras antigas continuam valendo) */
+const SCALE_VALS = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5], fmtN = v => String(v).replace('.', ',');
+/* tempo longo (totais): 1h 05min · 12:30 */
+const durL = ms => { const t = Math.round((ms || 0) / 1000); if (t < 3600) return dur(ms || 0); return Math.floor(t / 3600) + 'h ' + String(Math.floor(t % 3600 / 60)).padStart(2, '0') + 'min'; };
 const dt = ms => new Date(ms).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const pc = n => Math.round(n) + '%';
 const sum = a => a.reduce((x, y) => x + y, 0);
@@ -3511,9 +3515,9 @@ function viewTodos(fRaw) {
   const ssF = sessions.filter(s => flt(s) && !s.archived);
   const label = f === 'todos' ? 'Todos' : f === 'app' ? 'Aplicativo' : f === 'site' ? 'Site' : f === 'sem' ? 'Sem roteiro' : rotF ? rotF.name : 'Sem roteiro · ' + GRP_NAME[f.slice(4)];
   const P = participants().map(p => Object.assign({}, p, { sessions: p.sessions.filter(s => flt(s) && !s.archived) })).filter(p => p.sessions.length);
-  const kpiRow = ss => { const done = ss.filter(s => s.events && s.events.length), A = done.map(analyze);
+  const kpiRow = ss => { const done = ss.filter(s => s.events && s.events.length), A = done.map(analyze), byP = {}; done.forEach((s, i) => { const k = pidOf(s); byP[k] = (byP[k] || 0) + (A[i].total || 0); }); const PT = Object.values(byP);
     return `<div class="grid kpis">${kpi('PARTICIPANTES', new Set(ss.map(pidOf)).size)}${kpi('SESSÕES', ss.length, 'um fluxo = uma sessão')}
-      ${kpi('DURAÇÃO MÉDIA / FLUXO', A.length ? dur(avg(A.map(a => a.total))) : '–')}
+      ${kpi('DURAÇÃO MÉDIA / FLUXO', A.length ? dur(avg(A.map(a => a.total))) : '–')}${kpi('TEMPO TOTAL', A.length ? durL(sum(A.map(a => a.total))) : '–', 'soma do tempo de todas as missões')}${kpi('TEMPO MÉDIO / PARTICIPANTE', PT.length ? durL(avg(PT)) : '–', 'soma das missões de cada participante')}
       ${kpi('TOQUES FORA DO ALVO', A.length && sum(A.map(a => a.tapN)) ? pc(sum(A.map(a => a.miss)) / sum(A.map(a => a.tapN)) * 100) : '–', 'sem ação no elemento tocado')}</div>`; };
   /* barra de filtro */
   const chip = (id, txt) => `<a class="fc ${f === id ? 'on' : ''}" href="#/todos/${enc(id)}">${esc(txt)}</a>`;
@@ -3860,7 +3864,7 @@ function viewParticipante(pid) {
     <a class="crumb" href="#/">← Painel</a>
     <div class="row"><div><h1>${esc(p.name)}, ${esc(p.age)} anos</h1><p class="muted">${p.code} · ${p.sessions.length} sessão(ões) · primeiro teste em ${dt(p.sessions[0].startedAt)}${p.obs ? '<br>Obs.: ' + esc(p.obs) : ''}</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="chk" style="font-size:12px"><input type="checkbox" id="anon" checked> Anonimizar PDF</label><button class="btn primary" data-pdf="${esc(p.pid)}">⬇ PDF</button><button class="btn" data-pjson="${esc(p.pid)}">⬇ JSON</button><button class="btn danger" data-delp="${esc(p.pid)}">Excluir</button></div></div>
-    <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
+    <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('TEMPO NAS MISSÕES', durL(t.total), 'soma do tempo de cada missão')}${(() => { const st = p.sessions.map(s => s.startedAt).filter(Boolean), en = p.sessions.map(s => s.endedAt).filter(Boolean); return kpi('TEMPO DO TESTE', st.length && en.length ? durL(Math.max(...en) - Math.min(...st)) : '–', 'do início da 1ª missão ao fim da última, com avaliações e pausas'); })()}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
     <div class="card"><h2>Comparativo entre missões</h2>
       <table><thead><tr><th>Ordem</th><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Telas</th><th class="r">Voltar</th><th class="r">1º toque</th></tr></thead><tbody>
       ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr style="cursor:pointer" data-go="#/sessao/${s.id}"><td>${i + 1}º</td><td><b>${flowTag(s.flow)}</b>${attTag(s, p)}${(s.attempt || 1) > 1 ? ' <span class="tag gray">tentativa ' + s.attempt + '</span>' : ''}${s.endedAt ? '' : ' <span class="tag gray">interrompida</span>'}</td>
@@ -4272,7 +4276,7 @@ function reportBody(p, anon) {
           <tr><td>Ordem das missões</td><td>${p.sessions.map((s, i) => `${i + 1}º ${flowTag(s.flow)}`).join('<br>')}</td></tr>
           ${anon ? '<tr><td>Observações</td><td class="muted">omitidas na versão anonimizada</td></tr>' : (p.obs ? `<tr><td>Observações</td><td>${esc(p.obs)}</td></tr>` : '')}
         </tbody></table>
-        <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('DURAÇÃO TOTAL', dur(t.total))}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
+        <div class="grid kpis">${kpi('MISSÕES', p.sessions.length)}${kpi('TEMPO NAS MISSÕES', durL(t.total), 'soma do tempo de cada missão')}${(() => { const st = p.sessions.map(s => s.startedAt).filter(Boolean), en = p.sessions.map(s => s.endedAt).filter(Boolean); return kpi('TEMPO DO TESTE', st.length && en.length ? durL(Math.max(...en) - Math.min(...st)) : '–', 'do início da 1ª missão ao fim da última, com avaliações e pausas'); })()}${kpi('TOQUES', t.taps)}${kpi('FORA DO ALVO', t.taps ? pc(t.miss / t.taps * 100) : '–')}</div>
         <h3>Comparativo entre missões</h3>
         <table><thead><tr><th>Ordem</th><th>Fluxo</th><th class="r">Duração</th><th class="r">Toques</th><th class="r">Fora do alvo</th><th class="r">Telas</th><th class="r">Voltar</th><th class="r">1º toque</th></tr></thead><tbody>
         ${p.sessions.map((s, i) => { const a = t.an[i]; return `<tr><td>${i + 1}º</td><td>${flowTag(s.flow)}${(s.attempt || 1) > 1 ? ' (tent. ' + s.attempt + ')' : ''} ${resultBadge(s)}</td><td class="r">${dur(a.total)}</td><td class="r">${a.tapN}</td><td class="r">${a.tapN ? pc(a.missPct) : '–'}</td><td class="r">${a.screens}</td><td class="r">${a.backs}x</td><td class="r">${a.first != null ? (a.first / 1000).toFixed(1) + 's' : '–'}</td></tr>`; }).join('')}</tbody></table>
@@ -4692,14 +4696,14 @@ function askQuestions(s, done) {
   const stepQs = () => {
     ov.innerHTML = `<div class="mc"><h2>Como foi?</h2><p class="mn">${esc(m.name)}</p>` +
       qs.map((q, i) => `<div class="qq"><p>${esc(q.text)}</p>${q.type === 'scale'
-        ? `<div class="sc" data-q="${i}">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${n}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
+        ? `<div class="sc" data-q="${i}">${SCALE_VALS.map(n => `<button type="button" data-v="${n}" class="${ans[i] == n ? 'on' : ''}">${fmtN(n)}</button>`).join('')}</div><div class="sl"><span>Muito difícil</span><span>Muito fácil</span></div>`
         : `<textarea data-q="${i}" rows="3" placeholder="Escreva aqui…">${esc(ans[i] || '')}</textarea>`}</div>`).join('') +
       `<p class="err" id="mov-err"></p><button class="btn primary big" id="mov-ok">Enviar e ${last ? 'finalizar' : 'ir para a próxima missão'}</button>${s.result === 'nao_concluiu' ? '<button class="btn ghost" id="mov-skip" type="button" style="width:100%;margin-top:8px">Pular avaliação</button>' : ''}</div>`;
     ov.onclick = e => { const b = e.target.closest('.sc button'); if (b) { const g = b.parentNode; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); ans[g.dataset.q] = +b.dataset.v; const er = ov.querySelector('#mov-err'); if (er) er.textContent = ''; } };
     ov.querySelector('#mov-ok').onclick = () => {
       ov.querySelectorAll('textarea[data-q]').forEach(t => { ans[t.dataset.q] = t.value.trim(); });
       const miss = qs.findIndex((q, i) => q.type === 'scale' && !ans[i]);
-      if (miss >= 0) { ov.querySelector('#mov-err').textContent = 'Escolha uma nota de 1 a 5.'; return; }
+      if (miss >= 0) { ov.querySelector('#mov-err').textContent = 'Escolha uma nota de 1 a 5 (pode ser de meio em meio).'; return; }
       s.answers = ans; s.qs = qs.map(q => q.text); save(); close();
     };
     const sk = ov.querySelector('#mov-skip'); if (sk) sk.onclick = () => { s.skippedQs = true; save(); close(); };
@@ -5033,7 +5037,7 @@ function viewMissaoEd(id) {
               <div class="slh" data-for="end"></div></details></div></div></section>
         <section class="stp opt" data-s="5"><div class="sh"><i>5</i><div><h3>Perguntas e tempo <span class="tag">opcional</span></h3><p>Perguntas que você faz ao participante quando a missão termina, e um tempo limite de referência.</p></div><span class="ok"></span></div>
           <div class="sb"><div id="mq" class="lst"></div>
-            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
+            <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn sm" id="mq-s" type="button">＋ Pergunta de escala (1 a 5, de meio em meio)</button><button class="btn sm" id="mq-t" type="button">＋ Pergunta aberta</button></div>
             <label>Tempo limite (minutos)</label><input type="number" id="ml" min="0" step="0.5" value="${esc(m.limit)}" style="max-width:160px"></div></section>
         <p class="err" id="merr"></p>
         <div class="btns"><a class="btn" href="#/missoes">Cancelar</a><button class="btn primary big" id="msave">Salvar missão</button></div>
@@ -5345,8 +5349,8 @@ function missionStats(flow, ss, rot) {
       ${kpi('DESISTIRAM', pct(c.des, c.n) + '%', c.des + ' participante(s)')}</div>
     ${resultBar(c, c.n)}`}
     <div class="two" style="margin-top:16px;gap:16px">
-      <div><h3>Notas</h3>${ans.filter(o => o.nums.length).map(o => { const d = [1, 2, 3, 4, 5].map(v => o.nums.filter(x => x === v).length), mx = Math.max(1, ...d);
-        return `<p class="qtt">${esc(o.q)} <b>${avgN(o.nums).toFixed(1).replace('.', ',')}</b></p><div class="dist">${d.map((v, i) => `<div><span style="height:${Math.round(v / mx * 60)}px"></span><i>${i + 1}</i><small>${v}</small></div>`).join('')}</div>`; }).join('') || '<p class="muted">Sem notas registradas.</p>'}</div>
+      <div><h3>Notas</h3>${ans.filter(o => o.nums.length).map(o => { const d = SCALE_VALS.map(v => o.nums.filter(x => x === v).length), mx = Math.max(1, ...d);
+        return `<p class="qtt">${esc(o.q)} <b>${avgN(o.nums).toFixed(1).replace('.', ',')}</b></p><div class="dist">${d.map((v, i) => `<div><span style="height:${Math.round(v / mx * 60)}px"></span><i>${fmtN(SCALE_VALS[i])}</i><small>${v}</small></div>`).join('')}</div>`; }).join('') || '<p class="muted">Sem notas registradas.</p>'}</div>
       <div><h3>Respostas abertas</h3>${ans.filter(o => o.texts.length).map(o => `<p class="qtt">${esc(o.q)}</p><ul class="ansl">${o.texts.map(t => `<li>“${esc(t.v)}” <span class="muted">— ${esc(t.name)}</span></li>`).join('')}</ul>`).join('') || '<p class="muted">Sem respostas abertas.</p>'}</div></div>
     <h3 style="margin-top:18px">Caminhos percorridos</h3>
     ${hasPath ? ((m.steps || []).some(x => x.t === 'tap') ? `<div class="muted" style="margin:0 0 6px">Caminho ideal (telas e toques):${stepsHTML(m.steps, { compact: true })}</div>` : `<p class="muted" style="margin:0 0 6px">Caminho ideal: ${chips(exp)}</p>`) : ''}
@@ -5486,7 +5490,7 @@ function missionReportHead(s) {
   const f = FLOWS[s.flow], m = f && f.mission; if (!m) return '';
   const d = s.resultData || {}, r = sessResult(s);
   const rt = r === 'concluiu' ? ('✓ Concluiu' + (d.direto === true ? ' · direto' : d.direto === false ? ' · indireto' : '')) : r === 'desistiu' ? '✕ Desistiu' : 'Não concluiu';
-  const qa = (s.qs || []).map((q, i) => { const v = (s.answers || {})[i]; return v == null || v === '' ? '' : `<tr><td>${esc(q)}</td><td class="r"><b>${typeof v === 'number' ? v + ' de 5' : '“' + esc(v) + '”'}</b></td></tr>`; }).join('');
+  const qa = (s.qs || []).map((q, i) => { const v = (s.answers || {})[i]; return v == null || v === '' ? '' : `<tr><td>${esc(q)}</td><td class="r"><b>${typeof v === 'number' ? fmtN(v) + ' de 5' : '“' + esc(v) + '”'}</b></td></tr>`; }).join('');
   return `<div class="rmis">${m.prompt ? `<div class="rtask"><span>Tarefa</span><p>${esc(m.prompt)}</p></div>` : ''}
     <div class="rres"><span class="rb ${r === 'concluiu' ? 'ok' : 'no'}">${rt}</span>${d.at != null ? `<span>Tempo até ${r === 'concluiu' ? 'concluir' : 'encerrar'}: <b>${dur(d.at)}</b></span>` : ''}${d.how ? `<span class="muted">fim detectado por ${esc(d.how)}</span>` : (d.auto === false && r === 'concluiu' ? '<span class="muted">marcado pelo moderador</span>' : '')}${s.skippedQs ? '<span class="muted">avaliação pulada</span>' : ''}</div>
     ${qa ? `<h3>Avaliação</h3><table><tbody>${qa}</tbody></table>` : ''}</div>`;
@@ -5703,7 +5707,7 @@ function viewEspelho(code) {
   };
   loop();
 }
-const HSF_LIVE_VER = '2026-10-21m';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
+const HSF_LIVE_VER = '2026-10-27a';   /* versão do app de teste: o notebook avisa se o iPhone estiver com uma anterior */
 /* avaliação da missão também no notebook: o moderador pode registrar a nota conversando com o participante */
 function renderQs(code, d) {
   const box = $('#esp-qs'); if (!box) return;
@@ -5713,13 +5717,13 @@ function renderQs(code, d) {
   const qs = d.qs || [], ans = {}; box.hidden = false;
   box.innerHTML = `<h3 style="margin:0 0 4px">Avaliação da missão</h3><p class="muted" style="margin:0 0 12px">Você encerrou a missão pelo notebook: registre aqui a nota conversando com o participante. O iPhone aguarda e segue para a próxima quando você enviar.</p>` +
     (qs.length ? qs.map((q, i) => `<div style="margin:0 0 14px"><p style="margin:0 0 6px;font-weight:600">${esc(q.text)}</p>${q.type === 'scale'
-      ? `<div class="row" data-q="${i}" style="gap:6px;justify-content:flex-start">${[1, 2, 3, 4, 5].map(n => `<button type="button" class="btn sm" data-v="${n}" style="min-width:40px">${n}</button>`).join('')}</div><div class="row muted" style="font-size:11px;justify-content:space-between;max-width:236px;margin-top:4px"><span>Muito difícil</span><span>Muito fácil</span></div>`
+      ? `<div class="row" data-q="${i}" style="gap:6px;justify-content:flex-start">${SCALE_VALS.map(n => `<button type="button" class="btn sm" data-v="${n}" style="min-width:38px;padding-left:0;padding-right:0">${fmtN(n)}</button>`).join('')}</div><div class="row muted" style="font-size:11px;justify-content:space-between;max-width:390px;margin-top:4px"><span>Muito difícil</span><span>Muito fácil</span></div>`
       : `<textarea data-q="${i}" rows="2" style="width:100%" placeholder="Resposta do participante (opcional)"></textarea>`}</div>`).join('') : '<p class="muted">Esta missão não tem perguntas.</p>') +
     `<p class="err" id="esp-qerr"></p><div class="row" style="gap:8px;justify-content:flex-start"><button class="btn primary" id="esp-qok" type="button">${qs.length ? 'Registrar avaliação' : 'Seguir para a próxima'}</button>${qs.length ? '<button class="btn ghost" id="esp-qskip" type="button">Pular avaliação</button>' : ''}</div><p class="muted" id="esp-qmsg" style="margin:8px 0 0"></p>`;
   box.onclick = e => { const b = e.target.closest('[data-v]'); if (!b) return; const g = b.parentNode; g.querySelectorAll('[data-v]').forEach(x => x.classList.toggle('primary', x === b)); ans[g.dataset.q] = +b.dataset.v; const er = $('#esp-qerr'); if (er) er.textContent = ''; };
   const sendA = async skip => {
     if (!skip) { box.querySelectorAll('textarea[data-q]').forEach(t => { if (t.value.trim()) ans[t.dataset.q] = t.value.trim(); });
-      const miss = qs.findIndex((q, i) => q.type === 'scale' && !ans[i]); if (miss >= 0) { $('#esp-qerr').textContent = 'Escolha uma nota de 1 a 5.'; return; } }
+      const miss = qs.findIndex((q, i) => q.type === 'scale' && !ans[i]); if (miss >= 0) { $('#esp-qerr').textContent = 'Escolha uma nota de 1 a 5 (pode ser de meio em meio).'; return; } }
     RM.cmdN = Math.max(Date.now(), (RM.cmdN || 0) + 1);
     try { await remPut('cmd-' + code, 'cmd', { n: RM.cmdN, cmd: 'answers', at: Date.now(), sid: d.sid, answers: skip ? {} : ans, skip: !!skip });
       $('#esp-qmsg').textContent = skip ? 'Avaliação pulada. O iPhone segue para a próxima.' : 'Avaliação enviada ao iPhone.'; box.querySelectorAll('button,textarea').forEach(b => { b.disabled = true; }); }
@@ -5761,9 +5765,9 @@ async function renderLive(code, d) {
     const before = MIR.lastKey && grp0(MIR.lastKey) === grp0(fl.key) ? (MIR.lastTaps || []).filter(p => p.n !== fl.n) : [];
     MIR.d = Object.assign({}, d, { key: fl.key, scroll: fl.scroll || 0, taps: before.concat([Object.assign({}, fl, { pulse: 1 })]) });
     mirShow(d.flow, fl.key, d.st);
-    MIR.flashTm = setTimeout(() => { MIR.flashTm = null; const nd = MIR.pend; MIR.pend = null; if (!nd) return; MIR.d = nd; if (nd.key && FLOWS[nd.flow]) mirShow(nd.flow, nd.key, nd.st); }, 400);
+    MIR.flashTm = setTimeout(() => { MIR.flashTm = null; const nd = MIR.pend; MIR.pend = null; if (!nd) return; MIR.d = nd; if (nd.key && FLOWS[nd.flow]) mirShow(nd.flow, nd.key, nd.st, nd.ui); }, 400);
   } else if (MIR.flashTm) MIR.pend = d;                                    /* chegou outro estado durante a piscada: entra no fim dela */
-  else { MIR.d = d; if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st); }
+  else { MIR.d = d; if (d.key && FLOWS[d.flow]) mirShow(d.flow, d.key, d.st, d.ui); }
   MIR.lastKey = d.key; MIR.lastTaps = d.taps || [];
   renderFinal(d);
 }
@@ -5905,9 +5909,13 @@ function liveState() {
     if (e.type === 'tap') { if (grp(e.key) !== g0 && ev[lv].t - e.t < 1500) { const sc0 = ev.filter(x => x.type === 'scroll' && x.key === e.key && x.t <= e.t).pop(); flash = Object.assign(tp(e), { key: e.key, t: e.t, scroll: sc0 ? sc0.top || 0 : 0 }); } break; } }
   const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
-  const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
+  /* estado dos componentes da tela atual (valores escolhidos, lista aberta, aviso...) para o espelho reproduzir */
+ let ui = null; { const tkn = key && key.indexOf('#') > 0 ? key.split('#')[1] : ''; let sh, shSeen = false, uiD;
+ for (let i = ev.length - 1; i >= 0; i--) { const e = ev[i]; if (e.type !== 'ui') continue; if (!shSeen) { sh = e.all || e.sh; shSeen = true; } if (tkn && uiD === undefined && e.tk === tkn) uiD = e.d; if (shSeen && (!tkn || uiD !== undefined)) break; }
+ if (sh || uiD) ui = { d: uiD || undefined, sh: sh || undefined }; }
+ const ov = document.querySelector('#test .mov'), status = m && !s.introDone ? 'intro' : (ov && !ov.classList.contains('intro')) ? 'avaliando' : 'rodando';
   return { code: RM.code, pid: A.pid, name: s.name, idx: A.idx, total: A.plan.length, flow: s.flow, mission: m ? { name: m.name, prompt: m.prompt || '' } : null,
-    ver: HSF_LIVE_VER, anch: lv >= 0 ? ev[lv].anch || null : null, ins: s.ins || null, shift: UNSHIFT && Date.now() - UNSHIFT.at < 60000 ? UNSHIFT : null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
+    ver: HSF_LIVE_VER, ui, anch: lv >= 0 ? ev[lv].anch || null : null, ins: s.ins || null, shift: UNSHIFT && Date.now() - UNSHIFT.at < 60000 ? UNSHIFT : null, status, sid: s.id, qsBy: s._modQs ? 'notebook' : 'iphone', qs: status === 'avaliando' && m ? (m.questions || []).filter(q => q.text).map(q => ({ text: q.text, type: q.type })) : null, key, log, taps, flash, scroll: sc ? sc.top || 0 : 0, vw: s.fw || s.vw || null, vh: s.fh || s.vh || null, rvw: s.vw || null, rvh: s.vh || null, st: s.st || 0, nTaps: ev.filter(e => e.type === 'tap').length, result: s.result || null, rd: s.resultData ? { at: s.resultData.at, direto: s.resultData.direto, explore: !!s.resultData.explore, auto: !!s.resultData.auto } : null, elapsed: s.introDone || !m ? Date.now() - A.t0 : 0 };
 }
 async function phonePublish(force) {
   if (!RM.code || RM.pubBusy) return; const d = liveState(); if (!d) return;
@@ -6021,18 +6029,32 @@ function mirSize() {
   if (cv.width !== MIR.vw || cv.height !== MIR.vh) { cv.width = MIR.vw; cv.height = MIR.vh; cv.style.width = MIR.vw + 'px'; cv.style.height = MIR.vh + 'px'; }
 }
 window.addEventListener('resize', () => { if ($('#mir-wrap')) mirSize(); });
-function mirLoad(flow, key, st) {
+function mirLoad(flow, key, st, ui) {
   const id = flow + '|' + key; let e = MIR.cache.get(id);
   if (e) { MIR.cache.delete(id); MIR.cache.set(id, e); return e; }
   const host = $('#mir-screens'); if (!host) return null;
   const fr = document.createElement('iframe'); fr.className = 'mir-fr'; fr.tabIndex = -1; fr.setAttribute('aria-hidden', 'true');
   fr.style.width = MIR.vw + 'px'; fr.style.height = MIR.vh + 'px'; host.appendChild(fr);   /* já no tamanho final: sem redimensionar depois (algumas telas se re-esticam ao redimensionar) */
-  e = { id, flow, key, fr, top: 0, ok: false }; e.ready = new Promise(res => { e._res = res; });
+  e = { id, flow, key, fr, top: 0, ok: false, _uiSig: ui ? JSON.stringify(ui) : '' }; e.ready = new Promise(res => { e._res = res; });
   fr.addEventListener('load', () => { if (fr.srcdoc || fr.getAttribute('src')) mirSettle(e); });
-  setStaticFrame(fr, flow, key, st, MIR.vh, MIR.nome ? '&nome=' + encodeURIComponent(MIR.nome) : '');
+  setStaticFrame(fr, flow, key, st, MIR.vh, (MIR.nome ? '&nome=' + encodeURIComponent(MIR.nome) : '') + (ui ? '&ui=' + b64u(ui) : ''));
   MIR.cache.set(id, e);
   for (const [k0, e0] of MIR.cache) { if (MIR.cache.size <= 6) break; if (e0 === MIR.cur || e0 === MIR.want || e0 === e) continue; e0.fr.remove(); MIR.cache.delete(k0); }
   return e;
+}
+/* espelho ao vivo: aplica no quadro já aberto o estado dos componentes (sem recarregar o arquivo do site) */
+function mirSetUI(e, ui) {
+  const sig = ui ? JSON.stringify(ui) : ''; if ((e._uiSig || '') === sig && e._wantUI === undefined) return;
+  if (!e.ok) { e._wantUI = ui || null; return; }
+  e._wantUI = undefined; e._uiSig = sig;
+  try { const w = e.fr.contentWindow; if (w && typeof w.HSF_SETUI === 'function') { w.HSF_SETUI(ui || {}); setTimeout(() => { if (!e.ct || !e.ct.isConnected) mirPickCt(e); if (e === MIR.cur) mirApply(true); }, 60); } } catch (err) {}
+}
+/* o site redesenhou a tela e trocou o contêiner de rolagem: escolhe de novo (o que tem mais conteúdo escondido) */
+function mirPickCt(e) {
+  try { const d = e.fr.contentDocument, win = e.fr.contentWindow; if (!d || !d.body) return;
+    let best = null, gap = 10; d.querySelectorAll('*').forEach(el => { const cs = win.getComputedStyle(el), g = el.scrollHeight - el.clientHeight; if (g > gap && el.clientHeight > 150 && /(auto|scroll)/.test(cs.overflowY) && el.offsetParent !== null) { best = el; gap = g; } });
+    if (best) { best.style.overflow = 'hidden'; e.ct = best; e.kct = best.clientHeight ? (best.getBoundingClientRect().height / best.clientHeight) || 1 : 1; }
+  } catch (err) {}
 }
 function mirSettle(e) {
   let n = 0;
@@ -6040,7 +6062,7 @@ function mirSettle(e) {
     if (!e.fr.isConnected || e.ok) return;
     try {
       const d = e.fr.contentDocument, sc = d && d.getElementById('screen');
-      if (sc && sc.getBoundingClientRect().height > 100) { mirViewport(e, d, sc); e.ok = true; e._res(); return; }
+      if (sc && sc.getBoundingClientRect().height > 100) { mirViewport(e, d, sc); e.ok = true; e._res(); if (e._wantUI !== undefined) mirSetUI(e, e._wantUI); return; }
     } catch (err) {}
     if (++n < 40) setTimeout(tryIt, 150); else { e.ok = true; e._res(); }
   };
@@ -6066,11 +6088,12 @@ function mirViewport(e, d, sc) {
     d.head.appendChild(st); if (sc !== dev) sc.style.height = MIR.vh + 'px';
   }
   d.documentElement.style.overflow = 'hidden'; d.body.style.overflow = 'hidden';
-  const ct = (ct0 && ct0.scrollHeight > ct0.clientHeight + 5 ? ct0 : null) || findScroller(sc.closest('body')) || ct0;
+  const gapOf = el => el ? el.scrollHeight - el.clientHeight : -1, fs = findScroller(sc.closest('body'));
+ const ct = (ct0 && gapOf(ct0) > 5 && gapOf(ct0) >= gapOf(fs) ? ct0 : null) || fs || ct0;   /* rola quem tem mais conteúdo escondido (nos sites, o .base-scroll, e não um contêiner com poucos px de folga) */
   if (ct) { ct.style.overflow = 'hidden'; e.ct = ct; e.kct = ct.clientHeight ? (ct.getBoundingClientRect().height / ct.clientHeight) || 1 : 1; }
 }
-function mirShow(flow, key, st) {
-  const e = mirLoad(flow, key, st); if (!e) return; MIR.want = e;
+function mirShow(flow, key, st, ui) {
+ const e = mirLoad(flow, key, st, ui); if (!e) return; MIR.want = e; mirSetUI(e, ui);
   if (e === MIR.cur) return mirApply();
   if (e.ok) return mirActivate(e);
   $('#mir-wait').hidden = !MIR.cur;
