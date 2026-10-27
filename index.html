@@ -298,7 +298,7 @@ body.phone #top{display:none!important}:root{--sat:env(safe-area-inset-top,0px)}
 .sqm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:30px}.sqm .in{background:#fff;border-radius:14px;padding:16px;display:flex;gap:18px;flex-wrap:wrap}
 
 @media(min-width:801px){.hlist .item{grid-template-columns:24px 2fr 1.6fr 1fr 80px 70px 90px 34px}.hlist.rc .item{grid-template-columns:24px 1.7fr 1.5fr 1.3fr 1fr 70px 60px 80px 34px}}.fbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0 4px}.fbar .fc{padding:7px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px;font-weight:600;color:var(--sec);text-decoration:none;white-space:nowrap}.fbar .fc:hover{border-color:#bbb}.fbar .fc.on{background:var(--ink);border-color:var(--ink);color:#fff}.fbar .fsep{width:1px;height:22px;background:var(--line);margin:0 4px}.tag.g-app{background:#e8effd;color:#1d4fb0}.tag.g-site{background:#e5f5ec;color:#0a7a3c}.tag.g-misto{background:#f3e8fd;color:#6b21a8}.hlist .hck input,#h-all{width:16px;height:16px;cursor:pointer;margin:0}
-@keyframes hsfspin{to{transform:rotate(360deg)}}.mnrow{display:flex;align-items:center;gap:6px}.mrow .mlb{display:inline-block;min-width:30px}.mn{display:inline-block;min-width:26px;padding:1px 6px;border-radius:6px;background:#f1f1f1;color:#555;font-size:11px;font-weight:700;text-align:center}.mvs{display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle}.mrow .mv{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fafafb;font-size:9px;color:var(--sec);padding:0}.mrow .mv:disabled{opacity:.3;cursor:default}.mrow .dh{display:inline-block;vertical-align:middle}.mrow.dragging{background:#fff6f6;outline:2px solid #e7b3b3}.tag.g-app{background:#e8efff;color:#1d4fb0}.rb.fin{background:#eaf1ff;color:#1d4fb0}.rb.fin.no{background:#f1f1f1;color:#666}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
+@keyframes hsfspin{to{transform:rotate(360deg)}}.dm-ov{position:fixed;inset:0;background:rgba(20,20,24,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px}.dm{background:#fff;border-radius:14px;max-width:760px;width:100%;max-height:88vh;display:flex;flex-direction:column;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:auto}.dm h2{margin:0 0 6px;font-size:20px}.dm-sum{background:#f6f6f8;border-radius:10px;padding:10px 12px;margin:12px 0;font-size:14px}.dm-list{overflow:auto;border:1px solid var(--line);border-radius:10px;max-height:44vh;flex:none}.dm-list table{width:100%;border-collapse:collapse;font-size:13px}.dm-list th{position:sticky;top:0;background:#fafafb;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sec);padding:8px 10px}.dm-list td{padding:8px 10px;border-top:1px solid var(--line);vertical-align:top}.dm-list td small{display:block;color:var(--sec);font-size:11px}.dm-warn{margin-top:12px;background:#fff4d6;border:1px solid #f0d98a;color:#6b4a00;border-radius:10px;padding:10px 12px;font-size:13px}.dm .btn.danger:disabled{opacity:.45;cursor:not-allowed}.mnrow{display:flex;align-items:center;gap:6px}.mrow .mlb{display:inline-block;min-width:30px}.mn{display:inline-block;min-width:26px;padding:1px 6px;border-radius:6px;background:#f1f1f1;color:#555;font-size:11px;font-weight:700;text-align:center}.mvs{display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle}.mrow .mv{width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:#fafafb;font-size:9px;color:var(--sec);padding:0}.mrow .mv:disabled{opacity:.3;cursor:default}.mrow .dh{display:inline-block;vertical-align:middle}.mrow.dragging{background:#fff6f6;outline:2px solid #e7b3b3}.tag.g-app{background:#e8efff;color:#1d4fb0}.rb.fin{background:#eaf1ff;color:#1d4fb0}.rb.fin.no{background:#f1f1f1;color:#666}.hsf-wait{width:36px;height:36px;margin:0 auto 16px;border:3px solid #e5e5e5;border-top-color:#cc0000;border-radius:50%;animation:hsfspin .9s linear infinite}
 /* coluna lateral do espelho com largura fixa: os cards não mudam de largura conforme o texto dos toques */
 /* espelho estável: colunas de largura fixa (a legenda do celular e a tela final não empurram o resto) */
 @media(min-width:961px){.esp-live{grid-template-columns:420px minmax(0,1fr)}.esp-side{grid-template-columns:minmax(0,1fr)}.esp-side>.esp-fin{grid-column:1;grid-row:auto}}@media(min-width:1121px){.esp-side{grid-template-columns:360px 256px}.esp-side>.esp-fin{grid-column:2;grid-row:1 / span 5}}.mir-cap{width:100%;overflow-wrap:anywhere}.esp-log{min-height:188px}#esp-res{min-height:26px}
@@ -4444,13 +4444,44 @@ document.addEventListener('change', e => {
 document.addEventListener('click', e => {
   if (!e.target.closest('#h-del')) return;
   const pids = [...document.querySelectorAll('[data-hsel]:checked')].map(c => c.dataset.hsel); if (!pids.length) return;
-  const fora = window.__todosFlt ? pids.filter(pid => sessions.some(s => pidOf(s) === pid && !window.__todosFlt(s))).length : 0; if (!confirm('Excluir ' + pids.length + ' participante(s) e todas as sessões deles? Não dá para desfazer.' + (fora ? '\n\nAtenção: ' + (fora === 1 ? '1 deles tem sessões' : fora + ' deles têm sessões') + ' fora do filtro atual (de outro roteiro). Essas sessões também serão apagadas.' : ''))) return;
+  delModal(pids);   /* antes de apagar: resumo em modal para conferir quem foi selecionado */
+});
+function delExec(pids) {
   sessions = sessions.filter(s => !pids.includes(pidOf(s))); save();
   const tb = tomb(); pids.forEach(pid => { if (!tb.p.includes(pid)) tb.p.push(pid); }); lsSet('hsf_tomb', tb);
   if (!AUTH) alert('Excluídos só neste navegador. Você não está conectado à nuvem (☁ Entrar): eles ficam pendentes e são apagados do banco assim que você entrar.');
   else flushTomb(true).then(() => cloudKick());
   refreshBanner(); route();
-});
+}
+function delModal(pids) {
+  const fora = window.__todosFlt ? pids.filter(pid => sessions.some(s => pidOf(s) === pid && !window.__todosFlt(s))) : [];
+  const rows = pids.map(pid => { const p = getP(pid), ss = sessions.filter(s => pidOf(s) === pid), t = p ? sessTotals(p) : { total: 0 };
+    const rots = [...new Set(ss.map(s => { const r = (ENT.scripts || []).find(x => x.id === s.script); return r ? r.name : ''; }).filter(Boolean))], d0 = Math.min(...ss.map(s => s.startedAt || Infinity));
+    return { name: (p && p.name) || (ss[0] && ss[0].name) || pid, age: p ? p.age : '', code: p ? p.code : '', n: ss.length, total: t.total || 0, rots, d0, fora: fora.includes(pid) }; });
+  const N = rows.length, S = rows.reduce((a, r) => a + r.n, 0), T = rows.reduce((a, r) => a + r.total, 0), pl = N > 1;
+  const ov = document.createElement('div'); ov.className = 'dm-ov';
+  ov.innerHTML = `<div class="dm" role="dialog" aria-modal="true" aria-labelledby="dm-t">
+    <h2 id="dm-t">Excluir ${N} participante${pl ? 's' : ''}?</h2>
+    <p class="muted" style="margin:0">Confira a lista. A exclusão apaga todas as sessões ${pl ? 'destas pessoas' : 'desta pessoa'} ${AUTH ? 'neste navegador e na nuvem' : 'neste navegador (e na nuvem assim que você entrar)'} e não dá para desfazer.</p>
+    <div class="dm-sum"><b>${N}</b> participante${pl ? 's' : ''} · <b>${S}</b> ${S === 1 ? 'sessão' : 'sessões'} · <b>${durL(T)}</b> de teste</div>
+    <div class="dm-list"><table><thead><tr><th>Participante</th><th>Roteiro</th><th>Sessões</th><th>Data</th><th>Duração</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td><b>${esc(r.name)}</b><small>${r.age ? esc(String(r.age)) + ' anos · ' : ''}${esc(r.code || '')}</small>${r.fora ? '<span class="tag gray" style="margin-top:4px;display:inline-block">tem sessões em outro roteiro</span>' : ''}</td><td>${esc(r.rots.join(', ') || 'Sem roteiro')}</td><td>${r.n}</td><td>${isFinite(r.d0) ? dt(r.d0) : '–'}</td><td>${durL(r.total)}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${fora.length ? `<div class="dm-warn">Atenção: ${fora.length === 1 ? '1 deles tem sessões' : fora.length + ' deles têm sessões'} fora do filtro atual (de outro roteiro). Essas sessões também serão apagadas.</div>` : ''}
+    <div style="margin-top:12px"><button class="btn sm" type="button" data-dm-bkp>⬇ Baixar backup ${pl ? 'destes ' + N : 'deste participante'} antes</button></div>
+    <label class="chk" style="margin-top:12px"><input type="checkbox" id="dm-ok"> <span>Conferi a lista e quero excluir ${pl ? 'estes participantes' : 'este participante'}</span></label>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn" type="button" data-dm-x>Cancelar</button><button class="btn danger" type="button" data-dm-go disabled>Excluir ${N} participante${pl ? 's' : ''}</button></div></div>`;
+  document.body.appendChild(ov);
+  const onKey = ev => { if (ev.key === 'Escape') close(); }, close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  document.addEventListener('keydown', onKey);
+  ov.addEventListener('click', ev => {
+    if (ev.target === ov || ev.target.closest('[data-dm-x]')) return close();
+    if (ev.target.closest('[data-dm-bkp]')) { download('hsf-backup-antes-de-excluir-' + today() + '.json', JSON.stringify(backupObj(sessions.filter(s => pids.includes(pidOf(s))))), 'application/json'); return; }
+    if (ev.target.closest('[data-dm-go]')) { if (!ov.querySelector('#dm-ok').checked) return; close(); delExec(pids); }
+  });
+  ov.querySelector('#dm-ok').addEventListener('change', ev => { ov.querySelector('[data-dm-go]').disabled = !ev.target.checked; });
+  setTimeout(() => { const b = ov.querySelector('[data-dm-x]'); if (b) b.focus(); }, 30);
+}
 document.addEventListener('click', e => {
   const dp = e.target.closest('[data-delp]');
   if (dp) { e.stopPropagation(); const pid = dp.dataset.delp; if (confirm('Excluir este participante e todas as sessões dele? Não dá para desfazer.')) { sessions = sessions.filter(s => pidOf(s) !== pid); save(); cloudDelete('p', pid); refreshBanner(); if (onListPage()) route(); else location.hash = '#/'; } return; }
