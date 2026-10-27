@@ -4405,7 +4405,20 @@ function csv(list) {
   list.forEach(s => (s.events || []).forEach(e => rows.push([s.id, s.name, s.age, FLOWS[s.flow].name, e.t, e.type, e.key ? keyName(e.key) : '', e.x ?? '', e.y ?? '', e.label || '', e.type === 'tap' ? (e.hit ? 'sim' : 'nao') : ''])));
   return '\ufeff' + rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(';')).join('\n');
 }
-const backupObj = list => ({ app: 'hsf-usabilidade', version: 1, exportedAt: new Date().toISOString(), sessions: list });
+/* backup completo: os testes e tudo o que é preciso para entendê-los em outro lugar
+   (fluxos, missões com enunciado e perguntas, roteiros, ordem das missões, manifesto de cada protótipo e um resumo legível por sessão) */
+const backupObj = list => {
+  const ents = {}; ['flows', 'missions', 'scripts', 'config'].forEach(k => { ents[k] = ((typeof ENT !== 'undefined' && ENT[k]) || []).filter(x => !x.deleted).map(x => Object.assign({}, x)); });
+  const mans = {}; ents.flows.forEach(f => { try { const u = baseUrl(f.url); if (MAN[u]) mans[f.url] = MAN[u]; } catch (e) {} });
+  const qtxt = q => q && typeof q === 'object' ? (q.text || '') : (q || '');
+  const resumo = list.map(s => { try {
+    const f = FLOWS[s.flow], m = f && f.mission, r = ents.scripts.find(x => x.id === s.script), a = analyze(s), qs = (s.qs && s.qs.length ? s.qs : ((m && m.questions) || [])).map(qtxt);
+    return { sessao: s.id, participante: s.name || '', idade: s.age || '', roteiro: r ? r.name : '', missao: m ? m.name : (f ? f.name : s.flow), enunciado: m ? (m.prompt || '') : '',
+      data_hora_local: s.startedAt ? new Date(s.startedAt).toLocaleString('pt-BR') : '', inicio: s.startedAt ? new Date(s.startedAt).toISOString() : '', fim: s.endedAt ? new Date(s.endedAt).toISOString() : '', duracao_s: Math.round((a.total || 0) / 1000), resultado: s.result || '',
+      respostas: Object.keys(s.answers || {}).map(i => ({ pergunta: qs[i] || ('Pergunta ' + (+i + 1)), resposta: s.answers[i] })), observacoes: s.notesPost || '' };
+  } catch (e) { return { sessao: s.id, erro: String(e && e.message || e) }; } });
+  return { app: 'hsf-usabilidade', version: 2, exportedAt: new Date().toISOString(), resumo, sessions: list, entities: ents, manifests: mans };
+};
 const markBackup = () => { try { localStorage.setItem('hsf_backup', JSON.stringify({ at: Date.now() })); } catch (e) {} refreshBanner(); };
 const today = () => new Date().toISOString().slice(0, 10);
 /* Histórico: seleção e exclusão em lote (apaga também na nuvem) */
@@ -4463,7 +4476,12 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.id !== 'imp' || !e.target.files[0]) return;
   const r = new FileReader();
-  r.onload = () => { try { const x = JSON.parse(r.result), arr = Array.isArray(x) ? x : (x.sessions || []); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save(); alert(n + ' sessão(ões) importada(s).'); route(); } catch (err) { alert('Arquivo inválido.'); } };
+  r.onload = () => { try { const x = JSON.parse(r.result), arr = Array.isArray(x) ? x : (x.sessions || []); const ids = new Set(sessions.map(s => s.id)); let n = 0; arr.forEach(s => { if (s && s.id && !ids.has(s.id)) { sessions.push(s); n++; } }); save();
+      /* backup completo: restaura também fluxos, missões, roteiros e a ordem, só acrescentando o que não existe aqui (nada é sobrescrito) */
+      let ne = 0; const E = !Array.isArray(x) && x.entities;
+      if (E) { ['flows', 'missions', 'scripts', 'config'].forEach(k => { ENT[k] = ENT[k] || []; (E[k] || []).forEach(it => { if (it && it.id && !ENT[k].some(y => y.id === it.id)) { ENT[k].push(Object.assign({}, it, { pushed: false })); ne++; } }); });
+        lsSet(ENT_LS, ENT); syncMissionFlows(); Promise.resolve().then(() => entPushAll()).catch(() => {}); }
+      alert(n + ' sessão(ões) importada(s)' + (E ? ' e ' + ne + ' item(ns) de configuração (fluxos, missões, roteiros)' : '') + '.'); route(); } catch (err) { alert('Arquivo inválido.'); } };
   r.readAsText(e.target.files[0]);
 });
 /* ================== Fluxos, missões e roteiros (painel agnóstico ao fluxo) ================== */
@@ -5907,7 +5925,10 @@ function liveState() {
   /* o toque com ação que trocou de tela: o notebook mostra a tela anterior com ele piscando por um instante */
   let flash = null; if (lv >= 0) for (let i = lv - 1; i >= 0; i--) { const e = ev[i]; if (e.type === 'view') break;
     if (e.type === 'tap') { if (grp(e.key) !== g0 && ev[lv].t - e.t < 1500) { const sc0 = ev.filter(x => x.type === 'scroll' && x.key === e.key && x.t <= e.t).pop(); flash = Object.assign(tp(e), { key: e.key, t: e.t, scroll: sc0 ? sc0.top || 0 : 0 }); } break; } }
-  const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
+  let sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
+ if (!sc && key) { /* mesma tela em outro estado (aba, lista aberta, acordeão): a rolagem continua valendo; só zera quando a pessoa vai para outra tela */
+   const kb = String(key).split('#')[0];
+   for (let i = ev.length - 1; i >= 0; i--) { const e = ev[i]; if (e.type === 'view' && String(e.key).split('#')[0] !== kb) break; if (e.type === 'scroll' && String(e.key).split('#')[0] === kb) { sc = e; break; } } }
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   /* estado dos componentes da tela atual (valores escolhidos, lista aberta, aviso...) para o espelho reproduzir */
  let ui = null; { const tkn = key && key.indexOf('#') > 0 ? key.split('#')[1] : ''; let sh, shSeen = false, uiD;

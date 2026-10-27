@@ -15853,7 +15853,10 @@ function liveState() {
   /* o toque com ação que trocou de tela: o notebook mostra a tela anterior com ele piscando por um instante */
   let flash = null; if (lv >= 0) for (let i = lv - 1; i >= 0; i--) { const e = ev[i]; if (e.type === 'view') break;
     if (e.type === 'tap') { if (grp(e.key) !== g0 && ev[lv].t - e.t < 1500) { const sc0 = ev.filter(x => x.type === 'scroll' && x.key === e.key && x.t <= e.t).pop(); flash = Object.assign(tp(e), { key: e.key, t: e.t, scroll: sc0 ? sc0.top || 0 : 0 }); } break; } }
-  const sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
+  let sc = since.filter(e => e.type === 'scroll' && e.key === key).pop();
+ if (!sc && key) { /* mesma tela em outro estado (aba, lista aberta, acordeão): a rolagem continua valendo; só zera quando a pessoa vai para outra tela */
+   const kb = String(key).split('#')[0];
+   for (let i = ev.length - 1; i >= 0; i--) { const e = ev[i]; if (e.type === 'view' && String(e.key).split('#')[0] !== kb) break; if (e.type === 'scroll' && String(e.key).split('#')[0] === kb) { sc = e; break; } } }
   const log = ev.filter(e => e.type === 'tap' || e.type === 'marker').slice(-8).map(e => ({ t: e.t, l: e.type === 'marker' ? (e.done ? e.label : '⚑ ' + (e.label || 'Marcador')) : (e.label || 'Toque') + (e.hit ? '' : ' (fora do alvo)'), d: e.done ? 1 : 0 }));
   /* estado dos componentes da tela atual (valores escolhidos, lista aberta, aviso...) para o espelho reproduzir */
  let ui = null; { const tkn = key && key.indexOf('#') > 0 ? key.split('#')[1] : ''; let sh, shSeen = false, uiD;
