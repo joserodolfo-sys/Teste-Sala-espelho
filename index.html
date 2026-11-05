@@ -4016,7 +4016,7 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
      const fr = host.querySelector('#hh iframe'), d = fr && fr.contentDocument; if (!d || !window.html2canvas) throw new Error('a tela do protótipo não está disponível');
      if (d.fonts && d.fonts.ready) await d.fonts.ready;
      const hh = H.height || 800, sc = 2, h = kind === 'view' ? Math.min(hh, vh || hh) : hh;
-     const cap = await html2canvas(d.body, { scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });
+     const cap = await html2canvas(d.body, { onclone: h2cFix, scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });
      const out = document.createElement('canvas'); out.width = Math.round(vw * sc); out.height = Math.round(h * sc); const x = out.getContext('2d');
      x.fillStyle = '#fff'; x.fillRect(0, 0, out.width, out.height);
      x.drawImage(cap, 0, 0, cap.width, cap.height * h / hh, 0, 0, out.width, out.height);
@@ -4078,6 +4078,10 @@ const vadjCtl = id => `<label class="vadj" title="Corrige o desvio vertical dos 
 function setHZ(z) { if (!HZ_VALS[z]) z = 'M'; try { localStorage.setItem('hsf_hz', z); } catch (e) {} document.documentElement.style.setProperty('--hz', HZ_VALS[z]); document.querySelectorAll('[data-hz]').forEach(b => b.classList.toggle('on', b.dataset.hz === z)); }
 const curHZ = () => { try { return localStorage.getItem('hsf_hz') || 'M'; } catch (e) { return 'M'; } };
 setHZ(curHZ());
+/* imagem da tela (sequência, PDF e PNG): o protótipo desenha em 360 px e amplia para a largura do celular (transform: scale).
+   A biblioteca de captura recorta pela caixa ANTES da ampliação e cortava a tela à direita e embaixo; na cópia usada para a imagem
+   o recorte dessas caixas ampliadas é desligado. O que fica fora da tela não aparece, porque a captura já é do tamanho da tela. */
+const h2cFix = doc => { try { doc.querySelectorAll('[style*="scale("]').forEach(e => { e.style.overflow = 'visible'; e.style.clip = 'auto'; }); } catch (e) {} };
 async function seqBase(flow, key, st, vw, vh) {
   const ck = [flow, key, st ? 1 : 0, vw, insQ(STATIC_INS)].join('|'); if (SEQ_CACHE.has(ck)) return SEQ_CACHE.get(ck);
   const host = document.createElement('div'); host.style.cssText = 'position:fixed;left:-20000px;top:0;width:' + vw + 'px'; document.body.append(host);
@@ -4087,7 +4091,7 @@ async function seqBase(flow, key, st, vw, vh) {
     const fr = host.querySelector('iframe'), d = fr.contentDocument; if (d.fonts && d.fonts.ready) await d.fonts.ready;
     await new Promise(r => setTimeout(r, 300)); if (!H.sheet) H.pos = stretchPos(d);   /* mede as referências de novo: o layout se move quando as fontes terminam de carregar */
     const hh = H.height || 800, scr = d.querySelector('#screen');
-    const cap = await html2canvas(d.body, { scale: 1, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira; o #screen é só a marca do tamanho */
+    const cap = await html2canvas(d.body, { onclone: h2cFix, scale: 1, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira; o #screen é só a marca do tamanho */
     out = { cap, vw, hh, top: H.top, viewH: H.viewH, sheet: H.sheet, pos: H.pos };
   } catch (e) { out = null; }
   host.remove(); SEQ_CACHE.set(ck, out); return out;
@@ -4360,7 +4364,7 @@ async function heatImage(j) {
     const fr = host.querySelector('iframe'), d = fr.contentDocument; if (d.fonts && d.fonts.ready) await d.fonts.ready;
     await new Promise(r => setTimeout(r, 300)); if (!H.sheet) { H.pos = stretchPos(d); H._al = {}; drawHeat(H); }   /* refaz o desenho com as referências depois das fontes */
     const hh = H.height || 800, scr = d.querySelector('#screen');
-    const cap = await html2canvas(d.body, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira (o #screen é só a marca do tamanho e saía em branco) */
+    const cap = await html2canvas(d.body, { onclone: h2cFix, scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });   /* a página inteira (o #screen é só a marca do tamanho e saía em branco) */
     const out = document.createElement('canvas'); out.width = cap.width; out.height = cap.height; const x = out.getContext('2d');
     x.fillStyle = '#fff'; x.fillRect(0, 0, out.width, out.height); x.drawImage(cap, 0, 0); x.drawImage(H.cv, 0, 0, out.width, out.height);
     const sc = Math.min(330 / vw, 860 / hh), im = new Image(); im.src = out.toDataURL('image/jpeg', .9);
