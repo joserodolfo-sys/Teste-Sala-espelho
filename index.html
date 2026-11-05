@@ -3979,7 +3979,7 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
   let scr = best(scrs.map(x => ({ v: x, n: cnt(match(x)) }))).v, cur = defCur(scr), state = defState(scr, cur), mode = 'heat', H;
   host.innerHTML = `<div id="hrows"></div>
     <div class="row" style="margin:6px 0 12px"><div class="seg" id="hm"><button data-m="heat" class="on">Mapa de calor</button><button data-m="dots">Toques em ordem</button>${sessionsList.length === 1 ? '<button data-m="seq">Sequência</button>' : ''}</div>
-      <span class="muted" id="hleg"></span><span class="muted" id="hauto" style="font-size:12px"></span>${vadjCtl('hvadj')}<span style="margin-left:10px">${vabCtl('hvab')}</span><div class="seg" id="hzw" title="Tamanho do celular" style="margin-left:12px">${['P', 'M', 'G'].map(z => `<button data-hz="${z}" class="${curHZ() === z ? 'on' : ''}">${z}</button>`).join('')}</div></div>
+      <span class="muted" id="hleg"></span><span class="muted" id="hauto" style="font-size:12px"></span>${vadjCtl('hvadj')}<span style="margin-left:10px">${vabCtl('hvab')}</span><div class="seg" id="hzw" title="Tamanho do celular" style="margin-left:12px">${['P', 'M', 'G'].map(z => `<button data-hz="${z}" class="${curHZ() === z ? 'on' : ''}">${z}</button>`).join('')}</div><div id="hpngw" style="margin-left:auto;display:flex;align-items:center;gap:6px"><span class="muted" style="font-size:12px">⬇ Baixar PNG</span><div class="seg" id="hpng"><button type="button" data-png="full" title="A tela inteira, incluindo a parte que precisa rolar">Página inteira</button><button type="button" data-png="view" title="Só o que aparece no celular sem rolar">Tela do celular</button></div></div></div>
     <div class="heatwrap"><div class="hvhost" id="hh"></div><div id="hs"></div></div><div id="hseq" hidden></div>`;
   const cur_keys = () => match(scr, cur || null, state);
   const legend = n => $('#hleg').textContent = mode === 'dots' ? 'Escuro = toque em ação · Vermelho = fora do alvo' : `${n} toque(s) nesta visão`;
@@ -4005,9 +4005,32 @@ function heatPanel0(host, flow, sessionsList, vw, vh, st) {
       ${rws.length ? `<table><tbody>${rws.map(([k, n]) => `<tr><td>${esc(k.slice(2))}</td><td class="r ${k[0] === '1' ? 'pill-hit' : 'pill-miss'}">${k[0] === '1' ? 'ação' : 'fora'}</td><td class="r"><b>${n}</b></td></tr>`).join('')}</tbody></table>` : '<p class="muted">Nenhum toque nesta visão.</p>'}
       <div class="scale"></div><div><span>menos toques</span><span>mais toques</span></div></div>`;
   };
-  const draw = () => {
-    rows();
-    const ks = cur_keys(); const render = ks.slice().sort((a, b) => cnt([b]) - cnt([a]))[0] || ks[0];
+  /* baixar o mapa de calor que está na tela em PNG: a página inteira ou só o que aparece no celular sem rolar */
+ const pngSlug = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+ const pngName = kind => 'mapa-de-calor_' + pngSlug([(FLOWS[flow] && (FLOWS[flow].n || FLOWS[flow].name)) || flow, SCR_NAME[scr] + curLabel(scr, cur), state !== 'normal' ? stLabel(scr, state) : '', kind === 'view' ? 'tela do celular' : 'pagina inteira'].filter(Boolean).join(' ')) + '_' + today() + '.png';
+ const pngDl = async (kind, btn) => {
+   if (mode !== 'heat' || !H) return;
+   const bs = [...host.querySelectorAll('#hpng button')], t0 = btn.textContent; bs.forEach(b => b.disabled = true); btn.textContent = 'Gerando…';
+   try {
+     await H.ready; if (!H.ok) throw new Error('o mapa ainda não terminou de carregar');
+     const fr = host.querySelector('#hh iframe'), d = fr && fr.contentDocument; if (!d || !window.html2canvas) throw new Error('a tela do protótipo não está disponível');
+     if (d.fonts && d.fonts.ready) await d.fonts.ready;
+     const hh = H.height || 800, sc = 2, h = kind === 'view' ? Math.min(hh, vh || hh) : hh;
+     const cap = await html2canvas(d.body, { scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, x: 0, y: 0, width: vw, height: hh, windowWidth: vw, windowHeight: hh });
+     const out = document.createElement('canvas'); out.width = Math.round(vw * sc); out.height = Math.round(h * sc); const x = out.getContext('2d');
+     x.fillStyle = '#fff'; x.fillRect(0, 0, out.width, out.height);
+     x.drawImage(cap, 0, 0, cap.width, cap.height * h / hh, 0, 0, out.width, out.height);
+     x.drawImage(H.cv, 0, 0, H.cv.width, H.cv.height * h / hh, 0, 0, out.width, out.height);
+     const blob = await new Promise(r => out.toBlob(r, 'image/png')); if (!blob) throw new Error('a imagem ficou grande demais para este navegador');
+     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = pngName(kind); document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+   } catch (e) { alert('Não foi possível gerar o PNG: ' + (e && e.message || e)); }
+   finally { bs.forEach(b => b.disabled = false); btn.textContent = t0; }
+ };
+ host.__png = pngDl;
+ if (!host.__pngL) { host.__pngL = true; host.addEventListener('click', e => { const p = e.target.closest('#hpng [data-png]'); if (p) { if (host.__png) host.__png(p.dataset.png, p); return; } const m = e.target.closest('#hm [data-m]'); if (m) setTimeout(() => { const w = host.querySelector('#hpngw'); if (w) w.style.display = m.dataset.m === 'heat' ? 'flex' : 'none'; }, 0); }); }
+ const draw = () => {
+ rows();
+ const ks = cur_keys(); const render = ks.slice().sort((a, b) => cnt([b]) - cnt([a]))[0] || ks[0];
     const pts = taps.filter(t => ks.includes(t.key)).sort((a, b) => a.t - b.t);
     legend(pts.length);
     H = mountHeat($('#hh'), { flow, key: render, pts, vw, vh, st, mode }); side(ks);
